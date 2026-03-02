@@ -48,7 +48,9 @@ builder.Services.AddAuthentication(opt =>
 
 // ✅ CORS
 builder.Services.AddCors(opt => opt.AddPolicy("AllowReact", p =>
-    p.WithOrigins("http://localhost:3000").AllowAnyMethod().AllowAnyHeader()));
+    p.WithOrigins("http://localhost:3000", "https://localhost:3000")
+     .AllowAnyMethod()
+     .AllowAnyHeader()));
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddControllers();
