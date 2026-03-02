@@ -12,17 +12,13 @@ namespace backend.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;
-
         private readonly UserManager<IdentityUser> _userManager;
 
+        // ✅ Un seul constructeur avec les 2 services
         public AuthController(AuthService authService, UserManager<IdentityUser> userManager)
         {
             _authService = authService;
             _userManager = userManager;
-        }
-        public AuthController(AuthService authService)
-        {
-            _authService = authService;
         }
 
         [HttpPost("register")]
@@ -40,6 +36,16 @@ namespace backend.Controllers
             if (!success) return Unauthorized(error);
             return Ok(data);
         }
+
+        [HttpGet("holdings")]
+        public async Task<IActionResult> GetHoldings()
+            => Ok(await _authService.GetHoldings());
+
+        [HttpGet("societes")]
+        public async Task<IActionResult> GetSocietes([FromQuery] int? holdingId)
+            => Ok(await _authService.GetSocietes(holdingId));
+
+        [Authorize]
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
@@ -51,13 +57,6 @@ namespace backend.Controllers
 
             return Ok("Utilisateur supprimé avec succès.");
         }
-        [HttpGet("holdings")]
-        public async Task<IActionResult> GetHoldings()
-            => Ok(await _authService.GetHoldings());
-
-        [HttpGet("societes")]
-        public async Task<IActionResult> GetSocietes([FromQuery] int? holdingId)
-            => Ok(await _authService.GetSocietes(holdingId));
 
         [Authorize]
         [HttpGet("me")]
