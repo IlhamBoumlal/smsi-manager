@@ -1,23 +1,25 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import Header from './pages/Header'; // Vérifiez bien le chemin vers votre Header
 
 function App() {
+  // 1. On crée un état "activeAxe" qui vaut "tableau-bord" par défaut
+  const [activeAxe, setActiveAxe] = useState("tableau-bord");
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      {/* 2. On passe l'état actuel et la fonction pour le changer au Header */}
+      <Header 
+        activeAxe={activeAxe} 
+        onAxeChange={(id) => setActiveAxe(id)} 
+        onLoginClick={() => console.log("Login")}
+        onRegisterClick={() => console.log("Register")}
+      />
+
+      {/* Ici vous pouvez afficher le contenu de vos pages */}
+      <main className="p-10 text-center">
+        <h1 className="text-2xl font-bold">
+        </h1>
+      </main>
     </div>
   );
 }
