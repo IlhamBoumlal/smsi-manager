@@ -9,22 +9,20 @@ export function AuthProvider({ children }) {
   });
 
   const loginUser = (data) => {
+
     localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify({
-      nomComplet: data.nomComplet,
-      email: data.email
-    }));
-    setUser({ nomComplet: data.nomComplet, email: data.email });
+    localStorage.setItem('user', JSON.stringify(data));
+    setUser(data);
   };
 
-  const logout = () => {
+  const logoutUser = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginUser, logout }}>
+    <AuthContext.Provider value={{ user, loginUser, logoutUser }}>
       {children}
     </AuthContext.Provider>
   );

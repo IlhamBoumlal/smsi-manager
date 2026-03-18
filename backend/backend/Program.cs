@@ -1,19 +1,26 @@
-﻿using backend.Data;
-using backend.Services;
+﻿using backend.Application.Services;
+using backend.Domain.Interfaces;
+using backend.Infrastructure.Data;
+using backend.Infrastructure.Repositories;
+using backend.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🗄️ Database
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
+    ));
 
-// ✅ Identity
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(opt =>
+// ─── IDENTITY ─────────────────────────────────────────────────────────────────
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 {
     opt.Password.RequiredLength = 8;
     opt.Password.RequireDigit = true;
@@ -25,7 +32,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(opt =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// ✅ JWT
+// ─── JWT ──────────────────────────────────────────────────────────────────────
 builder.Services.AddAuthentication(opt =>
 {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -46,21 +53,91 @@ builder.Services.AddAuthentication(opt =>
     };
 });
 
-// ✅ CORS
-builder.Services.AddCors(opt => opt.AddPolicy("AllowReact", p =>
-    p.WithOrigins("http://localhost:3000", "https://localhost:3000")
-     .AllowAnyMethod()
-     .AllowAnyHeader()));
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+builder.Services.AddCors(opt =>
+{
+    opt.AddPolicy("AllowReact", p =>
+        p.WithOrigins("http://localhost:3000", "http://localhost:5173")
+         .AllowAnyMethod()
+         .AllowAnyHeader()
+         .AllowCredentials());
+});
 
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+// ─── CONTROLLERS ──────────────────────────────────────────────────────────────
+builder.Services.AddControllers()
+    .AddJsonOptions(opt =>
+    {
+        opt.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 
+// ─── MEDIATR ──────────────────────────────────────────────────────────────────
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// ─── REPOSITORIES ─────────────────────────────────────────────────────────────
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISocieteRepository, SocieteRepository>();
+builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IActifRepository, ActifRepository>();
+builder.Services.AddScoped<IControleRepository, ControleRepository>();
+
+
+// ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
+// ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    await DbInitializer.InitializeAsync(scope.ServiceProvider);
+    await SeedAdminAsync(scope.ServiceProvider);
+}
 
+// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+app.UseStaticFiles();
+app.UseRouting();
 app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
 app.Run();
+
+// ─── SEED ADMIN ───────────────────────────────────────────────────────────────
+static async Task SeedAdminAsync(IServiceProvider services)
+{
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+    const string adminEmail = "admin@alexsys.com";
+    const string adminPassword = "Admin@123456!";
+    const string adminRole = "Admin";
+
+    // Créer le rôle Admin s'il n'existe pas
+    if (!await roleManager.RoleExistsAsync(adminRole))
+        await roleManager.CreateAsync(new IdentityRole(adminRole));
+
+    // Créer l'utilisateur Admin s'il n'existe pas
+    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+    if (existingAdmin is null)
+    {
+        var admin = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            NomComplet = "Administrateur",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(admin, adminPassword);
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(admin, adminRole);
+    }
+}

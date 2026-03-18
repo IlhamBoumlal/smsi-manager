@@ -1,72 +1,38 @@
-
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
-
-function Dashboard() {
-  const { user, logout } = useAuth();
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-lg text-center">
-        <h1 className="text-2xl font-bold text-blue-600 mb-2">
-          Bienvenue, {user?.nomComplet} 👋
-        </h1>
-        <p className="text-gray-500 mb-4">{user?.email}</p>
-        <button
-          onClick={logout}
-          className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg"
-        >
-          Se déconnecter
-        </button>
-      </div>
-
-import React, { useState } from 'react';
-import Header from './pages/Header'; // Vérifiez bien le chemin vers votre Header
-
-function App() {
-  // 1. On crée un état "activeAxe" qui vaut "tableau-bord" par défaut
-  const [activeAxe, setActiveAxe] = useState("tableau-bord");
-
-  return (
-    <div>
-      {/* 2. On passe l'état actuel et la fonction pour le changer au Header */}
-      <Header 
-        activeAxe={activeAxe} 
-        onAxeChange={(id) => setActiveAxe(id)} 
-        onLoginClick={() => console.log("Login")}
-        onRegisterClick={() => console.log("Register")}
-      />
-
-      {/* Ici vous pouvez afficher le contenu de vos pages */}
-      <main className="p-10 text-center">
-        <h1 className="text-2xl font-bold">
-        </h1>
-      </main>
-
-    </div>
-  );
-}
+import { Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Login from './components/Login';
+import Accueil from './components/Accueil';
+import Dashboard from './components/Dashboard';
+import Controles from './components/Controles';
+import GestionActifs from './components/GestionActifs';
+import GestionUtilisateurs from './components/Admin/GestionUtilisateurs';
+import GestionSocietes from './components/Admin/GestionSocietes';
+import GestionHoldings from './components/Admin/GestionHoldings';
+import DashboardAdmin from './components/Admin/DashboardAdmin';
+import PrivateAdminRoute from './components/PrivateAdminRoute';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          } />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <Routes>
+      {/* Page login sans header */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Page accueil sans header du layout */}
+      <Route path="/"          element={<Accueil />} />
+      <Route path="/accueil"   element={<Accueil />} />
+
+      {/* Autres pages avec le header principal */}
+      <Route element={<Layout />}>
+        <Route path="/tableau-bord" element={<Dashboard />} />
+        <Route path="/controles" element={<Controles />} />
+        <Route path="/actifs" element={<GestionActifs />} />
+
+        {/* Pages admin séparées, protégées */}
+        <Route path="/admin/stats"        element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />
+        <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />
+        <Route path="/admin/societes"     element={<PrivateAdminRoute><GestionSocietes /></PrivateAdminRoute>} />
+        <Route path="/admin/holdings"     element={<PrivateAdminRoute><GestionHoldings /></PrivateAdminRoute>} />
+      </Route>
+    </Routes>
   );
 }
-
-export default App;
-
