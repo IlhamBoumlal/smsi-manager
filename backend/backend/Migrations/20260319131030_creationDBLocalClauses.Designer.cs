@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260319131030_creationDBLocalClauses")]
+    partial class creationDBLocalClauses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -273,39 +276,6 @@ namespace backend.Migrations
                     b.ToTable("ActionPlans");
                 });
 
-            modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("IsoClauseId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsoClauseId", "UserId");
-
-                    b.ToTable("ConformityProofs");
-                });
-
             modelBuilder.Entity("Domain.Entities.ConformityStatus", b =>
                 {
                     b.Property<int>("Id")
@@ -351,59 +321,6 @@ namespace backend.Migrations
                     b.HasIndex("IsoClauseId");
 
                     b.ToTable("ConformityStatuses");
-                });
-
-            modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ActionPlanId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ConformityProofId")
-                        .HasColumnType("int");
-
-                    b.Property<byte[]>("Content")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("OriginalName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActionPlanId");
-
-                    b.HasIndex("ConformityProofId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("FileAttachments");
                 });
 
             modelBuilder.Entity("Domain.Entities.IsoClause", b =>
@@ -2285,17 +2202,6 @@ namespace backend.Migrations
                     b.Navigation("SubClause");
                 });
 
-            modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
-                {
-                    b.HasOne("Domain.Entities.IsoClause", "Clause")
-                        .WithMany()
-                        .HasForeignKey("IsoClauseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Clause");
-                });
-
             modelBuilder.Entity("Domain.Entities.ConformityStatus", b =>
                 {
                     b.HasOne("Domain.Entities.IsoClause", "Clause")
@@ -2305,23 +2211,6 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Clause");
-                });
-
-            modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
-                {
-                    b.HasOne("Domain.Entities.ActionPlan", "ActionPlan")
-                        .WithMany()
-                        .HasForeignKey("ActionPlanId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("Domain.Entities.ConformityProof", "ConformityProof")
-                        .WithMany("Files")
-                        .HasForeignKey("ConformityProofId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("ActionPlan");
-
-                    b.Navigation("ConformityProof");
                 });
 
             modelBuilder.Entity("Domain.Entities.IsoClause", b =>
@@ -2444,11 +2333,6 @@ namespace backend.Migrations
                         .HasForeignKey("HoldingId");
 
                     b.Navigation("Holding");
-                });
-
-            modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
-                {
-                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("Domain.Entities.IsoClause", b =>

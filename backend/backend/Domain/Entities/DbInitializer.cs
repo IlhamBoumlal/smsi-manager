@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace backend.Application.Services
 {
-    public static class DbInitializer
+   public static class DbInitializer
     {
         public static async Task InitializeAsync(IServiceProvider serviceProvider)
         {

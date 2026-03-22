@@ -10,6 +10,10 @@ import GestionSocietes from './components/Admin/GestionSocietes';
 import GestionHoldings from './components/Admin/GestionHoldings';
 import DashboardAdmin from './components/Admin/DashboardAdmin';
 import PrivateAdminRoute from './components/PrivateAdminRoute';
+import Progression from './components/Progression';
+import ClauseDashboard from './components/ClausesDashboard';
+import ClauseDetail from './components/ClauseDetail';
+import CartographieProcessus from './components/CartographieProcessus';
 
 export default function App() {
   return (
@@ -23,10 +27,18 @@ export default function App() {
 
       {/* Autres pages avec le header principal */}
       <Route element={<Layout />}>
+      // ...
+        <Route path="/cartographie" element={<CartographieProcessus />} />
         <Route path="/tableau-bord" element={<Dashboard />} />
         <Route path="/controles" element={<Controles />} />
         <Route path="/actifs" element={<GestionActifs />} />
-
+        <Route path="/pdca" element={<Progression />} />
+        <Route path="/clauses" element={<ClauseDashboard />} />
+         {/* Route avec query string */}
+      <Route path="/Clausedetail" element={<ClauseDetail />} />
+      
+      {/* Vous pouvez garder les deux formats */}
+      <Route path="/clauses/:id" element={<ClauseDetail />} />
         {/* Pages admin séparées, protégées */}
         <Route path="/admin/stats"        element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />
         <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />

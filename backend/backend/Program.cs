@@ -3,6 +3,9 @@ using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using Domain.Interfaces;
+using Infrastructure.Repositories;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +16,13 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(options =>
+/*builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    ));
+    ));*/
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ─── IDENTITY ─────────────────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
@@ -84,10 +89,11 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IActifRepository, ActifRepository>();
 builder.Services.AddScoped<IControleRepository, ControleRepository>();
 
-
+builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 // ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IClauseService, ClauseService>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
@@ -97,6 +103,10 @@ using (var scope = app.Services.CreateScope())
 {
     await DbInitializer.InitializeAsync(scope.ServiceProvider);
     await SeedAdminAsync(scope.ServiceProvider);
+    
+    // Seed ISO 27001 Clauses
+    var clauseService = scope.ServiceProvider.GetRequiredService<IClauseService>();
+    await clauseService.SeedClausesAsync();
 }
 
 // ─── PIPELINE ─────────────────────────────────────────────────────────────────
