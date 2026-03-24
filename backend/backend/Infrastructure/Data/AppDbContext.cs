@@ -26,6 +26,8 @@ namespace backend.Infrastructure.Data
         public DbSet<Section> Sections { get; set; }
         public DbSet<ConformityProof> ConformityProofs => Set<ConformityProof>();
         public DbSet<FileAttachment>   FileAttachments   => Set<FileAttachment>();
+        public DbSet<Processus> Processus => Set<Processus>();
+        public DbSet<Document> Documents => Set<Document>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -108,7 +110,30 @@ namespace backend.Infrastructure.Data
                 .HasForeignKey(ap => ap.SubClauseId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Processus>(e =>
+            {
+                e.HasKey(p => p.Id);
+                e.Property(p => p.Categorie).HasMaxLength(10).IsRequired();
+                e.Property(p => p.Nom).HasMaxLength(200).IsRequired();
+                e.Property(p => p.Responsable).HasMaxLength(100);
+                e.Property(p => p.Description).HasMaxLength(500);
+                e.HasMany(p => p.Documents)
+                 .WithOne()
+                 .HasForeignKey(d => d.ProcessusId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
 
+            modelBuilder.Entity<Document>(e =>
+            {
+                e.HasKey(d => d.Id);
+                e.Property(d => d.Nom).HasMaxLength(200).IsRequired();
+                e.Property(d => d.Type).HasMaxLength(50);
+                e.Property(d => d.Reference).HasMaxLength(50);
+                e.Property(d => d.Statut).HasMaxLength(30);
+                e.Property(d => d.FichierNom).HasMaxLength(260);
+                e.Property(d => d.FichierType).HasMaxLength(100);
+                e.Property(d => d.FichierData);  // varbinary(max) en SQL Server
+            });
             // ── Seeding ────────────────────────────────────────────────────────
             SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");

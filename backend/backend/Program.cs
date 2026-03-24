@@ -94,7 +94,7 @@ builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClauseService, ClauseService>();
-
+builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
