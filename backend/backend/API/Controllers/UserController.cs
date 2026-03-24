@@ -1,8 +1,6 @@
 ﻿using backend.Application.Auth.Commands.Register;
-using backend.Application.DTOs;
 using backend.Application.DTOs.User;
 using backend.Application.Roles.Queries.GetAllRoles;
-using backend.Application.Services;
 using backend.Application.Users.Commands.DeleteUser;
 using backend.Application.Users.Commands.UpdateUser;
 using backend.Application.Users.Queries.GetAllUsers;

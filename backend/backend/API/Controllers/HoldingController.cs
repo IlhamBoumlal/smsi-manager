@@ -4,7 +4,6 @@ using backend.Application.Holdings.Commands.CreateHolding;
 using backend.Application.Holdings.Commands.DeleteHolding;
 using backend.Application.Holdings.Commands.UpdateHolding;
 using backend.Application.Holdings.Queries.GetAllHoldings;
-using backend.Application.Services;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

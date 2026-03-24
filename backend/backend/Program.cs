@@ -1,5 +1,4 @@
-﻿using backend.Application.Services;
-using backend.Domain.Interfaces;
+﻿using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
@@ -91,13 +90,6 @@ builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
-
-// ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    await DbInitializer.InitializeAsync(scope.ServiceProvider);
-    await SeedAdminAsync(scope.ServiceProvider);
-}
 
 // ─── PIPELINE ─────────────────────────────────────────────────────────────────
 app.UseStaticFiles();

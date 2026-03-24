@@ -1,929 +1,513 @@
 import React, { useState, useEffect } from 'react';
+import PlanActionNC from './PlanActionNC';
 import {
-  Search, CheckCircle2, Clock, XCircle,
-  ShieldCheck, FileText, TrendingUp, AlertCircle,
-  Link2, ChevronDown, ChevronUp, Pencil,
-  MinusCircle, AlertTriangle, Ban, X, Save,
-  ClipboardList, Building2, Users, Lock, Cpu
+  Search, CheckCircle2, TrendingUp, AlertCircle,
+  MinusCircle, AlertTriangle, Ban, X, Save, ClipboardList,
+  Building2, Users, Lock, Cpu, ShieldCheck, Upload, FileText,
+  ChevronDown
 } from 'lucide-react';
 import axios from 'axios';
 
 const API = 'http://localhost:5006/api/controles';
 
-/* ─── DESIGN TOKENS ───────────────────────────────────────────────────────── */
+/* ─── DESIGN TOKENS ─────────────────────────────────────────────────── */
 const T = {
-  xs:     13,
-  sm:     15,
-  base:   16,
-  md:     18,
-  lg:     20,
-  xl:     24,
-  '3xl':  44,
-
-  normal:   400,
-  medium:   500,
-  semibold: 600,
-  bold:     700,
-
-  black:   '#0f172a',
+  font: "'Sora', sans-serif",
+  bg: '#f1f5f9',
+  white: '#ffffff',
   gray900: '#111827',
   gray700: '#374151',
   gray500: '#6b7280',
   gray400: '#9ca3af',
   gray200: '#e5e7eb',
-  gray100: '#f3f4f6',
-  gray50:  '#f9fafb',
-  white:   '#ffffff',
-  bg:      '#f1f5f9',
+  shadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06)',
+  gradBlue: 'linear-gradient(135deg, #1D4ED8, #1E40AF)',
+  gradGreen: 'linear-gradient(135deg, #059669, #10b981)',
+  gradOrange: 'linear-gradient(135deg, #d97706, #f59e0b)',
+  gradRed: 'linear-gradient(135deg, #dc2626, #ef4444)',
 };
 
-/* ─── COULEURS PAR DOMAINE ─────────────────────────────────────────────────── */
 const DOMAIN_THEMES = {
   Organisationnel: {
-    bg:         '#f0f4ff',
-    rowBg:      '#f8faff',
-    rowBgHover: '#eef2ff',
-    rowBgExp:   '#f0f4ff',
-    accent:     '#4f46e5',
-    accentLight:'#e0e7ff',
-    border:     '#c7d2fe',
-    tabActive:  '#4f46e5',
-    tabBg:      '#eef2ff',
-    headerBg:   'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-    icon:       <Building2 size={18} />,
-    label:      'Organisationnels',
+    accent: '#4f46e5', accentLight: '#e0e7ff', border: '#c7d2fe',
+    tabActive: '#4f46e5', headerBg: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+    icon: <Building2 size={18} />, label: 'Organisationnels',
   },
   Personnes: {
-    bg:         '#f0fdf4',
-    rowBg:      '#f8fffe',
-    rowBgHover: '#ecfdf5',
-    rowBgExp:   '#f0fdf4',
-    accent:     '#059669',
-    accentLight:'#d1fae5',
-    border:     '#a7f3d0',
-    tabActive:  '#059669',
-    tabBg:      '#ecfdf5',
-    headerBg:   'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-    icon:       <Users size={18} />,
-    label:      'Liés aux personnes',
+    accent: '#059669', accentLight: '#d1fae5', border: '#a7f3d0',
+    tabActive: '#059669', headerBg: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+    icon: <Users size={18} />, label: 'Liés aux personnes',
   },
   Physique: {
-    bg:         '#fff7ed',
-    rowBg:      '#fffdf8',
-    rowBgHover: '#fff3e0',
-    rowBgExp:   '#fff7ed',
-    accent:     '#ea580c',
-    accentLight:'#ffedd5',
-    border:     '#fed7aa',
-    tabActive:  '#ea580c',
-    tabBg:      '#fff7ed',
-    headerBg:   'linear-gradient(135deg, #ea580c 0%, #f97316 100%)',
-    icon:       <Lock size={18} />,
-    label:      'Physiques',
+    accent: '#ea580c', accentLight: '#ffedd5', border: '#fed7aa',
+    tabActive: '#ea580c', headerBg: 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)',
+    icon: <Lock size={18} />, label: 'Physiques',
   },
   Technologique: {
-    bg:         '#fdf4ff',
-    rowBg:      '#fefbff',
-    rowBgHover: '#fae8ff',
-    rowBgExp:   '#fdf4ff',
-    accent:     '#9333ea',
-    accentLight:'#f3e8ff',
-    border:     '#e9d5ff',
-    tabActive:  '#9333ea',
-    tabBg:      '#fdf4ff',
-    headerBg:   'linear-gradient(135deg, #9333ea 0%, #a855f7 100%)',
-    icon:       <Cpu size={18} />,
-    label:      'Technologiques',
+    accent: '#9333ea', accentLight: '#f3e8ff', border: '#e9d5ff',
+    tabActive: '#9333ea', headerBg: 'linear-gradient(135deg, #9333ea 0%, #a855f7 100%)',
+    icon: <Cpu size={18} />, label: 'Technologiques',
   },
 };
 
-const DOMAINES = [
-  { key: 'Organisationnel', label: 'Organisationnels'   },
-  { key: 'Personnes',       label: 'Liés aux personnes' },
-  { key: 'Physique',        label: 'Physiques'          },
-  { key: 'Technologique',   label: 'Technologiques'     },
-];
-
-/* ─── STATUTS ─────────────────────────────────────────────────────────────── */
 const STATUTS = [
-  { key:'NonEvalue', label:'Non évalué', color:'#6b7280', bg:'#f9fafb', border:'#e5e7eb', icon:<MinusCircle size={18}/>, iconBig:<MinusCircle size={28}/> },
-  { key:'Conforme',  label:'Conforme',   color:'#059669', bg:'#f0fdf4', border:'#bbf7d0', icon:<CheckCircle2 size={18}/>, iconBig:<CheckCircle2 size={28}/> },
-  { key:'Remarque',  label:'Remarque',   color:'#2563eb', bg:'#eff6ff', border:'#bfdbfe', icon:<AlertCircle size={18}/>,  iconBig:<AlertCircle size={28}/> },
-  { key:'NCMineure', label:'NC Mineure', color:'#d97706', bg:'#fffbeb', border:'#fde68a', icon:<AlertTriangle size={18}/>,iconBig:<AlertTriangle size={28}/> },
-  { key:'NCMajeure', label:'NC Majeure', color:'#dc2626', bg:'#fef2f2', border:'#fecaca', icon:<Ban size={18}/>,          iconBig:<Ban size={28}/> },
+  { key: 'NonEvalue', label: 'Non évalué',  color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', icon: <MinusCircle size={16} /> },
+  { key: 'Conforme',  label: 'Conforme',    color: '#059669', bg: '#f0fdf4', border: '#bbf7d0', icon: <CheckCircle2 size={16} /> },
+  { key: 'Remarque',  label: 'Remarque',    color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', icon: <AlertCircle  size={16} /> },
+  { key: 'NCMineure', label: 'NC Mineure',  color: '#d97706', bg: '#fffbeb', border: '#fde68a', icon: <AlertTriangle size={16} /> },
+  { key: 'NCMajeure', label: 'NC Majeure',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: <Ban          size={16} /> },
 ];
 
-function normalize(c) {
-  if (!c) return c;
-  return {
-    id:                        c.Id    ?? c.id,
-    code:                      c.Code  ?? c.code,
-    titre:                     c.Titre ?? c.titre,
-    description:               c.Description               ?? c.description,
-    domaine:                   c.Domaine                   ?? c.domaine,
-    applicable:                c.Applicable                ?? c.applicable,
-    justificationApplicabilite:c.JustificationApplicabilite?? c.justificationApplicabilite,
-    statut:                    c.Statut                    ?? c.statut,
-    preuves:                   c.Preuves                   ?? c.preuves,
-    responsable:               c.Responsable               ?? c.responsable,
-    referenceDocument:         c.ReferenceDocument         ?? c.referenceDocument,
-    dateMiseAJour:             c.DateMiseAJour             ?? c.dateMiseAJour,
-  };
+/* ─── SELECT GÉNÉRIQUE STYLISÉ ──────────────────────────────────────── */
+function StyledSelect({ value, onChange, options, placeholder = 'Sélectionner...', accentColor }) {
+  const selected = options.find(o => o.value === value);
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        value={value || ''}
+        onChange={e => onChange(e.target.value || null)}
+        style={{
+          width: '100%',
+          padding: '12px 40px 12px 14px',
+          fontSize: 14,
+          fontWeight: selected ? 700 : 400,
+          fontFamily: T.font,
+          borderRadius: 12,
+          border: `2px solid ${selected && accentColor ? accentColor : T.gray200}`,
+          background: selected && accentColor ? hexToRgba(accentColor, 0.06) : '#fff',
+          color: selected && accentColor ? accentColor : T.gray700,
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          cursor: 'pointer',
+          outline: 'none',
+          transition: 'all 0.2s',
+        }}
+      >
+        <option value="">{placeholder}</option>
+        {options.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <ChevronDown
+        size={16}
+        style={{
+          position: 'absolute', right: 12, top: '50%',
+          transform: 'translateY(-50%)',
+          color: selected && accentColor ? accentColor : T.gray400,
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
-export default function Controles() {
-  const [controles, setControles]       = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [searchTerm, setSearchTerm]     = useState('');
-  const [filterCateg, setFilterCateg]   = useState('Toutes');
-  const [filterStatut, setFilterStatut] = useState('Tous');
-  const [activeTab, setActiveTab]       = useState('Organisationnel');
-  const [expandedId, setExpandedId]     = useState(null);
-  const [editingCtrl, setEditingCtrl]   = useState(null);   // contrôle en cours d'édition
-  const [actionPlanCtrl, setActionPlanCtrl] = useState(null); // contrôle pour plan d'actions
+/* helper pour fond coloré transparent */
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
-  const theme = DOMAIN_THEMES[activeTab] || DOMAIN_THEMES.Organisationnel;
+/* ─── BADGE STATUT (affiché dans la liste des contrôles) ────────────── */
+function StatutBadge({ statut }) {
+  const s = STATUTS.find(x => x.key === statut);
+  if (!s || statut === 'NonEvalue') return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      fontSize: 11, fontWeight: 700, padding: '3px 10px',
+      borderRadius: 99, background: s.bg, color: s.color,
+      border: `1px solid ${s.border}`,
+    }}>
+      {s.icon} {s.label}
+    </span>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE PRINCIPALE
+═══════════════════════════════════════════════════════════════════════ */
+export default function Controles() {
+  const [controles, setControles]         = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [searchTerm, setSearchTerm]       = useState('');
+  const [activeTab, setActiveTab]         = useState('Organisationnel');
+  const [evaluationCtrl, setEvaluationCtrl] = useState(null);
 
   useEffect(() => {
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+    fetchData();
+  }, []);
+
+  const fetchData = () => {
     axios.get(API)
       .then(r => setControles(r.data.map(normalize)))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const handleSave = async (updated) => {
+  const handleSaveEvaluation = async (updated) => {
     try {
-        await axios.put(`${API}/${updated.id}`, {
-            titre:                      updated.titre,
-            description:                updated.description,
-            domaine:                    updated.domaine,
-            applicable:                 updated.applicable,
-            justificationApplicabilite: updated.justificationApplicabilite,
-            statut:                     updated.statut,
-            preuves:                    updated.preuves,
-            responsable:                updated.responsable,
-            referenceDocument:          updated.referenceDocument,
-            
-        });
-        // Mettre à jour localement
-        setControles(prev => prev.map(c => c.id === updated.id ? updated : c));
-        setEditingCtrl(null);
+      await axios.put(`${API}/${updated.id}`, updated);
+      setControles(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setEvaluationCtrl(null);
     } catch (err) {
-        alert('Erreur lors de la mise à jour');
+      alert('Erreur lors de la sauvegarde');
     }
-};
+  };
 
-  const total     = controles.length;
-  const nonEvalue = controles.filter(c => c.statut === 'NonEvalue').length;
   const conforme  = controles.filter(c => c.statut === 'Conforme').length;
-  const remarque  = controles.filter(c => c.statut === 'Remarque').length;
-  const ncMineure = controles.filter(c => c.statut === 'NCMineure').length;
-  const ncMajeure = controles.filter(c => c.statut === 'NCMajeure').length;
-  const tauxConf  = total > 0 ? Math.round((conforme / total) * 100) : 0;
-
-  const filtered = controles.filter(c => {
-    const q = searchTerm.toLowerCase();
-    return (
-      ((c.titre?.toLowerCase() || '').includes(q) || (c.code?.toLowerCase() || '').includes(q)) &&
-      (filterCateg  === 'Toutes' || c.domaine === filterCateg) &&
-      (filterStatut === 'Tous'   || c.statut  === filterStatut) &&
-      c.domaine === activeTab
-    );
-  });
+  const filtered  = controles.filter(c =>
+    ((c.titre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+     (c.code?.toLowerCase()  || '').includes(searchTerm.toLowerCase())) &&
+    c.domaine === activeTab
+  );
 
   const statCards = [
-    { label:'Total',      value:total,     color:'#6366f1', bg:'#eef2ff', icon:<ShieldCheck size={18}/> },
-    { label:'Conforme',   value:conforme,  ...STATUTS[1] },
-    { label:'Remarque',   value:remarque,  ...STATUTS[2] },
-    { label:'NC Mineure', value:ncMineure, ...STATUTS[3] },
-    { label:'NC Majeure', value:ncMajeure, ...STATUTS[4] },
-    { label:'Non évalué', value:nonEvalue, ...STATUTS[0] },
+    { label: 'Total',      value: controles.length,                                      color: '#6366f1', icon: <ShieldCheck size={18} /> },
+    { label: 'Conforme',   value: conforme,                                               ...STATUTS[1] },
+    { label: 'Remarque',   value: controles.filter(c => c.statut === 'Remarque').length,  ...STATUTS[2] },
+    { label: 'NC Mineure', value: controles.filter(c => c.statut === 'NCMineure').length, ...STATUTS[3] },
+    { label: 'NC Majeure', value: controles.filter(c => c.statut === 'NCMajeure').length, ...STATUTS[4] },
+    { label: 'Non évalué', value: controles.filter(c => c.statut === 'NonEvalue').length, ...STATUTS[0] },
   ];
 
   return (
-    <div style={{
-      minHeight:'100vh', background:T.bg,
-      fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      fontSize:T.base, color:T.gray900,
-    }}>
-
-      {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
-      <header style={{
-        background:T.white, borderBottom:`1px solid ${T.gray200}`,
-        padding:'20px 40px', display:'flex', alignItems:'center', gap:20,
-        position:'sticky', top:0, zIndex:20,
-        boxShadow:'0 1px 4px rgba(0,0,0,0.07)',
-      }}>
-        <div style={{ flex:1 }}>
-          <h1 style={{ fontSize:T.xl, fontWeight:T.bold, color:T.black, margin:0, letterSpacing:'-0.02em' }}>
-            Contrôles Annexe A – ISO 27001:2022
-          </h1>
-          <p style={{ fontSize:T.sm, color:T.gray500, margin:'4px 0 0', fontWeight:T.normal }}>
-            Déclaration d'Applicabilité
-          </p>
-        </div>
-        <div style={{
-          display:'flex', alignItems:'center', gap:10,
-          background:'#f0fdf4', border:'1px solid #bbf7d0',
-          borderRadius:12, padding:'12px 20px',
-        }}>
-          <TrendingUp size={20} color="#059669" />
-          <span style={{ fontSize:T.md, fontWeight:T.bold, color:'#059669' }}>
-            Conformité : {tauxConf}%
-          </span>
+    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
+      {/* ── HEADER ── */}
+      <header style={{ background: T.gradBlue, padding: '40px', color: '#fff' }}>
+        <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>Contrôles ISO 27001 — Annexe A</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.1)', padding: '12px 20px', borderRadius: 14 }}>
+            <TrendingUp size={20} color="#10B981" />
+            <span style={{ fontWeight: 800 }}>{Math.round((conforme / (controles.length || 1)) * 100)}%</span>
+          </div>
         </div>
       </header>
 
-      <main style={{ maxWidth:1600, margin:'0 auto', padding:'30px 40px', display:'flex', flexDirection:'column', gap:24 }}>
+      <main style={{ maxWidth: 1400, margin: '30px auto', padding: '0 40px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* ── STAT CARDS ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
+          {statCards.map(card => (
+            <div key={card.label} style={{ background: '#fff', border: `1px solid ${T.gray200}`, borderRadius: 16, padding: '20px', boxShadow: T.shadow }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: card.color }}>
+                {card.icon}
+                <span style={{ fontSize: 11, fontWeight: 700, color: T.gray500 }}>{card.label}</span>
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: card.color }}>{card.value}</div>
+            </div>
+          ))}
+        </div>
 
-        {/* ══ STAT CARDS ════════════════════════════════════════════════════════ */}
-        {/* ══ STAT CARDS ══════════════════════════════════════════════════════════ */}
-<div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:16 }}>
-  {statCards.map(card => (
-    <div key={card.label} style={{
-      background: T.white,
-      border: `1px solid ${T.gray200}`,
-      borderRadius: 12,
-      padding: '24px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-        <div style={{ color: card.color }}>{card.icon}</div>
-        <span style={{
-          fontSize: 13,
-          color: T.gray500,
-          fontWeight: 400,
-        }}>
-          {card.label}
-        </span>
-      </div>
-      <div style={{
-        fontSize: 30,
-        fontWeight: 700,
-        color: card.color,
-        lineHeight: 1,
-      }}>
-        {card.value}
-      </div>
-    </div>
-  ))}
-</div>
+        {/* ── SEARCH ── */}
+        <div style={{ background: '#fff', borderRadius: 16, padding: '16px', boxShadow: T.shadow }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.gray400 }} />
+            <input
+              type="text"
+              placeholder="Rechercher un contrôle..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ width: '100%', padding: '10px 40px', fontSize: 14, border: `1px solid ${T.gray200}`, borderRadius: 10, outline: 'none', fontFamily: T.font }}
+            />
+          </div>
+        </div>
 
-      {/* ══ SEARCH / FILTERS ══════════════════════════════════════════════════ */}
-<div style={{
-  background: T.white,
-  border: `1px solid ${T.gray200}`,
-  borderRadius: 12,
-  padding: '20px 24px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-}}>
-  {/* Search bar */}
-  <div style={{ position:'relative' }}>
-    <Search size={16} style={{
-      position:'absolute', left:12, top:'50%',
-      transform:'translateY(-50%)', color: T.gray400,
-    }} />
-    <input
-      type="text"
-      placeholder="Rechercher par code ou titre…"
-      value={searchTerm}
-      onChange={e => setSearchTerm(e.target.value)}
-      style={{
-        width: '100%',
-        paddingLeft: 38,
-        paddingRight: 16,
-        paddingTop: 10,
-        paddingBottom: 10,
-        fontSize: 14,
-        border: `1px solid ${T.gray200}`,
-        borderRadius: 8,
-        outline: 'none',
-        color: T.gray700,
-        background: T.gray50,
-        boxSizing: 'border-box',
-        fontFamily: 'inherit',
-      }}
-    />
-  </div>
-
-  {/* Filters row */}
-  <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-    <StyledSelect
-      value={filterCateg}
-      onChange={setFilterCateg}
-      options={[
-        { value:'Toutes', label:'Tous les domaines' },
-        ...DOMAINES.map(d => ({ value: d.key, label: d.label }))
-      ]}
-    />
-    <StyledSelect
-      value={filterStatut}
-      onChange={setFilterStatut}
-      options={[
-        { value:'Tous', label:'Tous les statuts' },
-        ...STATUTS.map(s => ({ value: s.key, label: s.label }))
-      ]}
-    />
-  </div>
-</div>
-
-        {/* ══ TABS + LISTE ══════════════════════════════════════════════════════ */}
-        <div style={{
-          background:T.white, border:`1px solid ${T.gray200}`,
-          borderRadius:14, overflow:'hidden',
-          boxShadow:'0 1px 4px rgba(0,0,0,0.06)',
-        }}>
-          {/* Tabs */}
-          <div style={{ display:'flex', borderBottom:`1px solid ${T.gray200}`, overflowX:'auto' }}>
-            {DOMAINES.map(d => {
-              const dt = DOMAIN_THEMES[d.key];
-              const count = controles.filter(c => c.domaine === d.key).length;
-              const isActive = activeTab === d.key;
+        {/* ── TABS + LIST ── */}
+        <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: T.shadow }}>
+          <div style={{ display: 'flex', borderBottom: `1px solid ${T.gray200}` }}>
+            {Object.keys(DOMAIN_THEMES).map(key => {
+              const dt = DOMAIN_THEMES[key];
+              const isActive = activeTab === key;
               return (
-                <button key={d.key} onClick={() => setActiveTab(d.key)} style={{
-                  flex:1, padding:'20px 30px',
-                  fontSize:T.sm, fontWeight:T.semibold,
-                  letterSpacing:'0.04em', textTransform:'uppercase',
-                  cursor:'pointer', border:'none',
-                  borderBottom: isActive ? `3px solid ${dt.tabActive}` : `3px solid ${dt.border}`,
-                  background: isActive
-                    ? dt.headerBg
-                    : dt.tabBg,
-                  color: isActive ? T.white : dt.tabActive,
-                  transition:'all 0.18s', whiteSpace:'nowrap',
-                  fontFamily:'inherit',
-                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                  opacity: isActive ? 1 : 0.82,
-                }}>
-                  <span style={{ color: isActive ? T.white : dt.tabActive, display:'flex', alignItems:'center' }}>{dt.icon}</span>
-                  {d.label}
-                  <span style={{
-                    marginLeft:4,
-                    background: isActive ? 'rgba(255,255,255,0.25)' : dt.accentLight,
-                    color: isActive ? T.white : dt.accent,
-                    borderRadius:20, padding:'2px 9px',
-                    fontSize:T.xs, fontWeight:T.bold,
-                    border: isActive ? '1px solid rgba(255,255,255,0.3)' : `1px solid ${dt.border}`,
+                <button key={key} onClick={() => setActiveTab(key)}
+                  style={{
+                    flex: 1, padding: '22px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    border: 'none', borderBottom: isActive ? `4px solid ${dt.tabActive}` : 'none',
+                    background: isActive ? dt.headerBg : '#fff',
+                    color: isActive ? '#fff' : dt.tabActive,
+                    transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 10, fontFamily: T.font,
                   }}>
-                    {count}
-                  </span>
+                  {dt.icon} {dt.label}
                 </button>
               );
             })}
           </div>
 
-
-
-          {/* Rows */}
-          <div style={{ background: theme.bg }}>
-            {loading ? (
-              <div style={{ padding:80, textAlign:'center' }}>
-                <div style={{
-                  display:'inline-block', width:40, height:40, borderRadius:'50%',
-                  border:`4px solid ${theme.accentLight}`, borderTop:`4px solid ${theme.accent}`,
-                  animation:'spin 0.8s linear infinite', marginBottom:16,
-                }} />
-                <p style={{ fontSize:T.md, color:T.gray400, fontWeight:T.medium }}>Récupération des données…</p>
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ padding:60, textAlign:'center', color:T.gray400, fontSize:T.md }}>
-                Aucun contrôle trouvé
-              </div>
-            ) : (
-              filtered.map((ctrl, i) => (
-                <ControleRow
-                  key={ctrl.id}
-                  ctrl={ctrl}
-                  theme={theme}
-                  expanded={expandedId === ctrl.id}
-                  onToggle={() => setExpandedId(expandedId === ctrl.id ? null : ctrl.id)}
-                  isLast={i === filtered.length - 1}
-                  onEdit={() => setEditingCtrl({ ...ctrl })}
-                  onActionPlan={() => setActionPlanCtrl(ctrl)}
-                />
-              ))
+          <div>
+            {loading && <p style={{ padding: 32, textAlign: 'center', color: T.gray500 }}>Chargement…</p>}
+            {!loading && filtered.length === 0 && (
+              <p style={{ padding: 32, textAlign: 'center', color: T.gray400 }}>Aucun contrôle trouvé.</p>
             )}
+            {filtered.map(ctrl => (
+              <div key={ctrl.id}
+                style={{
+                  padding: '24px 32px', borderBottom: `1px solid ${T.gray200}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, background: T.bg, padding: '4px 10px', borderRadius: 8 }}>{ctrl.code}</span>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{ctrl.titre}</h3>
+                    <StatutBadge statut={ctrl.statut} />
+                  </div>
+                  <p style={{ fontSize: 13, color: T.gray500, marginTop: 8, maxWidth: '90%' }}>{ctrl.description}</p>
+
+                  {ctrl.statut === 'Conforme' && ctrl.justificationConformite && (
+                    <div style={{ marginTop: 12, padding: 12, background: '#f0fdf4', borderRadius: 8, borderLeft: '4px solid #059669' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <CheckCircle2 size={14} color="#059669" />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>Justification de conformité</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: T.gray700, margin: 0 }}>{ctrl.justificationConformite}</p>
+                    </div>
+                  )}
+
+                  {ctrl.statut === 'Remarque' && ctrl.remarque && (
+                    <div style={{ marginTop: 12, padding: 12, background: '#eff6ff', borderRadius: 8, borderLeft: '4px solid #2563eb' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <AlertCircle size={14} color="#2563eb" />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#2563eb' }}>Remarque</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: T.gray700, margin: 0 }}>{ctrl.remarque}</p>
+                    </div>
+                  )}
+
+                  {(ctrl.statut === 'NCMineure' || ctrl.statut === 'NCMajeure') && ctrl.planCorrectif && (
+                    <div style={{ marginTop: 12, padding: 12, background: '#fef2f2', borderRadius: 8, borderLeft: '4px solid #dc2626' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <ClipboardList size={14} color="#dc2626" />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>Plan d'action en cours</span>
+                        {ctrl.responsable && <span style={{ fontSize: 11, color: T.gray500 }}>— {ctrl.responsable}</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setEvaluationCtrl(ctrl)}
+                  style={{
+                    marginLeft: 20, padding: '12px 24px', borderRadius: 10, border: 'none',
+                    background: T.gradBlue, color: '#fff', fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', boxShadow: '0 4px 10px rgba(29,78,216,0.2)', whiteSpace: 'nowrap',
+                    fontFamily: T.font,
+                  }}>
+                  Évaluer
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       </main>
 
-      {/* ══ MODAL ÉDITION ══════════════════════════════════════════════════════ */}
-      {editingCtrl && (
-        <EditModal
-          ctrl={editingCtrl}
-          onClose={() => setEditingCtrl(null)}
-          onSave={handleSave}
-        />
-      )}
-
-      {/* ══ MODAL PLAN D'ACTIONS ═══════════════════════════════════════════════ */}
-      {actionPlanCtrl && (
-        <ActionPlanModal
-          ctrl={actionPlanCtrl}
-          onClose={() => setActionPlanCtrl(null)}
+      {evaluationCtrl && (
+        <EvaluationPanel
+          ctrl={evaluationCtrl}
+          onClose={() => setEvaluationCtrl(null)}
+          onSave={handleSaveEvaluation}
+          theme={DOMAIN_THEMES[evaluationCtrl.domaine]}
         />
       )}
     </div>
   );
 }
 
-/* ─── SELECT ──────────────────────────────────────────────────────────────── */
-function StyledSelect({ value, onChange, options }) {
+/* ═══════════════════════════════════════════════════════════════════════
+   PANNEAU D'ÉVALUATION  — listes déroulantes pour tous les choix
+═══════════════════════════════════════════════════════════════════════ */
+function EvaluationPanel({ ctrl, onClose, onSave, theme }) {
+  // On initialise avec les données existantes du contrôle
+  const [form, setForm] = useState({ ...ctrl });
+  const [files, setFiles] = useState([]);
+  const [showPlan, setShowPlan] = useState(false);
+
+  // --- LOGIQUE DE TUNNEL ---
+  
+  // Strictement vrai si l'utilisateur a cliqué sur Oui
+  const isApplicable = form.applicable === true;
+  
+  // Strictement vrai si l'utilisateur a cliqué sur Non
+  const isNotApplicable = form.applicable === false;
+
+  // Étape 2 (Justification) : Apparaît seulement si c'est APPLICABLE
+  const showStep2 = isApplicable; 
+  
+  // Étape 3 (Statut) : Apparaît si Step 2 est remplie (min 5 caractères ou fichier)
+  const showStep3 = isApplicable && (form.justificationApplicabilite?.trim().length > 5 || files.length > 0);
+
+  // Détails finaux : Apparaît si un statut est choisi
+  const isStatusSelected = form.statut && form.statut !== 'NonEvalue';
+  const isNC = form.statut === 'NCMineure' || form.statut === 'NCMajeure';
+
+  // --- HANDLERS ---
+  const handleApplicableChange = (val) => {
+    setShowPlan(false);
+    if (val === 'oui') {
+      setForm(f => ({ ...f, applicable: true }));
+    } else if (val === 'non') {
+      // Si NON : on vide les champs de conformité et on arrête le tunnel
+      setForm(f => ({ 
+        ...f, 
+        applicable: false, 
+        statut: 'NonEvalue',
+        justificationApplicabilite: '',
+        justificationConformite: '',
+        remarque: ''
+      }));
+    } else {
+      setForm(f => ({ ...f, applicable: null }));
+    }
+  };
+
+  const handleStatutChange = (val) => {
+    setShowPlan(false);
+    setForm(f => ({ ...f, statut: val || 'NonEvalue' }));
+  };
+
+  // --- VALIDATION DU BOUTON ENREGISTRER ---
+  const canSave = 
+    isNotApplicable || // On peut enregistrer direct si on a choisi "Non"
+    (isApplicable && isStatusSelected && (
+      (form.statut === 'Conforme' && form.justificationConformite?.length > 5) ||
+      (form.statut === 'Remarque' && form.remarque?.length > 5) ||
+      (isNC && showPlan) // Si NC, on attend que le plan d'action soit au moins ouvert
+    ));
+
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      style={{
-        fontSize: 14,
-        fontWeight: 500,
-        color: T.gray700,
-        border: `1px solid ${T.gray200}`,
-        borderRadius: 8,
-        padding: '8px 16px',
-        background: T.gray50,
-        outline: 'none',
-        cursor: 'pointer',
-        minWidth: 180,
-        fontFamily: 'inherit',
-      }}
-    >
-      {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  );
-}
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} />
 
-/* ─── CONTROLE ROW ────────────────────────────────────────────────────────── */
-function ControleRow({ ctrl, theme, expanded, onToggle, isLast, onEdit, onActionPlan }) {
-  const statut = STATUTS.find(s => s.key === ctrl.statut) || STATUTS[0];
-  const isNC = ctrl.statut === 'NCMineure' || ctrl.statut === 'NCMajeure';
-  const risques = ctrl.risquesAssocies
-    ? ctrl.risquesAssocies.split(',').map(r => r.trim()).filter(Boolean)
-    : [];
-
-  return (
-    <div style={{ borderBottom: isLast ? 'none' : `1px solid ${theme.border}` }}>
-
-      {/* ── Row header ── */}
-      <div
-        onClick={onToggle}
-        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = theme.rowBgHover; }}
-        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = theme.rowBg; }}
-        style={{
-          display:'flex', alignItems:'flex-start', justifyContent:'space-between',
-          padding:'22px 32px', cursor:'pointer',
-          background: expanded ? theme.rowBgExp : theme.rowBg,
-          transition:'background 0.15s',
-          borderLeft: `4px solid ${expanded ? theme.accent : 'transparent'}`,
-        }}
-      >
-        {/* Left */}
-        <div style={{ display:'flex', alignItems:'flex-start', gap:16, flex:1, minWidth:0 }}>
-          <div style={{
-            width:36, height:36, borderRadius:10, flexShrink:0,
-            background:statut.bg, border:`1.5px solid ${statut.border}`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            color:statut.color, marginTop:2,
-          }}>
-            {statut.icon}
-          </div>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:T.md, fontWeight:T.semibold, color:T.black, lineHeight:1.4 }}>
-              {ctrl.code} – {ctrl.titre}
-            </div>
-            <div style={{ fontSize:T.sm, color:T.gray500, marginTop:5, lineHeight:1.6 }}>
-              {ctrl.description}
-            </div>
+      <div style={{
+        position: 'relative', width: 620, background: '#fff', height: '100vh', 
+        display: 'flex', flexDirection: 'column', boxShadow: '-10px 0 50px rgba(0,0,0,0.2)',
+        animation: 'slideIn 0.3s', fontFamily: T.font
+      }}>
+        
+        {/* HEADER */}
+        <div style={{ background: theme.headerBg, padding: '28px 30px', color: '#fff' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{form.code} — Évaluation</h2>
+            <X onClick={onClose} style={{ cursor: 'pointer' }} />
           </div>
         </div>
 
-        {/* Right */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginLeft:28, flexShrink:0 }}>
-          <Pill bg={ctrl.applicable ? '#f0fdf4' : T.gray100} color={ctrl.applicable ? '#059669' : T.gray500} border={ctrl.applicable ? '#bbf7d0' : T.gray200}>
-            {ctrl.applicable ? 'Applicable' : 'N/A'}
-          </Pill>
-          <Pill bg={statut.bg} color={statut.color} border={statut.border}>
-            {statut.label}
-          </Pill>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 30, display: 'flex', flexDirection: 'column', gap: 30 }}>
+          
+          {/* ÉTAPE 1 : APPLICABILITÉ (Affiche "Sélectionner..." par défaut) */}
+          <Section num="1" title="Applicabilité du contrôle">
+            <StyledSelect
+              value={form.applicable === true ? 'oui' : form.applicable === false ? 'non' : ''}
+              onChange={handleApplicableChange}
+              placeholder="Sélectionner..." 
+              options={[
+                { value: 'oui', label: 'Applicable' },
+                { value: 'non', label: "Non Applicable" }
+              ]}
+              accentColor={isApplicable ? '#059669' : isNotApplicable ? '#dc2626' : null}
+            />
+          </Section>
 
-          {/* Plan d'actions — affiché seulement si NC */}
-          {isNC && (
-            <button
-              onClick={e => { e.stopPropagation(); onActionPlan(); }}
-              title="Plan d'actions"
-              style={{
-                display:'flex', alignItems:'center', gap:6,
-                padding:'6px 14px', borderRadius:8,
-                border:`1px solid ${statut.border}`,
-                background:statut.bg, color:statut.color,
-                cursor:'pointer', fontSize:T.sm, fontWeight:T.semibold,
-                fontFamily:'inherit', transition:'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.opacity='0.8'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}
-            >
-              <ClipboardList size={16} />
-              Plan d'actions
-            </button>
+          {/* ÉTAPE 2 : JUSTIFICATION (Seulement si OUI) */}
+          {showStep2 && (
+            <Section num="2" title="Justification d'applicabilité" animate>
+              <textarea
+                rows={3}
+                style={inputStyle}
+                placeholder="Pourquoi ce contrôle s'applique-t-il ?"
+                value={form.justificationApplicabilite || ''}
+                onChange={e => setForm(f => ({ ...f, justificationApplicabilite: e.target.value }))}
+              />
+              <label style={uploadAreaStyle}>
+                <Upload size={16} /> <span>Joindre une preuve d'applicabilité</span>
+                <input type="file" style={{ display: 'none' }} onChange={(e) => setFiles([{name: e.target.files[0].name}])} />
+              </label>
+              {files.map((f, i) => <div key={i} style={fileChipStyle}>{f.name}</div>)}
+            </Section>
           )}
 
-          {/* Edit */}
-          <button
-            onClick={e => { e.stopPropagation(); onEdit(); }}
-            title="Modifier"
-            onMouseEnter={e => { e.currentTarget.style.background = theme.accentLight; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            style={{
-              display:'flex', alignItems:'center', justifyContent:'center',
-              width:34, height:34, borderRadius:8,
-              border:'none', background:'transparent',
-              color:theme.accent, cursor:'pointer',
-              transition:'all 0.15s',
-            }}
-          >
-            <Pencil size={18} />
-          </button>
+          {/* ÉTAPE 3 : STATUT (Seulement si Step 2 remplie) */}
+          {showStep3 && (
+            <Section num="3" title="État de conformité" animate>
+              <StyledSelect
+                value={isStatusSelected ? form.statut : ''}
+                onChange={handleStatutChange}
+                placeholder="Sélectionner l'état..."
+                options={STATUTS.filter(s => s.key !== 'NonEvalue').map(s => ({ value: s.key, label: s.label }))}
+                accentColor={isStatusSelected ? STATUTS.find(s => s.key === form.statut).color : null}
+              />
+            </Section>
+          )}
 
-          <div style={{ marginLeft:2 }}>
-            {expanded
-              ? <ChevronUp size={22} color={theme.accent} />
-              : <ChevronDown size={22} color={T.gray400} />}
-          </div>
-        </div>
-      </div>
+          {/* ÉTAPE 4 : DÉTAILS FINAUX */}
+          {isStatusSelected && isApplicable && (
+            <div style={{ animation: 'fadeInUp 0.3s ease' }}>
+              
+              {form.statut === 'Conforme' && (
+                <Section num="4" title="Justification de conformité" accentBg="#f0fdf4" accentBorder="#bbf7d0" accentColor="#059669">
+                  <textarea
+                    rows={4}
+                    style={inputStyle}
+                    placeholder="Démontrez comment le contrôle est respecté..."
+                    value={form.justificationConformite || ''}
+                    onChange={e => setForm(f => ({ ...f, justificationConformite: e.target.value }))}
+                  />
+                </Section>
+              )}
 
-     {/* ── Expanded detail ── */}
-{expanded && (
-  <div style={{
-    borderTop:`1px solid ${theme.border}`,
-    padding:'26px 32px 32px',
-    background:T.white,
-    borderLeft:`4px solid ${theme.accent}`,
-  }}>
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, marginBottom:28 }}>
-      <FieldBlock label="Justification d'applicabilité" value={ctrl.justificationApplicabilite} accent={theme.accent} />
-      <FieldBlock label="Preuves d'implémentation" value={ctrl.preuves} accent={theme.accent} />
-    </div>
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:24, marginBottom:24 }}>
-      <MetaField label="Responsable" value={ctrl.responsable} />
-      <MetaField label="Dernière revue" value={
-        ctrl.dateMiseAJour
-          ? new Date(ctrl.dateMiseAJour).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
-          : undefined
-      } />
-      <MetaField label="Référence document" value={ctrl.referenceDocument} />
-    </div>
-  </div>
-)}
-    </div>
-  );
-}
+              {form.statut === 'Remarque' && (
+                <Section num="4" title="Détail de la remarque" accentBg="#eff6ff" accentBorder="#bfdbfe" accentColor="#2563eb">
+                  <textarea
+                    rows={4}
+                    style={inputStyle}
+                    placeholder="Saisissez l'observation..."
+                    value={form.remarque || ''}
+                    onChange={e => setForm(f => ({ ...f, remarque: e.target.value }))}
+                  />
+                </Section>
+              )}
 
-/* ─── EDIT MODAL ─────────────────────────────────────────────────────────── */
-function EditModal({ ctrl, onClose, onSave }) {
-  const [form, setForm] = useState({ ...ctrl });
-  const theme = DOMAIN_THEMES[form.domaine] || DOMAIN_THEMES.Organisationnel;
-
-  const set = (field, val) => setForm(f => ({ ...f, [field]: val }));
-
-  return (
-    <div style={{
-      position:'fixed', inset:0, zIndex:100,
-      background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)',
-      display:'flex', alignItems:'center', justifyContent:'center',
-      padding:24,
-    }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background:T.white, borderRadius:18,
-        width:'100%', maxWidth:720,
-        maxHeight:'92vh', overflowY:'auto',
-        boxShadow:'0 24px 60px rgba(0,0,0,0.2)',
-        display:'flex', flexDirection:'column',
-      }}>
-        {/* Modal header */}
-        <div style={{
-          background:theme.headerBg, padding:'24px 32px',
-          borderRadius:'18px 18px 0 0',
-          display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-          position:'sticky', top:0, zIndex:10,
-        }}>
-          <div>
-            <div style={{ fontSize:T.xs, color:'rgba(255,255,255,0.7)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>
-              Modification du contrôle
-            </div>
-            <div style={{ fontSize:T.xl, fontWeight:T.bold, color:T.white }}>
-              {form.code}
-            </div>
-          </div>
-          <button onClick={onClose} style={{
-            background:'rgba(255,255,255,0.15)', border:'none',
-            borderRadius:10, padding:8, cursor:'pointer',
-            color:T.white, display:'flex', alignItems:'center', justifyContent:'center',
-            transition:'all 0.15s',
-          }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.25)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.15)'}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Form body */}
-        <div style={{ padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
-
-          {/* Titre */}
-          <FormField label="Titre">
-            <input value={form.titre || ''} onChange={e => set('titre', e.target.value)}
-              style={inputStyle} />
-          </FormField>
-
-          {/* Description */}
-          <FormField label="Description">
-            <textarea value={form.description || ''} onChange={e => set('description', e.target.value)}
-              rows={3} style={{ ...inputStyle, resize:'vertical' }} />
-          </FormField>
-
-          {/* Statut + Applicable */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:18 }}>
-            <FormField label="Statut">
-              <select value={form.statut || 'NonEvalue'} onChange={e => set('statut', e.target.value)}
-                style={inputStyle}>
-                {STATUTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Applicable">
-              <select value={form.applicable ? 'true' : 'false'} onChange={e => set('applicable', e.target.value === 'true')}
-                style={inputStyle}>
-                <option value="true">Oui</option>
-                <option value="false">Non</option>
-              </select>
-            </FormField>
-          </div>
-
-          {/* Domaine */}
-          <FormField label="Domaine">
-            <select value={form.domaine || 'Organisationnel'} onChange={e => set('domaine', e.target.value)}
-              style={inputStyle}>
-              {DOMAINES.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </select>
-          </FormField>
-
-          {/* Justification */}
-          <FormField label="Justification d'applicabilité">
-            <textarea value={form.justificationApplicabilite || ''} onChange={e => set('justificationApplicabilite', e.target.value)}
-              rows={3} style={{ ...inputStyle, resize:'vertical' }} />
-          </FormField>
-
-          {/* Preuves */}
-          <FormField label="Preuves d'implémentation">
-            <textarea value={form.preuves || ''} onChange={e => set('preuves', e.target.value)}
-              rows={3} style={{ ...inputStyle, resize:'vertical' }}
-              placeholder="Ex: Politique_MDP_v2.pdf, Rapport_audit_2025.pdf…" />
-          </FormField>
-
-          {/* Responsable + Référence */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:18 }}>
-            <FormField label="Responsable">
-              <input value={form.responsable || ''} onChange={e => set('responsable', e.target.value)}
-                style={inputStyle} />
-            </FormField>
-            <FormField label="Référence document">
-              <input value={form.referenceDocument || ''} onChange={e => set('referenceDocument', e.target.value)}
-                style={inputStyle} />
-            </FormField>
-          </div>
-
-          {/* Risques */}
-          <FormField label="Risques associés (séparés par des virgules)">
-            <input value={form.risquesAssocies || ''} onChange={e => set('risquesAssocies', e.target.value)}
-              style={inputStyle} />
-          </FormField>
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding:'20px 32px', borderTop:`1px solid ${T.gray200}`,
-          display:'flex', gap:12, justifyContent:'flex-end',
-          background:T.gray50, borderRadius:'0 0 18px 18px',
-          position:'sticky', bottom:0,
-        }}>
-          <button onClick={onClose} style={{
-            padding:'12px 24px', borderRadius:10, border:`1px solid ${T.gray200}`,
-            background:T.white, color:T.gray700, fontSize:T.base, fontWeight:T.medium,
-            cursor:'pointer', fontFamily:'inherit',
-          }}>
-            Annuler
-          </button>
-          <button onClick={() => onSave(form)} style={{
-            padding:'12px 28px', borderRadius:10, border:'none',
-            background:theme.headerBg, color:T.white,
-            fontSize:T.base, fontWeight:T.semibold,
-            cursor:'pointer', fontFamily:'inherit',
-            display:'flex', alignItems:'center', gap:8,
-          }}>
-            <Save size={18} />
-            Enregistrer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── ACTION PLAN MODAL ──────────────────────────────────────────────────── */
-function ActionPlanModal({ ctrl, onClose }) {
-  const statut = STATUTS.find(s => s.key === ctrl.statut) || STATUTS[3];
-  const [actions, setActions] = useState([
-    { id:1, description:'', responsable:'', echeance:'', priorite:'Haute', statut:'EnCours' }
-  ]);
-
-  const addAction = () => setActions(a => [...a, {
-    id: Date.now(), description:'', responsable:'', echeance:'', priorite:'Moyenne', statut:'EnCours'
-  }]);
-
-  const updateAction = (id, field, val) =>
-    setActions(a => a.map(x => x.id === id ? { ...x, [field]: val } : x));
-
-  const removeAction = (id) =>
-    setActions(a => a.filter(x => x.id !== id));
-
-  return (
-    <div style={{
-      position:'fixed', inset:0, zIndex:100,
-      background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)',
-      display:'flex', alignItems:'center', justifyContent:'center', padding:24,
-    }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background:T.white, borderRadius:18,
-        width:'100%', maxWidth:780,
-        maxHeight:'92vh', overflowY:'auto',
-        boxShadow:'0 24px 60px rgba(0,0,0,0.2)',
-      }}>
-        {/* Header */}
-        <div style={{
-          background: ctrl.statut === 'NCMajeure'
-            ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
-            : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
-          padding:'24px 32px', borderRadius:'18px 18px 0 0',
-          display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-          position:'sticky', top:0, zIndex:10,
-        }}>
-          <div>
-            <div style={{ fontSize:T.xs, color:'rgba(255,255,255,0.7)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6, display:'flex', alignItems:'center', gap:8 }}>
-              <ClipboardList size={16} />
-              Plan d'actions correctives
-            </div>
-            <div style={{ fontSize:T.xl, fontWeight:T.bold, color:T.white }}>{ctrl.code} – {ctrl.titre}</div>
-            <div style={{ marginTop:8 }}>
-              <Pill bg='rgba(255,255,255,0.15)' color={T.white} border='rgba(255,255,255,0.3)'>
-                {statut.label}
-              </Pill>
-            </div>
-          </div>
-          <button onClick={onClose} style={{
-            background:'rgba(255,255,255,0.15)', border:'none', borderRadius:10,
-            padding:8, cursor:'pointer', color:T.white,
-            display:'flex', alignItems:'center', justifyContent:'center',
-          }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.25)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.15)'}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div style={{ padding:'28px 32px', display:'flex', flexDirection:'column', gap:20 }}>
-
-          {/* NC context */}
-          <div style={{
-            background: ctrl.statut === 'NCMajeure' ? '#fef2f2' : '#fffbeb',
-            border: `1px solid ${ctrl.statut === 'NCMajeure' ? '#fecaca' : '#fde68a'}`,
-            borderRadius:12, padding:'16px 20px',
-          }}>
-            <div style={{ fontSize:T.sm, fontWeight:T.bold, color: ctrl.statut === 'NCMajeure' ? '#dc2626' : '#d97706', marginBottom:6 }}>
-              {ctrl.statut === 'NCMajeure' ? '⚠ Non-conformité majeure détectée' : '⚠ Non-conformité mineure détectée'}
-            </div>
-            <div style={{ fontSize:T.sm, color:T.gray700 }}>{ctrl.description || 'Aucune description disponible.'}</div>
-          </div>
-
-          {/* Actions list */}
-          <div>
-            <div style={{ fontSize:T.base, fontWeight:T.bold, color:T.black, marginBottom:14 }}>
-              Actions correctives ({actions.length})
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              {actions.map((action, idx) => (
-                <div key={action.id} style={{
-                  border:`1px solid ${T.gray200}`, borderRadius:12, padding:'18px 20px',
-                  background:T.gray50, position:'relative',
-                }}>
-                  <div style={{ fontSize:T.sm, fontWeight:T.bold, color:T.gray400, marginBottom:12 }}>
-                    Action #{idx + 1}
-                  </div>
-                  <button onClick={() => removeAction(action.id)} style={{
-                    position:'absolute', top:14, right:14,
-                    background:'transparent', border:'none', cursor:'pointer',
-                    color:T.gray400, display:'flex', alignItems:'center',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.color='#dc2626'}
-                    onMouseLeave={e => e.currentTarget.style.color=T.gray400}
+              {isNC && !showPlan && (
+                <div style={{ textAlign: 'center', padding: '24px', background: '#fef2f2', borderRadius: 12, border: '1px dashed #ef4444' }}>
+                  <p style={{ fontSize: 13, color: '#991b1b', marginBottom: 15, fontWeight: 700 }}>
+                    Le statut de Non-Conformité nécessite un plan d'action.
+                  </p>
+                  <button 
+                    onClick={() => setShowPlan(true)}
+                    style={{ ...btnPrimary, background: T.gradRed, width: 'auto', margin: '0 auto', padding: '10px 20px' }}
                   >
-                    <X size={16} />
+                    <ClipboardList size={16} /> Ajouter un plan d'action
                   </button>
-
-                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                    <FormField label="Description de l'action">
-                      <textarea
-                        value={action.description}
-                        onChange={e => updateAction(action.id, 'description', e.target.value)}
-                        rows={2} style={{ ...inputStyle, resize:'vertical' }}
-                        placeholder="Décrire l'action corrective à mettre en œuvre…"
-                      />
-                    </FormField>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
-                      <FormField label="Responsable">
-                        <input value={action.responsable} onChange={e => updateAction(action.id, 'responsable', e.target.value)}
-                          style={inputStyle} placeholder="Nom / équipe" />
-                      </FormField>
-                      <FormField label="Échéance">
-                        <input type="date" value={action.echeance} onChange={e => updateAction(action.id, 'echeance', e.target.value)}
-                          style={inputStyle} />
-                      </FormField>
-                      <FormField label="Priorité">
-                        <select value={action.priorite} onChange={e => updateAction(action.id, 'priorite', e.target.value)}
-                          style={inputStyle}>
-                          <option>Critique</option>
-                          <option>Haute</option>
-                          <option>Moyenne</option>
-                          <option>Basse</option>
-                        </select>
-                      </FormField>
-                    </div>
-                    <FormField label="Statut de l'action">
-                      <select value={action.statut} onChange={e => updateAction(action.id, 'statut', e.target.value)}
-                        style={inputStyle}>
-                        <option value="EnCours">En cours</option>
-                        <option value="Planifie">Planifié</option>
-                        <option value="Termine">Terminé</option>
-                        <option value="Annule">Annulé</option>
-                      </select>
-                    </FormField>
-                  </div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            <button onClick={addAction} style={{
-              marginTop:14, padding:'12px 20px', borderRadius:10,
-              border:`2px dashed ${T.gray200}`, background:'transparent',
-              color:T.gray500, fontSize:T.base, fontWeight:T.medium,
-              cursor:'pointer', width:'100%', fontFamily:'inherit',
-              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-              transition:'all 0.15s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.color='#6366f1'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor=T.gray200; e.currentTarget.style.color=T.gray500; }}
-            >
-              + Ajouter une action
-            </button>
-          </div>
+              {isNC && showPlan && (
+                <PlanActionNC
+                  ctrl={form}
+                  statut={form.statut}
+                  onChange={(planData) => setForm(prev => ({ ...prev, ...planData }))}
+                />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div style={{
-          padding:'20px 32px', borderTop:`1px solid ${T.gray200}`,
-          display:'flex', gap:12, justifyContent:'flex-end',
-          background:T.gray50, borderRadius:'0 0 18px 18px',
-          position:'sticky', bottom:0,
-        }}>
-          <button onClick={onClose} style={{
-            padding:'12px 24px', borderRadius:10, border:`1px solid ${T.gray200}`,
-            background:T.white, color:T.gray700, fontSize:T.base, fontWeight:T.medium,
-            cursor:'pointer', fontFamily:'inherit',
-          }}>
-            Fermer
-          </button>
-          <button onClick={onClose} style={{
-            padding:'12px 28px', borderRadius:10, border:'none',
-            background: ctrl.statut === 'NCMajeure'
-              ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
-              : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
-            color:T.white, fontSize:T.base, fontWeight:T.semibold,
-            cursor:'pointer', fontFamily:'inherit',
-            display:'flex', alignItems:'center', gap:8,
-          }}>
-            <Save size={18} />
-            Enregistrer le plan
+        {/* PIED DE PAGE */}
+        <div style={{ padding: '20px 28px', borderTop: `1px solid ${T.gray200}`, display: 'flex', gap: 12 }}>
+          <button onClick={onClose} style={btnSecondary}>Annuler</button>
+          <button
+            onClick={() => onSave(form)}
+            disabled={!canSave}
+            style={{ 
+              ...btnPrimary, 
+              background: canSave ? T.gradBlue : T.gray200,
+              cursor: canSave ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <Save size={16} /> Enregistrer l'évaluation
           </button>
         </div>
       </div>
@@ -931,67 +515,114 @@ function ActionPlanModal({ ctrl, onClose }) {
   );
 }
 
-/* ─── FORM FIELD ─────────────────────────────────────────────────────────── */
-function FormField({ label, children }) {
+/* ═══════════════════════════════════════════════════════════════════════
+   COMPOSANTS INTERNES
+═══════════════════════════════════════════════════════════════════════ */
+
+/** Bloc de section numéroté */
+function Section({ num, title, children, animate, accentBg, accentBorder, accentColor, icon }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-      <label style={{ fontSize:T.sm, fontWeight:T.semibold, color:T.gray700 }}>{label}</label>
-      {children}
+    <section style={{
+      animation: animate ? 'fadeInUp 0.3s ease' : 'none',
+      padding: accentBg ? 18 : 0,
+      background: accentBg || 'transparent',
+      borderRadius: accentBg ? 14 : 0,
+      border: accentBg ? `1.5px solid ${accentBorder}` : 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{
+          width: 24, height: 24, borderRadius: '50%',
+          background: accentColor || '#1D4ED8',
+          color: '#fff', fontSize: 12, fontWeight: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>{num}</span>
+        {icon && React.cloneElement(icon, { color: accentColor || '#1D4ED8' })}
+        <label style={{ fontSize: 14, fontWeight: 800, color: accentColor || T.gray900 }}>{title}</label>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** Bannière d'information */
+function InfoBanner({ color, border, icon, iconColor, children }) {
+  return (
+    <div style={{
+      padding: '10px 14px', background: color, border: `1px solid ${border}`,
+      borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, marginTop: 8,
+    }}>
+      {icon}
+      <span style={{ fontSize: 13, color: T.gray700, lineHeight: 1.5 }}>{children}</span>
     </div>
   );
 }
 
+/* ── styles réutilisables ── */
 const inputStyle = {
-  width:'100%', padding:'11px 14px',
-  fontSize:T.base, border:`1px solid ${T.gray200}`,
-  borderRadius:8, outline:'none',
-  color:T.gray700, background:T.white,
-  fontFamily:'inherit', boxSizing:'border-box',
+  width: '100%', padding: '11px 13px', borderRadius: 10,
+  border: `1px solid ${T.gray200}`, fontSize: 13, outline: 'none',
+  fontFamily: T.font, boxSizing: 'border-box', resize: 'vertical',
+  background: '#fff', color: T.gray900, lineHeight: 1.6,
 };
 
-/* ─── PILL ───────────────────────────────────────────────────────────────── */
-function Pill({ bg, color, border, children }) {
-  return (
-    <span style={{
-      fontSize:T.sm, fontWeight:T.medium, color,
-      background:bg, border:`1px solid ${border}`,
-      borderRadius:8, padding:'5px 16px', whiteSpace:'nowrap',
-      display:'inline-block',
-    }}>
-      {children}
-    </span>
-  );
-}
+const uploadAreaStyle = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+  padding: 14, border: `2px dashed ${T.gray200}`, borderRadius: 12,
+  color: T.gray500, fontSize: 12, cursor: 'pointer', background: '#f9fafb',
+  marginTop: 10,
+};
 
-/* ─── FIELD BLOCK ────────────────────────────────────────────────────────── */
-function FieldBlock({ label, value, accent }) {
-  const empty = !value || value.trim() === '';
-  return (
-    <div>
-      <div style={{ fontSize:T.base, fontWeight:T.semibold, color:T.gray700, marginBottom:10 }}>
-        {label}
-      </div>
-      <div style={{
-        fontSize:T.base, color:empty ? T.gray400 : T.gray700,
-        background:T.gray50, border:`1px solid ${T.gray200}`,
-        borderRadius:8, padding:'14px 18px', minHeight:52, lineHeight:1.65,
-      }}>
-        {empty ? 'Non renseigné' : value}
-      </div>
-    </div>
-  );
-}
+const fileChipStyle = {
+  marginTop: 7, fontSize: 12, background: '#EFF6FF', color: '#1D4ED8',
+  padding: '7px 12px', borderRadius: 8, display: 'flex', alignItems: 'center',
+  gap: 7, fontWeight: 600,
+};
 
-/* ─── META FIELD ─────────────────────────────────────────────────────────── */
-function MetaField({ label, value }) {
-  return (
-    <div>
-      <div style={{ fontSize:T.xs, fontWeight:T.bold, color:T.gray400, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
-        {label}
-      </div>
-      <div style={{ fontSize:T.md, fontWeight:T.medium, color:T.black }}>
-        {value || '—'}
-      </div>
-    </div>
-  );
+const btnPrimary = {
+  flex: 2, padding: '13px 20px', borderRadius: 12, border: 'none',
+  color: '#fff', fontWeight: 700, fontSize: 14,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+  cursor: 'pointer', fontFamily: T.font, transition: 'opacity 0.2s',
+};
+
+const btnSecondary = {
+  flex: 1, padding: '13px 20px', borderRadius: 12,
+  border: `1px solid ${T.gray200}`, background: '#fff',
+  fontWeight: 600, fontSize: 14, cursor: 'pointer',
+  fontFamily: T.font, color: T.gray700,
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NORMALISATION DES DONNÉES API
+═══════════════════════════════════════════════════════════════════════ */
+function normalize(c) {
+  return {
+    id:                      c.Id                    ?? c.id,
+    code:                    c.Code                  ?? c.code,
+    titre:                   c.Titre                 ?? c.titre,
+    description:             c.Description           ?? c.description,
+    domaine:                 c.Domaine               ?? c.domaine,
+    applicable:              c.Applicable            ?? c.applicable,
+    statut:                  c.Statut                ?? c.statut,
+    preuves:                 c.Preuves               ?? c.preuves,
+    responsable:             c.Responsable           ?? c.responsable,
+    justificationApplicabilite: c.JustificationApplicabilite ?? c.justificationApplicabilite,
+    justificationConformite: c.JustificationConformite ?? c.justificationConformite,
+    documentsConformite:     c.DocumentsConformite   ?? c.documentsConformite,
+    remarque:                c.Remarque              ?? c.remarque,
+    planAction:              c.PlanAction            ?? c.planAction,
+    dateEcheance:            c.DateEcheance          ?? c.dateEcheance,
+    actionImmediate:         c.ActionImmediate       ?? c.actionImmediate,
+    causesRacines:           c.CausesRacines         ?? c.causesRacines,
+    planCorrectif:           c.PlanCorrectif         ?? c.planCorrectif,
+    verification:            c.Verification          ?? c.verification,
+    indicateurs:             c.Indicateurs           ?? c.indicateurs,
+    dateVerification:        c.DateVerification      ?? c.dateVerification,
+    commentaireCloture:      c.CommentaireCloture    ?? c.commentaireCloture,
+    cloturePar:              c.CloturePar            ?? c.cloturePar,
+    dateCloture:             c.DateCloture           ?? c.dateCloture,
+    statutPlan:              c.StatutPlan            ?? c.statutPlan,
+  };
 }

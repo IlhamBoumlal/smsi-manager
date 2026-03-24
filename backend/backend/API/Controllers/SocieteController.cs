@@ -1,5 +1,4 @@
 ﻿using backend.Application.DTOs.Societe;
-using backend.Application.Services;
 using backend.Application.Societes.Commands.CreateSociete;
 using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
