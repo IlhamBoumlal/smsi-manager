@@ -1,0 +1,26 @@
+using backend.Domain.Interfaces;
+using MediatR;
+
+namespace backend.Application.Documentation.Commands.DeleteDocumentation
+{
+    public class DeleteDocumentationHandler : IRequestHandler<DeleteDocumentationCommand, bool>
+    {
+        private readonly IDocumentationRepository _repository;
+        private readonly IFileStorageService _fileStorage;
+
+        public DeleteDocumentationHandler(IDocumentationRepository repository, IFileStorageService fileStorage)
+        {
+            _repository = repository;
+            _fileStorage = fileStorage;
+        }
+
+        public async Task<bool> Handle(DeleteDocumentationCommand request, CancellationToken cancellationToken)
+        {
+            var existing = await _repository.GetByIdAsync(request.Id);
+            if (existing is null) return false;
+
+            _fileStorage.DeleteDocumentFile(existing.FilePath);
+            return await _repository.DeleteAsync(request.Id);
+        }
+    }
+}
