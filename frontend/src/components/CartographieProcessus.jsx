@@ -1,297 +1,857 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
-/* ══ DATA ════════════════════════════════════════════════════════════════════ */
-const PROCESSES = {
-  gouvernance: {
-    title: 'Processus de gouvernance et pilotage du SMSI',
-    desc:  "Assure la gouvernance globale du SMSI, définit la politique SSI et pilote le plan d'amélioration continue.",
-    cat:   'Management',
-    color: '#1a5f72',
-  },
-  risques: {
-    title: 'Processus de gestion des risques et plan de traitement',
-    desc:  'Identifie, évalue et traite les risques SSI. Produit le registre des risques et le plan de traitement associé.',
-    cat:   'Management',
-    color: '#1a5f72',
-  },
-  commercial: {
-    title: 'Commercial / Prospection',
-    desc:  "Pilote les activités commerciales, la prospection clients et le suivi des opportunités de croissance.",
-    cat:   'Réalisation',
-    color: '#1e6891',
-  },
-  developpement: {
-    title: 'Réalisation / Développement applicatif',
-    desc:  'Couvre le cycle complet de développement : analyse, conception, développement, tests et validation des applications.',
-    cat:   'Réalisation',
-    color: '#1e6891',
-  },
-  deploiement: {
-    title: 'Déploiement / Livraison',
-    desc:  "Assure le déploiement des solutions livrées, la mise en production et la livraison dans les conditions contractuelles.",
-    cat:   'Réalisation',
-    color: '#1e6891',
-  },
-  rh: {
-    title: 'Gestion RH',
-    desc:  'Pilote le recrutement, la formation, la gestion des compétences et le développement des collaborateurs.',
-    cat:   'Support',
-    color: '#1b4f80',
-  },
-  infra: {
-    title: 'Infrastructure et Outils',
-    desc:  "Administre et maintient l'infrastructure IT, les outils et les environnements de travail.",
-    cat:   'Support',
-    color: '#1b4f80',
-  },
-  secu: {
-    title: 'Sécurité Information',
-    desc:  'Met en œuvre les contrôles de sécurité, la politique SSI et assure la conformité ISO 27001.',
-    cat:   'Support',
-    color: '#1b4f80',
-  },
-  fournisseurs: {
-    title: 'Gestion des fournisseurs',
-    desc:  'Sélectionne, évalue et pilote les relations avec les prestataires et fournisseurs stratégiques.',
-    cat:   'Support',
-    color: '#1b4f80',
-  },
-  changements: {
-    title: 'Gestion des changements',
-    desc:  'Contrôle et coordonne tous les changements impactant les systèmes, processus et services.',
-    cat:   'Support',
-    color: '#1b4f80',
-  },
+/* ═══════════════════════════════════════════════════════════
+   FONT AWESOME (CDN via useEffect)
+═══════════════════════════════════════════════════════════ */
+function useFontAwesome() {
+  useEffect(() => {
+    if (document.getElementById("fa-cdn")) return;
+    const link = document.createElement("link");
+    link.id = "fa-cdn";
+    link.rel = "stylesheet";
+    link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
+    document.head.appendChild(link);
+  }, []);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTES
+═══════════════════════════════════════════════════════════ */
+const DOC_TYPE_ICONS = {
+  "procédure":  "fa-solid fa-clipboard-list",
+  "instruction":"fa-solid fa-file-lines",
+  "formulaire": "fa-solid fa-file-alt",
+  "plan":       "fa-solid fa-chart-gantt",
+  "politique":  "fa-solid fa-landmark",
+  "rapport":    "fa-solid fa-chart-line",
+  "autre":      "fa-solid fa-folder",
 };
 
-/* ══ ARROW MARKER (SVG defs) ═════════════════════════════════════════════════ */
-const ARROW_COLOR = '#1a6674';
+const STATUS_CLASS = {
+  "en vigueur": "s-vigueur",
+  "en cours":   "s-cours",
+  "à réviser":  "s-reviser",
+  "obsolète":   "s-obsolete",
+};
 
-function Defs() {
+const CAT_META = {
+  mgmt:{ label:"Processus de Management",  color:"#0e6073", gradient:"linear-gradient(90deg,#0e6073,#2196a8)" },
+  real:{ label:"Processus de Réalisation", color:"#1a4f72", gradient:"linear-gradient(90deg,#1a4f72,#5dade2)" },
+  supp:{ label:"Processus de Support",     color:"#2471a3", gradient:"linear-gradient(90deg,#2471a3,#5dade2)" },
+};
+
+const INITIAL_PROCESSES = [
+  { id:"p1",  cat:"mgmt", name:"Gouvernance et pilotage du SMSI",          owner:"Direction",            desc:"Pilotage stratégique du SMQ/SMSI, définition de la politique qualité, revue de direction et objectifs.", docs:[] },
+  { id:"p2",  cat:"mgmt", name:"Gestion des risques et plan de traitement", owner:"Responsable Qualité",  desc:"Identification, évaluation et traitement des risques organisationnels et sécurité.", docs:[] },
+  { id:"p3",  cat:"real", name:"Commercial / Prospection",                  owner:"Directeur Commercial", desc:"Développement commercial, gestion des offres et de la relation client.", docs:[] },
+  { id:"p4",  cat:"real", name:"Réalisation / Développement applicatif",    owner:"Lead Developer",       desc:"Conception, développement, intégration et tests des solutions applicatives.", docs:[] },
+  { id:"p5",  cat:"real", name:"Déploiement / Livraison",                   owner:"Responsable Technique",desc:"Déploiement, mise en production et transfert de compétences chez les clients.", docs:[] },
+  { id:"p6",  cat:"supp", name:"Gestion RH",                                owner:"DRH",                  desc:"Recrutement, formation, évaluation et développement des compétences.", docs:[] },
+  { id:"p7",  cat:"supp", name:"Infrastructure et Outils",                  owner:"DSI",                  desc:"Gestion et maintenance de l'infrastructure IT interne et des outils.", docs:[] },
+  { id:"p8",  cat:"supp", name:"Sécurité de l'Information",                 owner:"RSSI",                 desc:"Mise en oeuvre des mesures de sécurité, conformité et gestion des incidents.", docs:[] },
+  { id:"p9",  cat:"supp", name:"Gestion des fournisseurs",                  owner:"Responsable Achats",   desc:"Sélection, évaluation et suivi des prestataires et fournisseurs.", docs:[] },
+  { id:"p10", cat:"supp", name:"Gestion des changements",                   owner:"Chef de Projet",       desc:"Contrôle, traçabilité et validation des changements sur les systèmes.", docs:[] },
+];
+
+const EMPTY_PROC = { cat:"mgmt", name:"", owner:"", desc:"" };
+const EMPTY_DOC  = { name:"", type:"procédure", ref:"", status:"en vigueur" };
+
+function useProcesses() {
+  const [procs, setProcs] = useState(() => {
+    try { const s = localStorage.getItem("smq_v7"); return s ? JSON.parse(s) : INITIAL_PROCESSES; }
+    catch { return INITIAL_PROCESSES; }
+  });
+  const save = useCallback((next) => { setProcs(next); localStorage.setItem("smq_v7", JSON.stringify(next)); }, []);
+  return [procs, save];
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPOSANT PRINCIPAL
+═══════════════════════════════════════════════════════════ */
+export default function CartographieProcessus() {
+  useFontAwesome();
+  const [procs, saveProcs]        = useProcesses();
+  const [activeId,  setActiveId]  = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [procModal, setProcModal] = useState({ open:false, editId:null, form:EMPTY_PROC });
+  const [docModal,  setDocModal]  = useState({ open:false, form:EMPTY_DOC });
+  const [mounted,   setMounted]   = useState(false);
+
+  useEffect(() => { setTimeout(() => setMounted(true), 60); }, []);
+  useEffect(() => {
+    const fn = (e) => {
+      if (e.key !== "Escape") return;
+      if (procModal.open) setProcModal(m => ({ ...m, open:false }));
+      else if (docModal.open) setDocModal(m => ({ ...m, open:false }));
+      else { setPanelOpen(false); setTimeout(() => setActiveId(null), 350); }
+    };
+    document.addEventListener("keydown", fn);
+    return () => document.removeEventListener("keydown", fn);
+  }, [procModal.open, docModal.open]);
+
+  const selectProc = (id) => { setActiveId(id); setPanelOpen(true); };
+  const closePanel = ()    => { setPanelOpen(false); setTimeout(() => setActiveId(null), 350); };
+  const openAddProc  = (cat) => setProcModal({ open:true, editId:null, form:{ ...EMPTY_PROC, cat } });
+  const openEditProc = (id) => {
+    const p = procs.find(x => x.id === id);
+    if (p) setProcModal({ open:true, editId:id, form:{ cat:p.cat, name:p.name, owner:p.owner, desc:p.desc } });
+  };
+  const saveProc = () => {
+    const { editId, form } = procModal;
+    if (!form.name.trim()) return;
+    if (editId) saveProcs(procs.map(p => p.id === editId ? { ...p, ...form } : p));
+    else        saveProcs([...procs, { id:"p"+Date.now(), ...form, docs:[] }]);
+    setProcModal({ open:false, editId:null, form:EMPTY_PROC });
+  };
+  const deleteProc = (id) => {
+    if (!window.confirm("Supprimer ce processus et tous ses documents ?")) return;
+    saveProcs(procs.filter(p => p.id !== id));
+    if (activeId === id) closePanel();
+  };
+  const saveDoc = () => {
+    const { form } = docModal;
+    if (!form.name.trim()) return;
+    saveProcs(procs.map(p => p.id === activeId ? { ...p, docs:[...p.docs,{ id:"d"+Date.now(),...form }] } : p));
+    setDocModal({ open:false, form:EMPTY_DOC });
+  };
+  const deleteDoc = (pid, did) =>
+    saveProcs(procs.map(p => p.id === pid ? { ...p, docs:p.docs.filter(d => d.id !== did) } : p));
+
+  const activeProc = procs.find(p => p.id === activeId) || null;
+
   return (
-    <defs>
-      <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M2 1L8 5L2 9" fill="none" stroke={ARROW_COLOR} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </marker>
-    </defs>
+    <>
+      <style>{CSS}</style>
+      <div className={`cx-root ${mounted?"cx-in":""}`}>
+
+        {/* BACKGROUND blobs */}
+        <div className="cx-blob cx-b1"/><div className="cx-blob cx-b2"/><div className="cx-blob cx-b3"/>
+
+        {/* HERO */}
+        <div className="cx-hero">
+          <div className="cx-badge">
+            <span className="cx-dot"/>ISO 27001 · Système de Management
+          </div>
+          <h1 className="cx-h1">
+            Cartographie<br/>
+            <span className="cx-h1-grad">des Processus</span>
+          </h1>
+          <p className="cx-lead">Visualisez et gérez l'ensemble de vos processus qualité et sécurité</p>
+        </div>
+
+        {/* FLOW */}
+        <div className="cx-flow">
+          <div className="cx-flow-wrapper">
+
+            {/* Side gauche */}
+            <div className="cx-side cx-side-l">
+              <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
+              <span>Exigences des clients et autres parties intéressées</span>
+            </div>
+
+            {/* Layers */}
+            <div className="cx-flow-center">
+              {["mgmt","real","supp"].map((cat, li) => {
+                const items  = procs.filter(p => p.cat === cat);
+                const isReal = cat === "real";
+                const ICONS  = {
+                  mgmt: "fa-solid fa-building-columns",
+                  real: "fa-solid fa-bolt",
+                  supp: "fa-solid fa-screwdriver-wrench",
+                };
+                const TITLES = {
+                  mgmt: "Processus de Management",
+                  real: "Processus de Réalisation",
+                  supp: "Processus de Support",
+                };
+                return (
+                  <div key={cat}>
+                    <div className={`cx-layer cx-layer-${cat}`} style={{ animationDelay:`${0.15+li*0.15}s` }}>
+                      <div className="cx-layer-hd">
+                        <div className={`cx-layer-ico cx-ico-${cat}`}>
+                          <i className={ICONS[cat]}/>
+                        </div>
+                        <div className={`cx-layer-title cx-title-${cat}`}>{TITLES[cat]}</div>
+                        <span className={`cx-layer-cnt cx-cnt-${cat}`}>{items.length} processus</span>
+                        <button className={`cx-add-proc cx-add-${cat}`} onClick={() => openAddProc(cat)}>
+                          <i className="fa-solid fa-plus"/> Ajouter
+                        </button>
+                      </div>
+                      <div className="cx-proc-row">
+                        {items.map((p, ci) => (
+                          <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
+                            {isReal && ci > 0 && (
+                              <div className="cx-flow-arr">
+                                <i className="fa-solid fa-chevron-right"/>
+                              </div>
+                            )}
+                            <ProcCard
+                              proc={p} cat={cat}
+                              isActive={activeId === p.id}
+                              onClick={() => selectProc(p.id)}
+                              onEdit={() => openEditProc(p.id)}
+                              onDelete={() => deleteProc(p.id)}
+                            />
+                          </div>
+                        ))}
+                        {items.length === 0 && (
+                          <div className={`cx-empty-row cx-empty-${cat}`}>
+                            <i className="fa-regular fa-circle-dashed" style={{marginRight:6}}/>
+                            Aucun processus — cliquez sur Ajouter
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {li < 2 && (
+                      <div className="cx-connector">
+                        <div className="cx-conn-line"/>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Side droite */}
+            <div className="cx-side cx-side-r">
+              <span>Satisfaction clients et autres parties intéressées</span>
+              <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="cx-legend">
+          {[
+            ["#0ea5e9","Management",   "fa-solid fa-building-columns"],
+            ["#8b5cf6","Réalisation",  "fa-solid fa-bolt"],
+            ["#10b981","Support",      "fa-solid fa-screwdriver-wrench"],
+          ].map(([c,l,ico]) => (
+            <div key={l} className="cx-leg-item">
+              <i className={ico} style={{ color:c, fontSize:13 }}/>
+              <span style={{ color:c }}>{l}</span>
+            </div>
+          ))}
+          <span className="cx-leg-hint">
+            <i className="fa-solid fa-hand-pointer" style={{marginRight:5}}/>
+            Cliquez sur un processus pour gérer ses documents
+          </span>
+        </div>
+
+      </div>
+
+      {/* PANNEAU DÉTAIL */}
+      <div className={`cx-panel ${panelOpen?"cx-panel-open":""}`}>
+        {activeProc && (() => {
+          const meta = CAT_META[activeProc.cat];
+          const CAT_ICONS = {
+            mgmt: "fa-solid fa-building-columns",
+            real: "fa-solid fa-bolt",
+            supp: "fa-solid fa-screwdriver-wrench",
+          };
+          return (
+            <>
+              <div className="cx-ph">
+                <div className="cx-ph-strip" style={{ background:meta.gradient }}/>
+                <div className="cx-ph-cat" style={{ color:meta.color }}>
+                  <i className={`${CAT_ICONS[activeProc.cat]} cx-ph-cat-ico`}/>
+                  {meta.label}
+                </div>
+                <div className="cx-ph-title">{activeProc.name}</div>
+                <div className="cx-ph-owner">
+                  <i className="fa-solid fa-user-tie" style={{ color:meta.color }}/>
+                  <span style={{ color:meta.color }}>{activeProc.owner}</span>
+                </div>
+                <button className="cx-ph-close" onClick={closePanel}>
+                  <i className="fa-solid fa-xmark"/>
+                </button>
+              </div>
+              <div className="cx-pb">
+                <div className="cx-pb-desc">
+                  <i className="fa-solid fa-circle-info cx-desc-ico"/>
+                  {activeProc.desc || "Aucune description."}
+                </div>
+                <div className="cx-pb-sh">
+                  <span className="cx-pb-stit">
+                    <i className="fa-solid fa-file-invoice cx-sh-ico"/>
+                    Documents associés
+                  </span>
+                  <span className="cx-pb-cnt" style={{ color:meta.color }}>
+                    {activeProc.docs.length} doc{activeProc.docs.length!==1?"s":""}
+                  </span>
+                </div>
+                <div className="cx-doc-list">
+                  {activeProc.docs.length === 0
+                    ? (
+                      <div className="cx-no-doc">
+                        <i className="fa-regular fa-folder-open cx-no-doc-ico"/>
+                        <br/>Aucun document — ajoutez-en un ci-dessous
+                      </div>
+                    )
+                    : activeProc.docs.map(d => (
+                      <div key={d.id} className="cx-doc-item">
+                        <i className={`${DOC_TYPE_ICONS[d.type]||"fa-solid fa-folder"} cx-doc-type-ico`}/>
+                        <div className="cx-doc-info">
+                          <div className="cx-doc-nm">{d.name}</div>
+                          <div className="cx-doc-mt">{d.ref||"—"} · {d.type}</div>
+                        </div>
+                        <div className={`cx-doc-st ${STATUS_CLASS[d.status]||""}`}>{d.status}</div>
+                        <button className="cx-del-btn" onClick={() => deleteDoc(activeProc.id, d.id)} title="Supprimer">
+                          <i className="fa-solid fa-trash-can"/>
+                        </button>
+                      </div>
+                    ))
+                  }
+                </div>
+                <button
+                  className="cx-add-doc-btn"
+                  style={{ "--ac":meta.color }}
+                  onClick={() => setDocModal({ open:true, form:EMPTY_DOC })}
+                >
+                  <i className="fa-solid fa-circle-plus"/> Ajouter un document
+                </button>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* MODAL PROCESSUS */}
+      {procModal.open && (
+        <div className="cx-overlay" onClick={e => { if(e.target.classList.contains("cx-overlay")) setProcModal(m=>({...m,open:false})); }}>
+          <div className="cx-modal">
+            <h3>
+              <i className={procModal.editId ? "fa-solid fa-pen-to-square" : "fa-solid fa-plus-circle"} style={{marginRight:9}}/>
+              {procModal.editId ? "Modifier le processus" : "Ajouter un processus"}
+            </h3>
+            <Fg label="Catégorie" icon="fa-solid fa-layer-group">
+              <select value={procModal.form.cat} onChange={e=>setProcModal(m=>({...m,form:{...m.form,cat:e.target.value}}))}>
+                <option value="mgmt">Management</option>
+                <option value="real">Réalisation</option>
+                <option value="supp">Support</option>
+              </select>
+            </Fg>
+            <Fg label="Nom du processus" icon="fa-solid fa-tag">
+              <input autoFocus placeholder="Ex: Gestion des audits internes" value={procModal.form.name} onChange={e=>setProcModal(m=>({...m,form:{...m.form,name:e.target.value}}))}/>
+            </Fg>
+            <Fg label="Responsable" icon="fa-solid fa-user-tie">
+              <input placeholder="Ex: Responsable Qualité" value={procModal.form.owner} onChange={e=>setProcModal(m=>({...m,form:{...m.form,owner:e.target.value}}))}/>
+            </Fg>
+            <Fg label="Description" icon="fa-solid fa-align-left">
+              <textarea placeholder="Brève description..." value={procModal.form.desc} onChange={e=>setProcModal(m=>({...m,form:{...m.form,desc:e.target.value}}))}/>
+            </Fg>
+            <div className="cx-modal-ft">
+              <button className="cx-btn-cancel" onClick={()=>setProcModal(m=>({...m,open:false}))}>
+                <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
+              </button>
+              <button className="cx-btn-save" style={{ background:CAT_META[procModal.form.cat].gradient }} onClick={saveProc}>
+                <i className="fa-solid fa-check" style={{marginRight:6}}/>{procModal.editId?"Modifier":"Ajouter"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DOCUMENT */}
+      {docModal.open && (
+        <div className="cx-overlay" onClick={e => { if(e.target.classList.contains("cx-overlay")) setDocModal(m=>({...m,open:false})); }}>
+          <div className="cx-modal">
+            <h3>
+              <i className="fa-solid fa-file-circle-plus" style={{marginRight:9}}/>
+              Ajouter un document
+            </h3>
+            <Fg label="Nom du document" icon="fa-solid fa-file-signature">
+              <input autoFocus placeholder="Ex: Procédure de non-conformités" value={docModal.form.name} onChange={e=>setDocModal(m=>({...m,form:{...m.form,name:e.target.value}}))}/>
+            </Fg>
+            <Fg label="Type" icon="fa-solid fa-shapes">
+              <select value={docModal.form.type} onChange={e=>setDocModal(m=>({...m,form:{...m.form,type:e.target.value}}))}>
+                <option value="procédure">Procédure</option>
+                <option value="instruction">Instruction de travail</option>
+                <option value="formulaire">Formulaire / Enregistrement</option>
+                <option value="plan">Plan / Programme</option>
+                <option value="politique">Politique</option>
+                <option value="rapport">Rapport</option>
+                <option value="autre">Autre</option>
+              </select>
+            </Fg>
+            <Fg label="Référence" icon="fa-solid fa-hashtag">
+              <input placeholder="Ex: PROC-QUA-001" value={docModal.form.ref} onChange={e=>setDocModal(m=>({...m,form:{...m.form,ref:e.target.value}}))}/>
+            </Fg>
+            <Fg label="Statut" icon="fa-solid fa-circle-check">
+              <select value={docModal.form.status} onChange={e=>setDocModal(m=>({...m,form:{...m.form,status:e.target.value}}))}>
+                <option value="en vigueur">En vigueur</option>
+                <option value="en cours">En cours de rédaction</option>
+                <option value="à réviser">À réviser</option>
+                <option value="obsolète">Obsolète</option>
+              </select>
+            </Fg>
+            <div className="cx-modal-ft">
+              <button className="cx-btn-cancel" onClick={()=>setDocModal(m=>({...m,open:false}))}>
+                <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
+              </button>
+              <button className="cx-btn-save" onClick={saveDoc}>
+                <i className="fa-solid fa-check" style={{marginRight:6}}/>Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-/* ══ MODAL ═══════════════════════════════════════════════════════════════════ */
-function Modal({ proc, onClose }) {
-  if (!proc) return null;
+/* ═══════════════════════════════════════════════════════════
+   SOUS-COMPOSANTS
+═══════════════════════════════════════════════════════════ */
+function ProcCard({ proc, cat, isActive, onClick, onEdit, onDelete }) {
+  const CAT_ICONS = {
+    mgmt: "fa-solid fa-building-columns",
+    real: "fa-solid fa-bolt",
+    supp: "fa-solid fa-screwdriver-wrench",
+  };
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 99,
-        background: 'rgba(0,0,0,0.42)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#ffffff', borderRadius: 16,
-          padding: '1.5rem 2rem', maxWidth: 420, width: '90%',
-          border: '0.5px solid #e2e8f0',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 12 }}>
-          <div style={{ width: 4, height: 40, borderRadius: 2, background: proc.color, flexShrink: 0, marginRight: 14, marginTop: 2 }} />
-          <p style={{ fontSize: 15, fontWeight: 500, margin: 0, flex: 1, lineHeight: 1.4, color: '#0f172a' }}>{proc.title}</p>
-          <button onClick={onClose} style={{ marginLeft: 12, fontSize: 20, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>×</button>
+    <div className={`cx-card cx-card-${cat} ${isActive?"cx-card-on":""}`} onClick={onClick}>
+      <div className="cx-card-acts">
+        <button className="cx-act cx-act-e" title="Modifier" onClick={e=>{e.stopPropagation();onEdit();}}>
+          <i className="fa-solid fa-pen"/>
+        </button>
+        <button className="cx-act cx-act-d" title="Supprimer" onClick={e=>{e.stopPropagation();onDelete();}}>
+          <i className="fa-solid fa-trash-can"/>
+        </button>
+      </div>
+      <div className="cx-card-num">
+        <i className={`${CAT_ICONS[cat]} cx-card-cat-ico`}/>{proc.id.toUpperCase()}
+      </div>
+      <div className="cx-card-nm">{proc.name}</div>
+      <div className="cx-card-ft">
+        <div className="cx-card-own">
+          <i className="fa-solid fa-user cx-own-ico"/> {proc.owner}
         </div>
-        <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 10px 18px', lineHeight: 1.6 }}>{proc.desc}</p>
-        <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 0 18px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Catégorie : {proc.cat}
-        </p>
+        <div className={`cx-card-bdg cx-bdg-${cat}`}>
+          <i className="fa-solid fa-file cx-bdg-ico"/> {proc.docs.length}
+        </div>
       </div>
     </div>
   );
 }
 
-/* ══ MAIN ════════════════════════════════════════════════════════════════════ */
-export default function CartographieProcessus() {
-  const [sel, setSel] = useState(null);
-
-  const open = (key) => setSel(PROCESSES[key]);
-  const close = () => setSel(null);
-
-  /* SVG layout constants */
-  const VW = 680;
-  const A = ARROW_COLOR;
-
-  /* Inner box text style */
-  const T = { fontFamily: 'ui-sans-serif,system-ui,sans-serif', fontSize: 11, fontWeight: 600 };
-
+function Fg({ label, icon, children }) {
   return (
-    <div style={{
-      height: '100vh', width: '100vw',
-      background: '#f0f6fb',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: '1.5rem 2.5rem',
-      boxSizing: 'border-box',
-      overflow: 'hidden',
-      fontFamily: 'ui-sans-serif,system-ui,sans-serif',
-    }}>
-      <Modal proc={sel} onClose={close} />
-
-      {/* Title */}
-      <p style={{ fontSize: 20, fontWeight: 600, color: '#1a5f72', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '1rem', flexShrink: 0 }}>
-        Cartographie des processus
-      </p>
-
-      {/* SVG — fills all remaining height */}
-      <svg
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${VW} 620`}
-        preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block', flex: 1, minHeight: 0 }}
-      >
-        <Defs />
-
-        {/* ══ TOIT ══════════════════════════════════════════════════════════ */}
-        <polygon points="340,16 556,120 124,120" fill="#1a5f72" />
-        <text x="340" y="82" textAnchor="middle" fill="#d1eff8" dominantBaseline="central" style={{ ...T, fontSize: 15 }}>
-          Processus de management
-        </text>
-
-        {/* ══ PANNEAU MANAGEMENT ════════════════════════════════════════════ */}
-        <rect x="124" y="120" width="432" height="110" fill="#c8e6f0" stroke="#93c5da" strokeWidth="0.5" />
-
-        {/* Boîte Gouvernance */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('gouvernance')}>
-          <rect x="156" y="140" width="170" height="70" rx="6" fill="#1a5f72" />
-          <text x="241" y="168" textAnchor="middle" fill="#d1eff8" dominantBaseline="central" style={T}>Gouvernance et</text>
-          <text x="241" y="184" textAnchor="middle" fill="#d1eff8" dominantBaseline="central" style={T}>pilotage du SMSI</text>
-        </g>
-
-        {/* Flèche entre les 2 boîtes management */}
-        <line x1="326" y1="175" x2="354" y2="175" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* Boîte Gestion des risques */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('risques')}>
-          <rect x="354" y="140" width="170" height="70" rx="6" fill="#1a5f72" />
-          <text x="439" y="164" textAnchor="middle" fill="#d1eff8" dominantBaseline="central" style={T}>Gestion des risques</text>
-          <text x="439" y="180" textAnchor="middle" fill="#d1eff8" dominantBaseline="central" style={T}>et plan de traitement</text>
-        </g>
-
-        {/* ══ LIGNES FEEDBACK VERTICALES (haut) ════════════════════════════ */}
-        <line x1="64" y1="175" x2="64" y2="330" stroke={A} strokeWidth="1.5" />
-        <line x1="616" y1="175" x2="616" y2="330" stroke={A} strokeWidth="1.5" />
-
-        {/* Flèches horizontales management ↔ lignes feedback */}
-        <line x1="64" y1="175" x2="154" y2="175" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-        <line x1="526" y1="175" x2="616" y2="175" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* Flèche ↓ management → réalisation */}
-        <line x1="340" y1="230" x2="340" y2="265" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* ══ BOÎTE BESOINS (gauche) ════════════════════════════════════════ */}
-        <rect x="14" y="268" width="94" height="70" rx="8" fill="#2563a8" stroke="#1e4f8c" strokeWidth="0.5" />
-        <text x="61" y="289" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>Besoins attentes</text>
-        <text x="61" y="303" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>parties</text>
-        <text x="61" y="317" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>intéressées</text>
-
-        {/* Flèche ligne gauche ↔ boîte Besoins */}
-        <line x1="64" y1="303" x2="14" y2="303" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" markerStart="url(#arr)" />
-        {/* Flèche Besoins → réalisation */}
-        <line x1="108" y1="303" x2="124" y2="303" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* ══ BOÎTE SATISFACTION (droite) ══════════════════════════════════ */}
-        <rect x="572" y="268" width="94" height="70" rx="8" fill="#2563a8" stroke="#1e4f8c" strokeWidth="0.5" />
-        <text x="619" y="289" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>Satisfaction des</text>
-        <text x="619" y="303" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>parties</text>
-        <text x="619" y="317" textAnchor="middle" fill="#dbeeff" dominantBaseline="central" style={{ ...T, fontSize: 11 }}>intéressées</text>
-
-        {/* Flèche réalisation → boîte Satisfaction */}
-        <line x1="556" y1="303" x2="572" y2="303" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-        {/* Flèche boîte Satisfaction → ligne droite */}
-        <line x1="666" y1="303" x2="616" y2="303" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* Flèches feedback remontant ↑ vers management */}
-        <line x1="64" y1="268" x2="64" y2="180" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-        <line x1="616" y1="268" x2="616" y2="180" stroke={A} strokeWidth="1.5" markerEnd="url(#arr)" />
-
-        {/* ══ PANNEAU RÉALISATION ════════════════════════════════════════════ */}
-        <rect x="124" y="265" width="432" height="130" fill="#cce2f0" stroke="#93c5da" strokeWidth="0.5" />
-        <text x="340" y="285" textAnchor="middle" fill="#0d3d5c" dominantBaseline="central" style={{ ...T, fontSize: 13 }}>
-          Processus de réalisation
-        </text>
-
-        {/* Commercial */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('commercial')}>
-          <rect x="144" y="298" width="116" height="72" rx="6" fill="#1e6891" />
-          <text x="202" y="326" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Commercial /</text>
-          <text x="202" y="342" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Prospection</text>
-        </g>
-
-        {/* Développement */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('developpement')}>
-          <rect x="282" y="298" width="116" height="72" rx="6" fill="#1e6891" />
-          <text x="340" y="322" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Réalisation /</text>
-          <text x="340" y="338" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Développement</text>
-          <text x="340" y="354" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>applicatif</text>
-        </g>
-
-        {/* Déploiement */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('deploiement')}>
-          <rect x="420" y="298" width="116" height="72" rx="6" fill="#1e6891" />
-          <text x="478" y="326" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Déploiement /</text>
-          <text x="478" y="342" textAnchor="middle" fill="#d0eaf9" dominantBaseline="central" style={T}>Livraison</text>
-        </g>
-
-        {/* ══ 5 FLÈCHES ↑ support → réalisation ════════════════════════════ */}
-        {[188, 249, 340, 431, 492].map(x => (
-          <line key={x} x1={x} y1="440" x2={x} y2="397" stroke={A} strokeWidth="1.8" markerEnd="url(#arr)" />
-        ))}
-
-        {/* ══ PANNEAU SUPPORT ════════════════════════════════════════════════ */}
-        <rect x="124" y="440" width="432" height="148" fill="#c9def5" stroke="#93b8da" strokeWidth="0.5" />
-        <text x="340" y="462" textAnchor="middle" fill="#0d3155" dominantBaseline="central" style={{ ...T, fontSize: 13 }}>
-          Processus de support
-        </text>
-
-        {/* Gestion RH */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('rh')}>
-          <rect x="136" y="476" width="72" height="92" rx="6" fill="#1b4f80" />
-          <text x="172" y="510" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Gestion</text>
-          <text x="172" y="526" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>RH</text>
-        </g>
-
-        {/* Infrastructure */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('infra')}>
-          <rect x="220" y="476" width="72" height="92" rx="6" fill="#1b4f80" />
-          <text x="256" y="506" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Infrastructure</text>
-          <text x="256" y="522" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>et Outils</text>
-        </g>
-
-        {/* Sécurité */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('secu')}>
-          <rect x="304" y="476" width="72" height="92" rx="6" fill="#1b4f80" />
-          <text x="340" y="506" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Sécurité</text>
-          <text x="340" y="522" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Information</text>
-        </g>
-
-        {/* Fournisseurs */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('fournisseurs')}>
-          <rect x="388" y="476" width="72" height="92" rx="6" fill="#1b4f80" />
-          <text x="424" y="506" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Gestion des</text>
-          <text x="424" y="522" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>fournisseurs</text>
-        </g>
-
-        {/* Changements */}
-        <g style={{ cursor: 'pointer' }} onClick={() => open('changements')}>
-          <rect x="472" y="476" width="72" height="92" rx="6" fill="#1b4f80" />
-          <text x="508" y="506" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>Gestion des</text>
-          <text x="508" y="522" textAnchor="middle" fill="#cddff5" dominantBaseline="central" style={T}>changements</text>
-        </g>
-
-      </svg>
+    <div className="cx-fg">
+      <label className="cx-flbl">
+        {icon && <i className={`${icon} cx-flbl-ico`}/>}
+        {label}
+      </label>
+      {children}
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════
+   CSS
+═══════════════════════════════════════════════════════════ */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.cx-root {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #f0f7fb;
+  color: #0d2b3e;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ── BLOBS ── */
+.cx-blob {
+  position: fixed; border-radius: 50%;
+  filter: blur(80px); pointer-events: none; z-index: 0;
+  opacity: 0; transition: opacity 1.2s ease;
+}
+.cx-in .cx-blob { opacity: 1; }
+.cx-b1 { width:520px;height:520px;top:-130px;left:-80px;  background:radial-gradient(ellipse,rgba(14,165,233,0.13),transparent 70%); }
+.cx-b2 { width:440px;height:440px;top:35%;right:-100px;   background:radial-gradient(ellipse,rgba(139,92,246,0.09),transparent 70%); }
+.cx-b3 { width:380px;height:380px;bottom:-80px;left:32%;  background:radial-gradient(ellipse,rgba(16,185,129,0.09),transparent 70%); }
+
+/* ══════════════════════════════
+   HERO
+══════════════════════════════ */
+.cx-hero {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 60px 48px 48px;
+  opacity: 0; transform: translateY(22px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.cx-in .cx-hero { opacity: 1; transform: none; }
+
+.cx-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
+  color: #0ea5e9; background: #e0f2fe; border: 1px solid #bae6fd;
+  padding: 6px 16px; border-radius: 99px; margin-bottom: 24px;
+}
+.cx-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.25);
+  animation: cxBlink 2s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes cxBlink { 0%,100%{box-shadow:0 0 0 3px rgba(14,165,233,0.25)} 50%{box-shadow:0 0 0 7px rgba(14,165,233,0.1)} }
+
+.cx-h1 {
+  font-size: clamp(36px, 5vw, 62px);
+  font-weight: 800; letter-spacing: -.045em;
+  color: #0d2b3e; line-height: 1.05; margin-bottom: 14px;
+}
+.cx-h1-grad {
+  background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 50%, #10b981 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.cx-lead { font-size: 15px; color: #4a7a95; max-width: 500px; margin: 0 auto 40px; line-height: 1.65; }
+
+/* ══════════════════════════════
+   FLOW
+══════════════════════════════ */
+.cx-flow {
+  position: relative; z-index: 10;
+  padding: 0 40px 48px;
+  max-width: 1440px; margin: 0 auto;
+}
+.cx-flow-wrapper {
+  display: grid;
+  grid-template-columns: 96px 1fr 96px;
+  align-items: center;
+}
+.cx-flow-center { display: flex; flex-direction: column; gap: 0; padding: 0 12px; }
+
+/* Side labels */
+.cx-side {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(180deg, #0ea5e9, #8b5cf6, #10b981);
+  border-radius: 14px;
+  padding: 28px 10px;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(14,165,233,0.22);
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: 300px;
+  font-family: 'Outfit', sans-serif;
+}
+.cx-side-l { transform: rotate(180deg); }
+.cx-side-arrow-icon { font-size: 13px; opacity: .75; }
+
+/* LAYERS */
+.cx-layer {
+  border-radius: 20px;
+  padding: 22px 24px;
+  margin: 6px 0;
+  border: 1.5px solid transparent;
+  opacity: 0; transform: translateY(18px);
+  animation: cxUp .55s ease forwards;
+  box-shadow: 0 2px 16px rgba(13,43,62,0.06);
+}
+.cx-layer-mgmt { background: rgba(14,165,233,0.08);  border-color: rgba(14,165,233,0.3); }
+.cx-layer-real  { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.3); }
+.cx-layer-supp  { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); }
+@keyframes cxUp { to { opacity:1; transform:none; } }
+
+.cx-layer-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+
+.cx-layer-ico {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; color: #fff;
+  box-shadow: 0 2px 8px rgba(13,43,62,0.12);
+}
+.cx-ico-mgmt { background: #0ea5e9; }
+.cx-ico-real  { background: #8b5cf6; }
+.cx-ico-supp  { background: #10b981; }
+
+.cx-layer-title { font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif; }
+.cx-title-mgmt { color: #0284c7; }
+.cx-title-real  { color: #7c3aed; }
+.cx-title-supp  { color: #059669; }
+
+.cx-layer-cnt {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 500;
+  padding: 3px 10px; border-radius: 20px;
+}
+.cx-cnt-mgmt { background: rgba(14,165,233,0.12); color: #0284c7; border: 1px solid rgba(14,165,233,0.25); }
+.cx-cnt-real  { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.25); }
+.cx-cnt-supp  { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.25); }
+
+/* Add proc button */
+.cx-add-proc {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 9px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+  border: 1.5px solid transparent;
+}
+.cx-add-mgmt { background: rgba(14,165,233,0.1); color: #0284c7; border-color: rgba(14,165,233,0.3); }
+.cx-add-mgmt:hover { background: #0ea5e9; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(14,165,233,0.35); }
+.cx-add-real  { background: rgba(139,92,246,0.1); color: #7c3aed; border-color: rgba(139,92,246,0.3); }
+.cx-add-real:hover  { background: #8b5cf6; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,0.35); }
+.cx-add-supp  { background: rgba(16,185,129,0.1); color: #059669; border-color: rgba(16,185,129,0.3); }
+.cx-add-supp:hover  { background: #10b981; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.35); }
+
+/* Process row */
+.cx-proc-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.cx-flow-arr { color: #5dade2; font-size: 16px; flex-shrink: 0; opacity: .7; }
+.cx-empty-row {
+  font-size: 12px; padding: 14px; border-radius: 10px;
+  width: 100%; text-align: center; border: 1.5px dashed; opacity: .6;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.cx-empty-mgmt { color: #0284c7; border-color: rgba(14,165,233,0.3); }
+.cx-empty-real  { color: #7c3aed; border-color: rgba(139,92,246,0.3); }
+.cx-empty-supp  { color: #059669; border-color: rgba(16,185,129,0.3); }
+
+/* ── PROC CARDS ── */
+.cx-card {
+  flex: 1; min-width: 140px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: all .22s cubic-bezier(.34,1.56,.64,1);
+}
+.cx-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; border-radius: 14px 14px 0 0;
+}
+.cx-card-mgmt { border: 1.5px solid rgba(14,165,233,0.25); box-shadow: 0 2px 10px rgba(14,165,233,0.08); }
+.cx-card-real  { border: 1.5px solid rgba(139,92,246,0.25); box-shadow: 0 2px 10px rgba(139,92,246,0.08); }
+.cx-card-supp  { border: 1.5px solid rgba(16,185,129,0.25); box-shadow: 0 2px 10px rgba(16,185,129,0.08); }
+.cx-card-mgmt::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+.cx-card-real::before  { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.cx-card-supp::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+
+.cx-card:hover { transform: translateY(-4px); }
+.cx-card-mgmt:hover { border-color: #0ea5e9; box-shadow: 0 8px 28px rgba(14,165,233,0.18); }
+.cx-card-real:hover  { border-color: #8b5cf6; box-shadow: 0 8px 28px rgba(139,92,246,0.18); }
+.cx-card-supp:hover  { border-color: #10b981; box-shadow: 0 8px 28px rgba(16,185,129,0.18); }
+
+.cx-card-on { transform: translateY(-2px) !important; }
+.cx-card-mgmt.cx-card-on { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.15), 0 8px 24px rgba(14,165,233,0.18) !important; }
+.cx-card-real.cx-card-on  { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.15), 0 8px 24px rgba(139,92,246,0.18) !important; }
+.cx-card-supp.cx-card-on  { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15), 0 8px 24px rgba(16,185,129,0.18) !important; }
+
+.cx-card-acts { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.cx-card:hover .cx-card-acts { opacity: 1; }
+.cx-act {
+  width: 24px; height: 24px; border-radius: 6px;
+  border: 1px solid transparent; background: rgba(255,255,255,.85);
+  font-size: 11px; cursor: pointer; transition: all .12s; color: #4a7a95;
+  display: flex; align-items: center; justify-content: center;
+}
+.cx-act-e:hover { background: #eaf4fb; border-color: #0e6073; color: #0e6073; }
+.cx-act-d:hover { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; }
+
+.cx-card-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: #8fb8cc;
+  margin-bottom: 6px; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 5px;
+}
+.cx-card-cat-ico { font-size: 9px; }
+.cx-card-nm  { font-size: 13px; font-weight: 600; color: #0d2b3e; line-height: 1.35; margin-bottom: 10px; }
+.cx-card-ft  { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cx-card-own {
+  font-size: 10px; color: #4a7a95;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 4px;
+}
+.cx-own-ico { font-size: 9px; opacity: .7; }
+.cx-card-bdg {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; padding: 2px 8px; border-radius: 6px;
+  font-weight: 500; flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px;
+}
+.cx-bdg-ico { font-size: 9px; }
+.cx-bdg-mgmt { background: rgba(14,165,233,0.1); color: #0284c7; }
+.cx-bdg-real  { background: rgba(139,92,246,0.1); color: #7c3aed; }
+.cx-bdg-supp  { background: rgba(16,185,129,0.1); color: #059669; }
+
+/* Connector */
+.cx-connector { display: flex; align-items: center; justify-content: center; height: 26px; position: relative; }
+.cx-conn-line { width: 2px; height: 100%; background: linear-gradient(to bottom, #0ea5e9, #8b5cf6, #10b981); opacity: .3; border-radius: 2px; }
+
+/* Legend */
+.cx-legend {
+  position: relative; z-index: 10;
+  display: flex; gap: 24px; justify-content: center; align-items: center;
+  padding: 0 48px 52px; flex-wrap: wrap;
+}
+.cx-leg-item { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; }
+.cx-leg-hint { font-size: 11px; color: #8fb8cc; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; }
+
+/* ══════════════════════════════
+   PANNEAU DÉTAIL
+══════════════════════════════ */
+.cx-panel {
+  position: fixed; right: -430px; top: 85px;
+  width: 410px; height: calc(100vh - 85px);
+  background: #fff;
+  border-left: 2px solid #aed6f1;
+  z-index: 50;
+  transition: right .38s cubic-bezier(.34,1.56,.64,1);
+  overflow-y: auto; display: flex; flex-direction: column;
+  box-shadow: -8px 0 40px rgba(14,96,115,0.1);
+  font-family: 'Outfit', sans-serif;
+}
+.cx-panel-open { right: 0; }
+
+.cx-ph { padding: 24px 22px 18px; border-bottom: 1px solid #d6eaf8; position: sticky; top: 0; background: #fff; z-index: 5; }
+.cx-ph-strip { height: 4px; border-radius: 4px; margin-bottom: 15px; }
+.cx-ph-cat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  margin-bottom: 7px;
+  display: flex; align-items: center; gap: 6px;
+}
+.cx-ph-cat-ico { font-size: 11px; }
+.cx-ph-title { font-size: 16px; font-weight: 700; color: #0d2b3e; padding-right: 38px; line-height: 1.35; }
+.cx-ph-owner { margin-top: 8px; font-size: 12px; color: #4a7a95; display: flex; align-items: center; gap: 6px; }
+.cx-ph-close {
+  position: absolute; top: 20px; right: 16px;
+  width: 30px; height: 30px;
+  background: #eaf4fb; border: 1px solid #aed6f1;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 13px; color: #4a7a95; transition: all .15s;
+}
+.cx-ph-close:hover { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; }
+
+.cx-pb { padding: 20px 22px; flex: 1; }
+.cx-pb-desc {
+  font-size: 13px; color: #4a7a95; line-height: 1.7;
+  padding: 13px 15px; background: #eaf4fb;
+  border: 1px solid #d6eaf8; border-radius: 10px; margin-bottom: 20px;
+  display: flex; gap: 9px; align-items: flex-start;
+}
+.cx-desc-ico { font-size: 13px; color: #0ea5e9; flex-shrink: 0; margin-top: 2px; }
+.cx-pb-sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cx-pb-stit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: #4a7a95;
+  display: flex; align-items: center; gap: 6px;
+}
+.cx-sh-ico { font-size: 11px; }
+.cx-pb-cnt { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; }
+
+.cx-doc-list { display: flex; flex-direction: column; gap: 8px; }
+.cx-no-doc {
+  text-align: center; padding: 22px; color: #8fb8cc;
+  font-size: 12px; border: 1.5px dashed #d6eaf8; border-radius: 10px;
+  line-height: 1.9;
+}
+.cx-no-doc-ico { font-size: 26px; display: block; margin-bottom: 4px; opacity: .5; }
+.cx-doc-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: #eaf4fb;
+  border: 1px solid #d6eaf8; border-radius: 10px; transition: border-color .15s;
+}
+.cx-doc-item:hover { border-color: #aed6f1; }
+.cx-doc-type-ico { font-size: 15px; color: #0e6073; flex-shrink: 0; width: 18px; text-align: center; }
+.cx-doc-info { flex: 1; min-width: 0; }
+.cx-doc-nm   { font-size: 12px; font-weight: 600; color: #0d2b3e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-doc-mt   { font-size: 10px; color: #8fb8cc; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.cx-doc-st   { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
+.s-vigueur { background: #d4edda; color: #1a7a3c; border: 1px solid #b3dfc0; }
+.s-cours   { background: #d6eaf8; color: #1a4f72; border: 1px solid #aed6f1; }
+.s-reviser { background: #fef9e7; color: #9a7d0a; border: 1px solid #f9e79f; }
+.s-obsolete{ background: #fde8e8; color: #922b21; border: 1px solid #f5b7b1; }
+.cx-del-btn {
+  background: none; border: none; cursor: pointer;
+  color: #8fb8cc; font-size: 13px; padding: 5px; border-radius: 6px;
+  transition: color .15s, background .15s; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.cx-del-btn:hover { color: #e74c3c; background: #fde8e8; }
+
+.cx-add-doc-btn {
+  width: 100%; margin-top: 12px; padding: 11px;
+  background: transparent; border: 1.5px dashed #aed6f1;
+  border-radius: 10px; color: var(--ac, #0e6073);
+  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.cx-add-doc-btn:hover { border-color: #0e6073; background: #eaf4fb; }
+
+/* ══════════════════════════════
+   MODALS
+══════════════════════════════ */
+.cx-overlay {
+  position: fixed; inset: 0;
+  background: rgba(13,43,62,0.45); backdrop-filter: blur(6px);
+  z-index: 100; display: flex; align-items: center; justify-content: center;
+}
+.cx-modal {
+  background: #fff; border: 1.5px solid #aed6f1;
+  border-radius: 20px; width: 440px; max-width: 92vw; padding: 28px;
+  box-shadow: 0 32px 80px rgba(13,43,62,0.22);
+  animation: cxPop .22s cubic-bezier(.34,1.56,.64,1);
+  font-family: 'Outfit', sans-serif;
+}
+@keyframes cxPop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:none; } }
+.cx-modal h3 {
+  font-size: 17px; font-weight: 700; color: #0e6073;
+  margin-bottom: 20px; display: flex; align-items: center;
+}
+.cx-fg { margin-bottom: 14px; }
+.cx-flbl {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: #4a7a95; margin-bottom: 6px;
+}
+.cx-flbl-ico { font-size: 10px; }
+.cx-fg input, .cx-fg select, .cx-fg textarea {
+  width: 100%; background: #eaf4fb; border: 1.5px solid #d6eaf8;
+  border-radius: 10px; padding: 9px 13px; color: #0d2b3e;
+  font-family: 'Outfit', sans-serif; font-size: 13px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.cx-fg input:focus, .cx-fg select:focus, .cx-fg textarea:focus {
+  border-color: #0e6073; box-shadow: 0 0 0 3px rgba(14,96,115,0.1); background: #fff;
+}
+.cx-fg textarea { resize: vertical; min-height: 72px; }
+.cx-modal-ft { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.cx-btn-cancel {
+  display: inline-flex; align-items: center;
+  padding: 9px 18px; background: transparent;
+  border: 1.5px solid #aed6f1; border-radius: 10px;
+  color: #4a7a95; font-family: 'Outfit', sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
+}
+.cx-btn-cancel:hover { border-color: #e74c3c; color: #e74c3c; }
+.cx-btn-save {
+  display: inline-flex; align-items: center;
+  padding: 9px 22px; border: none; border-radius: 10px; color: #fff;
+  font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  background: linear-gradient(135deg, #0e6073, #1a4f72);
+  box-shadow: 0 4px 14px rgba(14,96,115,0.3);
+}
+.cx-btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14,96,115,0.4); }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #aed6f1; border-radius: 99px; }
+`;

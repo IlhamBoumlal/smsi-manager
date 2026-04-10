@@ -2,9 +2,13 @@
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using Domain.Interfaces;
+using Infrastructure.Repositories;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -12,11 +16,13 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(options =>
+/*builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    ));
+    ));*/
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ─── IDENTITY ─────────────────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
@@ -66,9 +72,12 @@ builder.Services.AddCors(opt =>
 builder.Services.AddControllers()
     .AddJsonOptions(opt =>
     {
+        opt.JsonSerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
         opt.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        // Permet de convertir les strings en Enum automatiquement
+        opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
 // ─── MEDIATR ──────────────────────────────────────────────────────────────────
@@ -83,10 +92,11 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IActifRepository, ActifRepository>();
 builder.Services.AddScoped<IControleRepository, ControleRepository>();
 
-
+builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 // ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IClauseService, ClauseService>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();

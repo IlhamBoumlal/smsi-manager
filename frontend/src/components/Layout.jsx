@@ -5,6 +5,8 @@ import Header from "./Header";
 const PATH_TO_AXE = {
   "/":              "tableau-bord",
   "/accueil":       "tableau-bord",
+  "/cartographie":  "cartographie",
+  "/pdca":       "pdca",
   "/clauses":       "clauses",
   "/controles":     "controles",
   "/actifs":        "actifs",

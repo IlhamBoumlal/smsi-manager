@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import isoLogo from "../assets/ISO.png";
 import {
   LogIn, ChevronDown, ClipboardCheck, Database, LogOut,
@@ -10,10 +10,11 @@ import { useAuth } from "../context/AuthContext";
 const mainAxes = [
   { id: "cartographie",  label: "Cartographie",        path: "/cartographie" },
   { id: "tableau-bord",  label: "Tableau de bord",     path: "/tableau-bord" },
-  { id: "clauses",       label: "Clauses",              path: "/clauses" },
-  { id: "controles",     label: "Contrôles",            path: "/controles" },
-  { id: "documentation", label: "Documentation",        path: "/documentation" },
-  { id: "risques",       label: "Risques",              path: "/risques" },
+  { id: "pdca",          label: "PDCA",                path: "/pdca" },
+  { id: "clauses",       label: "Clauses",             path: "/clauses" },
+  { id: "controles",     label: "Contrôles",           path: "/controles" },
+  { id: "documentation", label: "Documentation",       path: "/documentation" },
+  { id: "risques",       label: "Risques",             path: "/risques" },
 ];
 
 const moreAxes = [
@@ -30,13 +31,21 @@ const adminMenuItems = [
 
 const ADMIN_EMAIL = "admin@alexsys.com";
 
-export default function Header({ activeAxe = "tableau-bord", onAxeChange }) {
+export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const userMenuRef = useRef(null);
-  const navigate    = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { user, logoutUser } = useAuth();
+
+  // Détecte automatiquement l'axe actif depuis l'URL courante
+  const allAxes = [...mainAxes, ...moreAxes];
+  const activeAxe =
+    activeAxeProp ??
+    allAxes.find((a) => a.path === location.pathname)?.id ??
+    "tableau-bord";
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
   const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
@@ -73,7 +82,7 @@ export default function Header({ activeAxe = "tableau-bord", onAxeChange }) {
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
 
-        {/* LOGO - AGrandi */}
+        {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
           onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
@@ -89,7 +98,7 @@ export default function Header({ activeAxe = "tableau-bord", onAxeChange }) {
           </div>
         </div>
 
-        {/* NAVIGATION - Plus d'espace et texte plus grand */}
+        {/* NAVIGATION */}
         <nav className="flex items-center gap-2 flex-1 justify-center">
           {mainAxes.map((axe) => (
             <NavButton
@@ -126,7 +135,7 @@ export default function Header({ activeAxe = "tableau-bord", onAxeChange }) {
           </div>
         </nav>
 
-        {/* ACTIONS / PROFIL - Éléments plus larges */}
+        {/* PROFIL */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
