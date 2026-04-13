@@ -17,6 +17,9 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
         string? Controle,
         string? Description,
         bool RemoveFile,
-        IFormFile? File
+        IFormFile? File,
+        string CurrentUserId,
+        int? CurrentSocieteId,
+        IReadOnlyCollection<string> CurrentRoles
     ) : IRequest<(bool Success, string? Error, DocumentationResponseDto? Data)>;
 }

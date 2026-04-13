@@ -15,6 +15,9 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
         string? Clause,
         string? Controle,
         string? Description,
-        IFormFile? File
+        IFormFile? File,
+        string CurrentUserId,
+        int? CurrentSocieteId,
+        IReadOnlyCollection<string> CurrentRoles
     ) : IRequest<(bool Success, string? Error, DocumentationResponseDto? Data)>;
 }

@@ -1,9 +1,13 @@
-import axios from 'axios';
+import axiosInstance from './axiosInstance';
+const AUTH_API = '/api/auth';
 
-const API = 'http://localhost:5006/api/auth';
+export const register = (data) => axiosInstance.post(`${AUTH_API}/register`, data);
+export const login = (data) => axiosInstance.post(`${AUTH_API}/login`, data);
 
-export const register = (data) => axios.post(`${API}/register`, data);
-export const login = (data) => axios.post(`${API}/login`, data);
-export const getHoldings = () => axios.get(`${API}/holdings`);
+export const getHoldings = () =>
+  axiosInstance.get('/api/holding').then((r) => r.data);
+
 export const getSocietes = (holdingId = null) =>
-  axios.get(`${API}/societes${holdingId ? `?holdingId=${holdingId}` : ''}`);
+  axiosInstance
+    .get(`/api/societe${holdingId ? `?holdingId=${holdingId}` : ''}`)
+    .then((r) => r.data);

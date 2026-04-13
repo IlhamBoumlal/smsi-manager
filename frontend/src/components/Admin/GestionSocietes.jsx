@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, X, CheckCircle, ChevronDown, Building2, Upload, Factory } from 'lucide-react';
-import axios from 'axios';
+import axiosInstance from '../../api/axiosInstance';
+import { resolveAssetUrl } from '../../api/url';
 
-const API = 'http://localhost:5006/api';
+const API = '/api';
 
 // Composant GestionSocietes : Interface d'administration pour gérer les sociétés
 // Permet d'ajouter, modifier, supprimer des sociétés avec upload de logo et liaison à une holding
@@ -21,7 +22,7 @@ export default function GestionSocietes() {
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const [s, h] = await Promise.all([axios.get(`${API}/societe`), axios.get(`${API}/holding`)]);
+    const [s, h] = await Promise.all([axiosInstance.get(`${API}/societe`), axiosInstance.get(`${API}/holding`)]);
     setSocietes(s.data); setHoldings(h.data);
   };
 
@@ -39,8 +40,8 @@ export default function GestionSocietes() {
     e.preventDefault(); setLoading(true);
     try {
       const fd = new FormData(); fd.append('nom', form.nom); fd.append('holdingId', form.holdingId || ''); if (logoFile) fd.append('logo', logoFile);
-      if (editing) await axios.put(`${API}/societe/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      else         await axios.post(`${API}/societe`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (editing) await axiosInstance.put(`${API}/societe/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      else         await axiosInstance.post(`${API}/societe`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       await fetchAll(); closeModal();
     } catch (err) { alert(`Erreur: ${err.response?.data || "Une erreur est survenue"}`); }
     finally { setLoading(false); }
@@ -48,12 +49,12 @@ export default function GestionSocietes() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette société ?")) return;
-    try { await axios.delete(`${API}/societe/${id}`); await fetchAll(); }
+    try { await axiosInstance.delete(`${API}/societe/${id}`); await fetchAll(); }
     catch (e) { alert(`Erreur: ${e.response?.data}`); }
   };
 
   const getLogo = (s) => {
-    if (s.logo) return <img src={`http://localhost:5006${s.logo}`} alt="Logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200"/>;
+    if (s.logo) return <img src={resolveAssetUrl(s.logo)} alt="Logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200"/>;
     const init = s.nom?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     return <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-lg flex items-center justify-center font-bold text-xs">{init}</div>;
   };
@@ -141,7 +142,7 @@ export default function GestionSocietes() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Logo {editing && <span className="text-slate-400 font-normal text-xs">(laisser vide pour conserver l'actuel)</span>}</label>
                 <div className="flex items-center gap-4">
-                  {editing?.logo && !logoPreview && <img src={`http://localhost:5006${editing.logo}`} alt="actuel" className="w-12 h-12 rounded-lg object-cover border border-slate-200"/>}
+                  {editing?.logo && !logoPreview && <img src={resolveAssetUrl(editing.logo)} alt="actuel" className="w-12 h-12 rounded-lg object-cover border border-slate-200"/>}
                   <div className="flex-1">
                     <input type="file" accept="image/*" onChange={handleLogo} className="hidden" id="logo-up"/>
                     <label htmlFor="logo-up" className="flex items-center justify-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 cursor-pointer text-sm text-slate-500 transition-colors">

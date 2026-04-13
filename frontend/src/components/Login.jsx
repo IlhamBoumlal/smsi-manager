@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
+import { resolveAssetUrl } from '../api/url';
 
 // Composant Login : Page de connexion avec formulaire email/mot de passe
 // Gère l'authentification et la redirection selon le rôle utilisateur
@@ -24,15 +25,7 @@ export default function Login() {
     else if (user.societe?.logoUrl) logoPath = user.societe.logoUrl;
     else if (user.societe?.logo) logoPath = user.societe.logo;
     
-    if (logoPath) {
-      if (logoPath.startsWith('/')) {
-        logoImage = `http://localhost:5006${logoPath}`;
-      } else if (!logoPath.startsWith('http')) {
-        logoImage = `http://localhost:5006/${logoPath}`;
-      } else {
-        logoImage = logoPath;
-      }
-    }
+    if (logoPath) logoImage = resolveAssetUrl(logoPath, isoLogo);
   }
 
   const handleSubmit = async (e) => {
@@ -40,7 +33,10 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await login(form);
+      const res = await login({
+        email: form.email.trim(),
+        password: form.password,
+      });
       loginUser(res.data);
       // Rediriger vers le tableau de bord (même pour l'admin)
       navigate('/tableau-bord');
@@ -118,6 +114,8 @@ export default function Login() {
                   type="email"
                   placeholder="votre@email.com"
                   style={styles.input}
+                  value={form.email}
+                  autoComplete="email"
                   onChange={e => setForm({ ...form, email: e.target.value })}
                   required
                 />
@@ -137,6 +135,8 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   style={{ ...styles.input, paddingRight: '44px' }}
+                  value={form.password}
+                  autoComplete="current-password"
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   required
                 />
@@ -178,8 +178,7 @@ export default function Login() {
           </form>
 
           <p style={styles.switchText}>
-            Pas encore de compte ?{' '}
-            <Link to="/register" style={styles.link}>Créer un compte</Link>
+            Création de compte désactivée. Contactez un administrateur.
           </p>
         </div>
       </div>

@@ -1,13 +1,16 @@
 using System.Text;
 using backend.Application.Documentation.Commands.CreateDocumentation;
 using backend.Application.Documentation.Commands.DeleteDocumentation;
+using backend.Application.Documentation.Commands.NewDocumentationVersion;
 using backend.Application.Documentation.Commands.UpdateDocumentation;
+using backend.Application.Documentation;
 using backend.Application.Documentation.Queries.GetAllDocumentation;
 using backend.Application.Documentation.Queries.GetDocumentationById;
 using backend.Application.DTOs.Documentation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
@@ -25,6 +28,30 @@ namespace backend.API.Controllers
             _environment = environment;
         }
 
+        private string CurrentUserId =>
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")
+            ?? string.Empty;
+
+        private int? CurrentSocieteId
+        {
+            get
+            {
+                var value = User.FindFirstValue("SocieteId");
+                return int.TryParse(value, out var parsed) ? parsed : null;
+            }
+        }
+
+        private IReadOnlyCollection<string> CurrentRoles =>
+            User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+
+        [HttpGet("permissions")]
+        public IActionResult GetPermissions()
+        {
+            var actor = DocumentationAccessControl.BuildActorContext(CurrentUserId, CurrentSocieteId, CurrentRoles);
+            return Ok(DocumentationAccessControl.BuildModulePermissions(actor));
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] string? search,
@@ -32,14 +59,25 @@ namespace backend.API.Controllers
             [FromQuery] string? status,
             [FromQuery] string? category)
         {
-            var result = await _mediator.Send(new GetAllDocumentationQuery(search, type, status, category));
+            var result = await _mediator.Send(new GetAllDocumentationQuery(
+                search,
+                type,
+                status,
+                category,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var result = await _mediator.Send(new GetDocumentationByIdQuery(id));
+            var result = await _mediator.Send(new GetDocumentationByIdQuery(
+                id,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
             return result is null ? NotFound() : Ok(result);
         }
 
@@ -58,16 +96,20 @@ namespace backend.API.Controllers
                 dto.Clause,
                 dto.Controle,
                 dto.Description,
-                file
+                file,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles
             );
 
             var (success, error, data) = await _mediator.Send(command);
+            if (!success && IsForbiddenError(error)) return Forbid();
             return success && data is not null
                 ? CreatedAtAction(nameof(GetById), new { id = data.Id }, data)
                 : BadRequest(error);
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromForm] UpdateDocumentationDto dto, IFormFile? file)
         {
             var command = new UpdateDocumentationCommand(
@@ -84,25 +126,71 @@ namespace backend.API.Controllers
                 dto.Controle,
                 dto.Description,
                 dto.RemoveFile,
-                file
+                file,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles
             );
 
             var (success, error, data) = await _mediator.Send(command);
+            if (IsForbiddenError(error)) return Forbid();
+            if (IsNotFoundError(error)) return NotFound();
             if (!success) return BadRequest(error);
             return data is null ? NotFound() : Ok(data);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(Guid id)
+        [HttpPost("{id:guid}/new-version")]
+        public async Task<IActionResult> PublishNewVersion(Guid id, [FromForm] NewDocumentationVersionDto dto, IFormFile? file)
         {
-            var deleted = await _mediator.Send(new DeleteDocumentationCommand(id));
-            return deleted ? NoContent() : NotFound();
+            var command = new NewDocumentationVersionCommand(
+                id,
+                dto.Name,
+                dto.Type,
+                dto.Category,
+                dto.Version,
+                dto.Classification,
+                dto.Author,
+                dto.Approver,
+                dto.Clause,
+                dto.Controle,
+                dto.Description,
+                dto.RemoveFile,
+                file,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles
+            );
+
+            var (success, error, data) = await _mediator.Send(command);
+            if (IsForbiddenError(error)) return Forbid();
+            if (IsNotFoundError(error)) return NotFound();
+            if (!success) return BadRequest(error);
+            return data is null ? NotFound() : Ok(data);
         }
 
-        [HttpGet("{id}/download")]
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var (success, error) = await _mediator.Send(new DeleteDocumentationCommand(
+                id,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
+
+            if (success) return NoContent();
+            if (IsForbiddenError(error)) return Forbid();
+            if (IsNotFoundError(error)) return NotFound();
+            return BadRequest(error);
+        }
+
+        [HttpGet("{id:guid}/download")]
         public async Task<IActionResult> Download(Guid id, [FromQuery] string format = "pdf")
         {
-            var doc = await _mediator.Send(new GetDocumentationByIdQuery(id));
+            var doc = await _mediator.Send(new GetDocumentationByIdQuery(
+                id,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
             if (doc is null) return NotFound();
 
             var normalizedFormat = format.Trim().TrimStart('.').ToLowerInvariant();
@@ -182,5 +270,11 @@ namespace backend.API.Controllers
             var sanitized = value.Replace("\"", "\"\"");
             return $"\"{sanitized}\"";
         }
+
+        private static bool IsForbiddenError(string? error)
+            => error?.StartsWith("FORBIDDEN", StringComparison.OrdinalIgnoreCase) == true;
+
+        private static bool IsNotFoundError(string? error)
+            => error?.StartsWith("NOT_FOUND", StringComparison.OrdinalIgnoreCase) == true;
     }
 }

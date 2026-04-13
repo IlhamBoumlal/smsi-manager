@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, X, CheckCircle, Building2 } from 'lucide-react';
-import axios from 'axios';
+import axiosInstance from '../../api/axiosInstance';
 
-const API = 'http://localhost:5006/api';
+const API = '/api';
 
 // Composant GestionHoldings : Interface d'administration pour gérer les holdings
 // Permet d'ajouter, modifier, supprimer et rechercher des holdings
@@ -17,7 +17,7 @@ export default function GestionHoldings() {
 
   useEffect(() => { fetchHoldings(); }, []);
 
-  const fetchHoldings = async () => { const r = await axios.get(`${API}/holding`); setHoldings(r.data); };
+  const fetchHoldings = async () => { const r = await axiosInstance.get(`${API}/holding`); setHoldings(r.data); };
 
   const openNew  = () => { setEditing(null); setNom(''); setModal(true); };
   const openEdit = (h) => { setEditing(h); setNom(h.nom); setModal(true); };
@@ -26,8 +26,8 @@ export default function GestionHoldings() {
   const handleSubmit = async (e) => {
     e.preventDefault(); setLoading(true);
     try {
-      if (editing) await axios.put(`${API}/holding/${editing.id}`, { nom });
-      else         await axios.post(`${API}/holding`, { nom });
+      if (editing) await axiosInstance.put(`${API}/holding/${editing.id}`, { nom });
+      else         await axiosInstance.post(`${API}/holding`, { nom });
       await fetchHoldings(); closeModal();
     } catch (err) { alert(`Erreur: ${err.response?.data || "Une erreur est survenue"}`); }
     finally { setLoading(false); }
@@ -35,7 +35,7 @@ export default function GestionHoldings() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette holding ?")) return;
-    try { await axios.delete(`${API}/holding/${id}`); await fetchHoldings(); }
+    try { await axiosInstance.delete(`${API}/holding/${id}`); await fetchHoldings(); }
     catch (e) { alert(`Erreur: ${e.response?.data}`); }
   };
 

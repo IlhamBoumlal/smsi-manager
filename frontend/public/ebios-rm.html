@@ -1,0 +1,3239 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EBIOS RM Manager â€” Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --blue-900: #0f1f3d;
+  --blue-800: #17356a;
+  --blue-700: #1f4fa7;
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-400: #60a5fa;
+  --blue-300: #93c5fd;
+  --blue-100: #dbeafe;
+  --blue-50: #eff6ff;
+  --white: #ffffff;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #0f172a;
+  --green: #15803d;
+  --green-bg: #dcfce7;
+  --green-border: #bbf7d0;
+  --yellow: #b45309;
+  --yellow-bg: #fef3c7;
+  --yellow-border: #fde68a;
+  --red: #b91c1c;
+  --red-bg: #fee2e2;
+  --red-border: #fecaca;
+  --orange: #c2410c;
+  --orange-bg: #ffedd5;
+  --sidebar-w: 296px;
+  --header-h: 76px;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-xs: 10px;
+  --shadow: 0 10px 26px rgba(15, 23, 42, 0.07);
+  --shadow-md: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+body {
+  font-family: 'Manrope', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  color: var(--gray-700);
+  background:
+    radial-gradient(circle at 12% -10%, rgba(96, 165, 250, 0.24), transparent 36%),
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.18), transparent 28%),
+    linear-gradient(180deg, #f4f8fd 0%, #edf3fb 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(15, 23, 42, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.28;
+  z-index: -1;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5d2e3;
+  border-radius: 999px;
+}
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0c1b38 0%, #10274d 50%, #0d2244 100%);
+  border-right: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 14px 0 42px rgba(15, 23, 42, 0.26);
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0));
+}
+
+.sidebar-logo-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: linear-gradient(145deg, #2563eb, #60a5fa);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.4);
+}
+
+.sidebar-logo-text h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f8fbff;
+}
+
+.sidebar-logo-text p {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #a8c5ee;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px 0;
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9db8dc;
+  padding: 8px 10px;
+}
+
+.new-study-btn {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #eff6ff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
+}
+
+.new-study-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 13px 24px rgba(37, 99, 235, 0.45);
+}
+
+.sidebar-study-item {
+  padding: 10px 11px;
+  border-radius: 11px;
+  margin-bottom: 5px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.sidebar-study-item:hover {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.sidebar-study-item.active {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.38), rgba(59, 130, 246, 0.28));
+  border-color: rgba(125, 189, 255, 0.5);
+}
+
+.sidebar-study-item.active .sidebar-study-name {
+  color: #ffffff;
+}
+
+.sidebar-study-item.active .sidebar-study-org {
+  color: #dbeafe;
+}
+
+.sidebar-study-name {
+  color: #e8f0ff;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-study-org {
+  margin-top: 3px;
+  color: #9cb9df;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-stepper {
+  padding: 2px 0 4px;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 11px;
+  padding: 9px 10px;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.stepper-item:hover {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.stepper-item.active {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.34), rgba(59, 130, 246, 0.24));
+  border-color: rgba(125, 189, 255, 0.45);
+}
+
+.step-ball {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-ball.not_started {
+  background: rgba(148, 163, 184, 0.25);
+  color: #d8e5fa;
+}
+
+.step-ball.in_progress {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+}
+
+.step-ball.completed {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.step-ball.blocked {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.step-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.step-name {
+  font-size: 12px;
+  font-weight: 650;
+  color: #f8fbff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-status {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #9db8dc;
+}
+
+.step-status.blocked {
+  color: #fecaca;
+}
+
+.sidebar-tools {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  padding: 12px 10px 14px;
+}
+
+.sidebar-tool-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #a8c5ee;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-tool-btn:hover {
+  color: #f8fbff;
+  border-color: rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--header-h);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dbe5f2;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.topbar-left h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--gray-800);
+}
+
+.topbar-left p {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.save-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: none;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 9px 15px;
+  transition: all 0.16s ease;
+}
+
+.btn-primary {
+  color: #f8fbff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.28);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.34);
+}
+
+.btn-secondary {
+  color: #1e3a8a;
+  background: #ffffff;
+  border: 1px solid #cbdcf5;
+}
+
+.btn-secondary:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.btn-danger {
+  color: var(--red);
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+}
+
+.btn-danger:hover {
+  color: #ffffff;
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.btn-ghost {
+  color: var(--gray-500);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.btn-ghost:hover {
+  color: var(--gray-700);
+  background: #edf3fb;
+  border-color: #d5e0ef;
+}
+
+.btn-sm {
+  font-size: 12px;
+  border-radius: 9px;
+  padding: 7px 11px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.card,
+.section-card,
+.stat-card,
+.study-card-home,
+.mitre-card,
+.confirm-box,
+.modal-box,
+.item-row {
+  border: 1px solid #d9e3f0;
+  box-shadow: var(--shadow);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.section-card {
+  background: #ffffff;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.section-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  transition: all 0.18s ease;
+}
+
+.section-header-bar:hover {
+  background: #f4f8ff;
+}
+
+.section-header-bar.open {
+  border-bottom-color: #d9e3f0;
+}
+
+.section-header-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--gray-800);
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.section-num-badge {
+  width: 25px;
+  height: 25px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.section-body {
+  padding: 18px;
+  background: #ffffff;
+}
+
+.chevron {
+  color: #94a3b8;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.badge-draft {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #dbe3ec;
+}
+
+.badge-inprogress {
+  color: var(--yellow);
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
+}
+
+.badge-done {
+  color: var(--green);
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+.badge-blocked {
+  color: var(--red);
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
+
+.badge-blue,
+.badge-count {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.progress-wrap {
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.progress-fill {
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  transition: width 0.35s ease;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  color: #0f172a;
+  border-radius: 10px;
+  border: 1px solid #cfdae8;
+  background: #fbfdff;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.form-input:hover,
+.form-select:hover,
+.form-textarea:hover {
+  border-color: #b9ccdf;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #60a5fa;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+}
+
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 82px;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.row-form {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.row-form .form-group {
+  flex: 1;
+  min-width: 120px;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 11px 13px;
+  background: #f6f9ff;
+  border-bottom: 1px solid #dbe5f2;
+  color: #5b6f89;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+td {
+  padding: 11px 13px;
+  border-bottom: 1px solid #e9eff8;
+  vertical-align: middle;
+  color: #334155;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: #f8fbff;
+}
+
+.table-empty {
+  padding: 28px;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: #f8fbff;
+  padding: 12px 13px;
+}
+
+.item-row:hover {
+  border-color: #bfd4ec;
+  background: #f3f8ff;
+}
+
+.item-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.item-name {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.item-desc {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d4deeb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.icon-btn:hover {
+  color: #1d4ed8;
+  border-color: #9fc3f2;
+  background: #f3f8ff;
+}
+
+.icon-btn.danger:hover {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.modal-overlay,
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(5px);
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 620px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.modal-box.wide {
+  max-width: 860px;
+}
+
+.modal-head {
+  padding: 18px 22px 15px;
+  border-bottom: 1px solid #dbe5f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.modal-body {
+  padding: 20px 22px;
+}
+
+.modal-foot {
+  padding: 14px 22px;
+  border-top: 1px solid #dbe5f2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.alert {
+  margin-bottom: 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.alert-info {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.alert-warn {
+  color: var(--yellow);
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
+}
+
+.alert-success {
+  color: var(--green);
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+.alert-danger {
+  color: var(--red);
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
+
+.blocked-alert {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  background: #fff1f2;
+  padding: 12px 14px;
+}
+
+.blocked-alert-title {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.blocked-alert-text {
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 17px;
+}
+
+.stat-card.accent {
+  background: linear-gradient(140deg, #eff6ff, #ffffff 70%);
+  border-color: #bfd4f2;
+}
+
+.stat-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 29px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-label {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.studies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.study-card-home {
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff, #fdfefe);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.study-card-home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.1), transparent 40%);
+}
+
+.study-card-home::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.study-card-home:hover {
+  transform: translateY(-2px);
+  border-color: #b8d1ee;
+  box-shadow: var(--shadow-md);
+}
+
+.study-card-home:hover::after {
+  transform: scaleX(1);
+}
+
+.study-card-title {
+  position: relative;
+  z-index: 1;
+  color: #0f172a;
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.study-card-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.study-card-meta-item {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.page-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.page-subtitle {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.breadcrumb {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.breadcrumb a {
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.study-header-card {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  padding: 24px;
+  color: #f8fbff;
+  background: linear-gradient(135deg, #0f2d61 0%, #1e4fa4 58%, #2f6ac8 100%);
+  box-shadow: 0 18px 36px rgba(29, 78, 216, 0.27);
+}
+
+.study-header-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 100% 0, rgba(191, 219, 254, 0.22), transparent 42%);
+}
+
+.study-header-meta {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.study-header-meta-item {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(191, 219, 254, 0.35);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.16);
+}
+
+.study-header-meta-item label {
+  display: block;
+  color: #dbeafe;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.study-header-meta-item value {
+  display: block;
+  margin-top: 4px;
+  color: #f8fbff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.atelier-tabs {
+  position: sticky;
+  top: calc(var(--header-h) + 12px);
+  z-index: 15;
+  margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
+}
+
+.atelier-tab {
+  border: 1px solid #d9e3f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #334155;
+  min-height: 52px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.atelier-tab:hover:not(.blocked) {
+  border-color: #93c5fd;
+  background: #f6faff;
+}
+
+.atelier-tab.active {
+  color: #ffffff;
+  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.28);
+}
+
+.atelier-tab.blocked {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.tab-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.atelier-tab.active .tab-num {
+  color: #eff6ff;
+  background: rgba(239, 246, 255, 0.25);
+}
+
+.risk-matrix-wrap {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.rm-cell {
+  border-radius: 8px;
+  padding: 9px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rm-low {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.rm-medium {
+  color: #a16207;
+  background: #fef9c3;
+}
+
+.rm-high {
+  color: #c2410c;
+  background: #ffedd5;
+}
+
+.rm-critical {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.lvl-1 {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+}
+
+.lvl-2 {
+  color: #a16207;
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+}
+
+.lvl-3 {
+  color: #c2410c;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+}
+
+.lvl-4 {
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  margin: 2px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mitre-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.mitre-card {
+  border-radius: 13px;
+  background: #ffffff;
+  padding: 13px;
+}
+
+.mitre-tactic-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mitre-technique {
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mitre-technique:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.confirm-box {
+  width: 100%;
+  max-width: 430px;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 24px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  border-radius: 16px;
+  border: 1px dashed #c8d8ea;
+  background: #f8fbff;
+}
+
+.empty-icon {
+  font-size: 44px;
+  margin-bottom: 13px;
+  opacity: 0.45;
+}
+
+.empty-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.empty-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 18px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeUp 0.22s ease both;
+}
+
+.mission-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  margin: 3px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mission-chip button {
+  border: none;
+  background: none;
+  color: #60a5fa;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.mission-chip button:hover {
+  color: #dc2626;
+}
+
+.help-tip {
+  margin-bottom: 13px;
+  border-radius: 10px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 9px 11px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+@media (max-width: 1320px) {
+  :root {
+    --sidebar-w: 274px;
+  }
+
+  .content-area {
+    padding: 22px;
+  }
+
+  .study-header-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --header-h: auto;
+  }
+
+  .sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    max-height: none;
+  }
+
+  .sidebar-scroll {
+    max-height: 320px;
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  .topbar {
+    position: static;
+    min-height: 70px;
+    padding: 14px 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .atelier-tabs {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .content-area {
+    padding: 16px;
+  }
+
+  .topbar-left h2 {
+    font-size: 15px;
+  }
+
+  .stats-grid,
+  .studies-grid,
+  .study-header-meta,
+  .atelier-tabs,
+  .form-grid,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-overlay,
+  .confirm-overlay {
+    padding: 12px;
+  }
+
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">ðŸ›¡ï¸</div>
+    <div class="sidebar-logo-text">
+      <h1>EBIOS RM</h1>
+      <p>Manager Pro â€¢ ANSSI</p>
+    </div>
+  </div>
+  <div class="sidebar-scroll">
+    <div class="sidebar-section-label">Ã‰tudes</div>
+    <div style="padding:0 2px 10px;">
+      <button class="new-study-btn" onclick="openNewStudyModal()">+ Nouvelle Ã©tude</button>
+      <div id="studiesList"></div>
+    </div>
+    <div class="sidebar-section-label">Ateliers</div>
+    <div class="sidebar-stepper" id="workshopStepper"></div>
+  </div>
+  <div class="sidebar-tools">
+    <button class="sidebar-tool-btn" onclick="showMitreModal()">âš”ï¸ MITRE ATT&CK</button>
+    <button class="sidebar-tool-btn" onclick="showBDCModal()">ðŸ“š Base ANSSI</button>
+    <button class="sidebar-tool-btn" onclick="exportJSON()">ðŸ’¾ Export JSON</button>
+    <button class="sidebar-tool-btn" onclick="resetDemo()" style="color:#fca5a5;">ðŸ”„ DÃ©mo complÃ¨te</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2 id="topbarTitle">EBIOS RM Manager</h2>
+      <p id="topbarSub">SÃ©lectionnez ou crÃ©ez une Ã©tude</p>
+    </div>
+    <div class="topbar-right">
+      <span id="saveStatus" class="save-indicator"><span class="save-dot"></span> SauvegardÃ©</span>
+      <button class="btn btn-primary btn-sm" onclick="openNewStudyModal()">+ Nouvelle Ã©tude</button>
+    </div>
+  </header>
+  <div class="content-area" id="contentArea"></div>
+</div>
+
+<!-- MODAL: Nouvelle Ã©tude -->
+<div id="newStudyModal" style="display:none" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Nouvelle Ã©tude EBIOS RM</span>
+      <button class="icon-btn" onclick="closeModal('newStudyModal')">âœ•</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:13px;">
+        <div class="form-group"><label class="form-label">Nom de l'Ã©tude *</label><input class="form-input" id="ns_name" placeholder="Ex: Certification ISO 27001"/></div>
+        <div class="form-group"><label class="form-label">Organisation</label><input class="form-input" id="ns_org" placeholder="Ex: Entreprise XYZ"/></div>
+        <div class="form-group"><label class="form-label">Description / Contexte</label><textarea class="form-textarea" id="ns_desc" rows="3" placeholder="Objectifs de l'Ã©tude..."></textarea></div>
+        <div class="form-group"><label class="form-label">PÃ©rimÃ¨tre</label><input class="form-input" id="ns_perimeter" placeholder="Ex: DSI â€” SystÃ¨mes critiques"/></div>
+        <div class="form-group"><label class="form-label">Auteur / Responsable</label><input class="form-input" id="ns_author" placeholder="Ex: Marie Dupont"/></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('newStudyModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="createStudy()">CrÃ©er l'Ã©tude</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit gÃ©nÃ©rique -->
+<div id="editModal" style="display:none" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title" id="editModalTitle">Modifier</span>
+      <button class="icon-btn" onclick="closeModal('editModal')">âœ•</button>
+    </div>
+    <div class="modal-body" id="editModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MITRE -->
+<div id="mitreModal" style="display:none" class="modal-overlay">
+  <div class="modal-box wide" style="max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="modal-head" style="flex-shrink:0;">
+      <span class="modal-title">âš”ï¸ MITRE ATT&CK Framework</span>
+      <button class="icon-btn" onclick="closeModal('mitreModal')">âœ•</button>
+    </div>
+    <div style="padding:14px 24px;border-bottom:1px solid var(--gray-200);flex-shrink:0;">
+      <input class="form-input" id="mitreSearch" placeholder="Rechercher une technique..." oninput="filterMitre()"/>
+    </div>
+    <div id="mitreGrid" style="flex:1;overflow-y:auto;padding:16px 24px;" class="mitre-grid"></div>
+  </div>
+</div>
+
+<!-- MODAL: BDC -->
+<div id="bdcModal" style="display:none" class="modal-overlay">
+  <div class="modal-box wide" style="max-height:85vh;overflow-y:auto;">
+    <div class="modal-head">
+      <span class="modal-title">ðŸ“š Base de connaissances ANSSI</span>
+      <button class="icon-btn" onclick="closeModal('bdcModal')">âœ•</button>
+    </div>
+    <div class="modal-body" id="bdcContent"></div>
+  </div>
+</div>
+
+<!-- CONFIRM dialog (injected) -->
+<div id="confirmOverlay" style="display:none" class="confirm-overlay">
+  <div class="confirm-box">
+    <p id="confirmMsg" style="font-size:14px;color:var(--gray-700);margin-bottom:20px;line-height:1.55;"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="cancelConfirm()">Annuler</button>
+      <button class="btn btn-danger btn-sm" onclick="doConfirm()">Confirmer la suppression</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =======================================================
+// CONSTANTS & DATA MODEL
+// =======================================================
+const STORAGE_KEY = 'ebios_rm_pro_v3';
+const G_LABELS = {1:'Mineure',2:'Significative',3:'Grave',4:'Critique'};
+const V_LABELS = {1:'Minimal',2:'Significatif',3:'Fort',4:'Maximal'};
+
+const uid = () => Math.random().toString(36).slice(2,9);
+const esc = s => s ? String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) : '';
+const nowDate = () => new Date().toISOString().split('T')[0];
+
+function riskLevel(g,v){
+  const s=g*v;
+  if(s<=2) return {label:'Faible',cls:'lvl-1',level:1};
+  if(s<=6) return {label:'Moyen',cls:'lvl-2',level:2};
+  if(s<=9) return {label:'Ã‰levÃ©',cls:'lvl-3',level:3};
+  return {label:'Critique',cls:'lvl-4',level:4};
+}
+
+function createEmptyStudy(name, org, desc, perimeter, author){
+  return {
+    id: uid(), name: name||'Nouvelle Ã©tude', organization: org||'', description: desc||'',
+    perimeter: perimeter||'', author: author||'', createdAt: nowDate(), updatedAt: nowDate(),
+    workshop1:{
+      status:'not_started',
+      generalInfo:{date:nowDate(),version:'1.0',scope:'',hypotheses:'',constraints:''},
+      team:[],
+      context:{description:'',perimeter:'',environment:'',hypotheses:'',constraints:''},
+      missions:[],
+      businessValues:[],
+      supportingAssets:[],
+      fearedEvents:[],
+      isoControls:[]
+    },
+    workshop2:{status:'not_started',riskSources:[],targetObjectives:[],sourceObjectivePairs:[]},
+    workshop3:{status:'not_started',stakeholders:[],threatZones:[],strategicScenarios:[],treatments:[]},
+    workshop4:{status:'not_started',operationalModes:[],operationalScenarios:[]},
+    workshop5:{status:'not_started',riskEntries:[],measures:[],residualRisks:[]}
+  };
+}
+
+// =======================================================
+// STATE
+// =======================================================
+let studies = {};
+let currentStudyId = null;
+let currentWorkshop = 1;
+let editTarget = null;
+let confirmCallback = null;
+
+// Open sections state
+let openSections = {};
+
+// =======================================================
+// PERSISTENCE
+// =======================================================
+function loadStudies(){
+  try{
+    const d = localStorage.getItem(STORAGE_KEY);
+    if(d){ studies = JSON.parse(d); return; }
+  }catch(e){}
+  studies = buildDemoStudy();
+  saveStudies();
+}
+
+function buildDemoStudy(){
+  // â”€â”€ IDs fixes pour cohÃ©rence des liens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const sid='demo001';
+  const mProd='m01',mAdmin='m02',mComm='m03';
+  const bv1='bv01',bv2='bv02',bv3='bv03',bv4='bv04';
+  const bs1='bs01',bs2='bs02',bs3='bs03',bs4='bs04',bs5='bs05';
+  const fe1='fe01',fe2='fe02',fe3='fe03',fe4='fe04';
+  const iso1='iso01',iso2='iso02',iso3='iso03',iso4='iso04',iso5='iso05',iso6='iso06';
+  const rs1='rs01',rs2='rs02',rs3='rs03';
+  const ov1='ov01',ov2='ov02',ov3='ov03';
+  const pr1='pr01',pr2='pr02',pr3='pr03',pr4='pr04',pr5='pr05';
+  const pp1='pp01',pp2='pp02',pp3='pp03';
+  const ss1='ss01',ss2='ss02',ss3='ss03';
+  const tr1='tr01',tr2='tr02',tr3='tr03';
+  const mo1='mo01',mo2='mo02',mo3='mo03';
+  const so1='so01',so2='so02',so3='so03';
+  const rr1='rr01',rr2='rr02',rr3='rr03';
+  const ms1='ms01',ms2='ms02',ms3='ms03',ms4='ms04',ms5='ms05',ms6='ms06',ms7='ms07',ms8='ms08';
+  const res1='res01',res2='res02';
+
+  const s = createEmptyStudy(
+    'Certification ISO 27001',
+    'TechCorp SA',
+    'Analyse des risques cyber dans le cadre de la certification ISO 27001:2022. PÃ©rimÃ¨tre : systÃ¨me d\'information de gestion et infrastructure cloud.',
+    'DSI â€” SI de gestion, hÃ©bergement cloud AWS, applications mÃ©tier',
+    'Marie Dupont â€” RSSI'
+  );
+  s.id = sid;
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ATELIER 1 â€” Cadrage & Socle de sÃ©curitÃ©
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  s.workshop1.status = 'completed';
+  s.workshop1.context = {
+    general: 'TechCorp SA est une PME de 250 employÃ©s spÃ©cialisÃ©e dans les logiciels de gestion RH. Le SI repose sur une infrastructure hybride (on-premise + AWS). La dÃ©marche ISO 27001 s\'inscrit dans une exigence contractuelle d\'un grand compte.',
+    regulatory: 'RGPD (traitement de donnÃ©es personnelles des employÃ©s des clients), NIS2 (fournisseur de services numÃ©riques), exigences contractuelles client grand compte (SLA 99,9%).',
+    threats: 'Ransomware ciblant les PME du secteur, phishing / spear-phishing, compromission de la chaÃ®ne d\'approvisionnement logicielle, insider threats.',
+    assumptions: 'Les sous-traitants accÃ©dant au SI sont couverts par des clauses contractuelles de sÃ©curitÃ©. L\'infrastructure AWS est considÃ©rÃ©e comme correctement configurÃ©e au dÃ©part.'
+  };
+
+  s.workshop1.team = [
+    {id:'tm01',role:'RSSI / Pilote EBIOS',name:'Marie Dupont',responsibility:'Pilotage de l\'analyse, validation des livrables',contact:'m.dupont@techcorp.fr'},
+    {id:'tm02',role:'DSI',name:'Jean Martin',responsibility:'Validation des choix d\'architecture, sponsor',contact:'j.martin@techcorp.fr'},
+    {id:'tm03',role:'DPO',name:'Sophie Leroy',responsibility:'Aspects RGPD, traitement des donnÃ©es personnelles',contact:'s.leroy@techcorp.fr'},
+    {id:'tm04',role:'Chef de projet SI',name:'Karim Benali',responsibility:'RÃ©fÃ©rent technique biens supports',contact:'k.benali@techcorp.fr'},
+    {id:'tm05',role:'Auditeur externe',name:'Cabinet SecAudit',responsibility:'Revue indÃ©pendante des scÃ©narios de risque',contact:'contact@secaudit.fr'},
+  ];
+
+  s.workshop1.missions = [
+    {id:mProd,name:'Production logicielle',description:'DÃ©veloppement, livraison et maintenance des solutions SaaS RH'},
+    {id:mAdmin,name:'Administration & Finance',description:'Gestion comptable, RH interne, administration gÃ©nÃ©rale'},
+    {id:mComm,name:'Relation client & Support',description:'Onboarding clients, support technique, gestion des contrats'},
+  ];
+
+  s.workshop1.businessValues = [
+    {id:bv1,missionId:mProd,name:'Code source des applications',type:'Savoir-faire',description:'Code source des produits SaaS RH â€” actif stratÃ©gique principal, 5 ans de R&D'},
+    {id:bv2,missionId:mProd,name:'DonnÃ©es clients (RH)',type:'DonnÃ©es personnelles',description:'DonnÃ©es RH des salariÃ©s des clients : fiches de paie, contrats, donnÃ©es sensibles RGPD'},
+    {id:bv3,missionId:mAdmin,name:'SystÃ¨me de facturation',type:'Service',description:'Plateforme de facturation et de gestion des abonnements SaaS'},
+    {id:bv4,missionId:mComm,name:'RÃ©putation & image de marque',type:'Information',description:'Confiance des clients et du marchÃ© â€” actif immatÃ©riel critique'},
+  ];
+
+  s.workshop1.supportingAssets = [
+    {id:bs1,businessValueId:bv1,name:'GitLab (dÃ©pÃ´t de code)',type:'Application',location:'Cloud AWS eu-west-1',criticality:'Critique'},
+    {id:bs2,businessValueId:bv2,name:'Base de donnÃ©es PostgreSQL RH',type:'Base de donnÃ©es',location:'AWS RDS eu-west-1 chiffrÃ©e',criticality:'Critique'},
+    {id:bs3,businessValueId:bv2,name:'API Gateway / Backend SaaS',type:'Application',location:'AWS ECS â€” conteneurs Docker',criticality:'Ã‰levÃ©e'},
+    {id:bs4,businessValueId:bv3,name:'Serveur ERP (Sage)',type:'Serveur',location:'On-premise â€” Datacenter Paris',criticality:'Ã‰levÃ©e'},
+    {id:bs5,businessValueId:bv1,name:'Postes dÃ©veloppeurs',type:'Poste de travail',location:'TÃ©lÃ©travail + Open Space Paris',criticality:'Ã‰levÃ©e'},
+  ];
+
+  s.workshop1.fearedEvents = [
+    {id:fe1,businessValueId:bv2,description:'Exfiltration massive de donnÃ©es personnelles RH (fuite RGPD)',impact:'Sanctions CNIL (4% CA), perte de confiance clients, procÃ©dures judiciaires',gravity:4},
+    {id:fe2,businessValueId:bv1,description:'Vol ou destruction du code source propriÃ©taire',impact:'Perte de l\'avantage concurrentiel, recopie par concurrent ou divulgation',gravity:4},
+    {id:fe3,businessValueId:bv3,description:'IndisponibilitÃ© prolongÃ©e du SI de facturation (> 48h)',impact:'Perte de revenus, pÃ©nalitÃ©s contractuelles, rupture SLA',gravity:3},
+    {id:fe4,businessValueId:bv4,description:'Atteinte Ã  l\'image via incident cyber mÃ©diatisÃ©',impact:'Perte clients, difficultÃ© de recrutement, dÃ©prÃ©ciation boursiÃ¨re',gravity:3},
+  ];
+
+  s.workshop1.isoControls = [
+    {id:iso1,reference:'A.5.1',name:'Politiques de sÃ©curitÃ© de l\'information',status:'appliquÃ©',comments:'PSSI v3.2 validÃ©e par la direction en jan. 2025, publiÃ©e sur l\'intranet'},
+    {id:iso2,reference:'A.8.2',name:'Droits d\'accÃ¨s privilÃ©giÃ©s',status:'partiel',comments:'MFA dÃ©ployÃ© sur 80% des comptes admin â€” migration en cours pour Sage ERP'},
+    {id:iso3,reference:'A.8.7',name:'Protection contre les logiciels malveillants',status:'appliquÃ©',comments:'EDR CrowdStrike dÃ©ployÃ© sur 100% des endpoints, mises Ã  jour automatiques'},
+    {id:iso4,reference:'A.8.13',name:'Sauvegarde des informations',status:'appliquÃ©',comments:'Sauvegardes journaliÃ¨res AWS S3 chiffrÃ©es, test de restauration trimestriel OK'},
+    {id:iso5,reference:'A.6.7',name:'TÃ©lÃ©travail',status:'partiel',comments:'Charte tÃ©lÃ©travail signÃ©e, VPN obligatoire, mais audit des postes non rÃ©alisÃ©'},
+    {id:iso6,reference:'A.5.29',name:'SÃ©curitÃ© de l\'information lors de perturbations',status:'en_cours',comments:'PCA en cours de rÃ©daction â€” exercice de crise prÃ©vu T3 2025'},
+  ];
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ATELIER 2 â€” Sources de risque
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  s.workshop2.status = 'completed';
+
+  s.workshop2.riskSources = [
+    {id:rs1,name:'Cybercriminel organisÃ© (ransomware)',type:'Externe',motivation:'Gain financier â€” ranÃ§on ou revente de donnÃ©es RH',capability:3},
+    {id:rs2,name:'Concurrent / espion industriel',type:'Externe',motivation:'Vol de propriÃ©tÃ© intellectuelle (code source, roadmap produit)',capability:2},
+    {id:rs3,name:'EmployÃ© malveillant (insider)',type:'Interne',motivation:'Vengeance suite licenciement, monnayage de donnÃ©es',capability:3},
+  ];
+
+  s.workshop2.targetObjectives = [
+    {id:ov1,name:'Exfiltrer les donnÃ©es personnelles RH',description:'AccÃ©der et extraire la BDD clients contenant des millions de fiches salariÃ©s',fearedEventIds:[fe1]},
+    {id:ov2,name:'Voler / dÃ©truire le code source',description:'AccÃ©der aux dÃ©pÃ´ts GitLab et exfiltrer ou effacer le code propriÃ©taire',fearedEventIds:[fe2]},
+    {id:ov3,name:'Paralyser le SI et extorquer',description:'DÃ©ployer un ransomware pour chiffrer les systÃ¨mes critiques et exiger une ranÃ§on',fearedEventIds:[fe3,fe4]},
+  ];
+
+  s.workshop2.sourceObjectivePairs = [
+    {id:pr1,riskSourceId:rs1,targetObjectiveId:ov1,retained:true,justification:'Les groupes ransomware ciblent activement les donnÃ©es RH pour double extorsion (ranÃ§on + fuite RGPD). CapacitÃ© Ã©levÃ©e, motivation financiÃ¨re forte.'},
+    {id:pr2,riskSourceId:rs1,targetObjectiveId:ov3,retained:true,justification:'Ransomware-as-a-Service rend cette menace accessible et hautement probable pour une PME sans SOC 24/7.'},
+    {id:pr3,riskSourceId:rs2,targetObjectiveId:ov2,retained:true,justification:'Espionnage industriel via phishing ciblÃ© des dÃ©veloppeurs ou compromission d\'un prestataire. Enjeux compÃ©titifs rÃ©els.'},
+    {id:pr4,riskSourceId:rs3,targetObjectiveId:ov1,retained:true,justification:'AccÃ¨s lÃ©gitime Ã  la BDD RH pour certains profils (admin, support). Risque insider documentÃ© dans le secteur SaaS RH.'},
+    {id:pr5,riskSourceId:rs3,targetObjectiveId:ov2,retained:false,justification:'Le code source est accessible Ã  tous les devs mais la destruction est peu probable â€” logs et backups limitent l\'impact.'},
+  ];
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ATELIER 3 â€” ScÃ©narios stratÃ©giques
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  s.workshop3.status = 'completed';
+
+  s.workshop3.stakeholders = [
+    {id:pp1,name:'Prestataire infogÃ©rance AWS',type:'Sous-traitant',exposure:3,reliability:2,access:'AccÃ¨s root AWS via bastion SSH â€” rotation trimestrielle des clÃ©s'},
+    {id:pp2,name:'Ã‰diteur logiciel tiers (plugin RH)',type:'Fournisseur',exposure:3,reliability:3,access:'API OAuth2 en lecture/Ã©criture sur la BDD RH'},
+    {id:pp3,name:'Client grand compte (RH externalisÃ©)',type:'Client',exposure:2,reliability:4,access:'Interface web HTTPS uniquement â€” aucun accÃ¨s direct au SI'},
+  ];
+
+  s.workshop3.strategicScenarios = [
+    {id:ss1,coupleId:pr1,stakeholderIds:[pp1,pp2],name:'Ransomware via compromission prestataire',description:'Un groupe cybercriminel compromet le prestataire infogÃ©rance via spear-phishing, pivote vers l\'environnement AWS et dÃ©ploie un ransomware sur les systÃ¨mes critiques. Double extorsion : chiffrement + menace de publication des donnÃ©es RH.',gravity:4},
+    {id:ss2,coupleId:pr3,stakeholderIds:[pp2],name:'Espionnage industriel via plugin malveillant',description:'Un concurrent infiltre la chaÃ®ne d\'approvisionnement logicielle en corrompant un Ã©diteur tiers. Le plugin RH malveillant exfiltre le code source et les donnÃ©es clients vers un serveur externe.',gravity:3},
+    {id:ss3,coupleId:pr4,stakeholderIds:[],name:'Exfiltration de donnÃ©es par employÃ© malveillant',description:'Un administrateur BD sur le dÃ©part copie la base de donnÃ©es RH clients sur un support externe avant son dÃ©part. Les donnÃ©es sont revendues sur le dark web.',gravity:4},
+  ];
+
+  s.workshop3.treatments = [
+    {id:tr1,scenarioId:ss1,decision:'RÃ©duction',justification:'DÃ©ploiement EDR, segmentation rÃ©seau, MFA sur tous les accÃ¨s prestataires, exercices de crise. Risque rÃ©siduel acceptable avec ces contrÃ´les.'},
+    {id:tr2,scenarioId:ss2,decision:'RÃ©duction',justification:'Audit des dÃ©pendances tierces, SBOM, revue de code automatisÃ©e, isolation du plugin dans un sandbox. Surveillance des flux sortants.'},
+    {id:tr3,scenarioId:ss3,decision:'RÃ©duction',justification:'Chiffrement de la BDD au repos, traÃ§abilitÃ© des accÃ¨s (SIEM), rÃ©vocation immÃ©diate des accÃ¨s Ã  la notification de dÃ©part, DLP sur les postes admins.'},
+  ];
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ATELIER 4 â€” ScÃ©narios opÃ©rationnels
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  s.workshop4.status = 'completed';
+
+  s.workshop4.operationalModes = [
+    {id:mo1,strategicScenarioId:ss1,name:'Spear-phishing + mouvement latÃ©ral AWS',description:'Email ciblÃ© vers un technicien prestataire â†’ vol de credentials VPN â†’ accÃ¨s bastion â†’ escalade de privilÃ¨ges IAM â†’ dÃ©ploiement ransomware S3/RDS.',technics:['T1566 (Phishing)','T1078 (Valid Accounts)','T1548 (Privilege Escalation)','T1486 (Ransomware)']},
+    {id:mo2,strategicScenarioId:ss2,name:'Supply chain â€” plugin compromis',description:'Mise Ã  jour malveillante du plugin RH signÃ©e par l\'Ã©diteur â†’ exÃ©cution de code cÃ´tÃ© serveur â†’ exfiltration silencieuse via canal HTTPS chiffrÃ© vers C2.',technics:['T1195 (Supply Chain)','T1059 (Execution)','T1041 (Exfiltration Over C2)']},
+    {id:mo3,strategicScenarioId:ss3,name:'Exfiltration directe par admin BD',description:'L\'administrateur BD utilise son accÃ¨s lÃ©gitime en dehors des heures ouvrÃ©es â†’ dump PostgreSQL â†’ copie sur clÃ© USB chiffrÃ©e ou envoi via webmail personnel.',technics:['T1078 (Valid Accounts)','T1005 (Data from Local System)','T1048 (Exfil Alt Protocol)']},
+  ];
+
+  s.workshop4.operationalScenarios = [
+    {id:so1,strategicScenarioId:ss1,operationalModeIds:[mo1],supportingAssetIds:[bs2,bs3,bs5],likelihood:3,name:'Ransomware AWS via prestataire compromis',description:'Compromission des credentials du prestataire infogÃ©rance â†’ accÃ¨s AWS â†’ chiffrement RDS + S3 â†’ demande de ranÃ§on 500kâ‚¬'},
+    {id:so2,strategicScenarioId:ss2,operationalModeIds:[mo2],supportingAssetIds:[bs1,bs3],likelihood:2,name:'Exfiltration code source via plugin malveillant',description:'Plugin tiers compromis exfiltre le dÃ©pÃ´t GitLab et les secrets d\'environnement (tokens API, clÃ©s AWS)'},
+    {id:so3,strategicScenarioId:ss3,operationalModeIds:[mo3],supportingAssetIds:[bs2],likelihood:2,name:'Dump BDD RH par administrateur interne',description:'Administrateur DB rÃ©alise un dump complet de la base RH (800k enregistrements) avant son dÃ©part, 22h un dimanche soir'},
+  ];
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ATELIER 5 â€” Traitement du risque
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  s.workshop5.status = 'completed';
+
+  s.workshop5.riskEntries = [
+    {id:rr1,operationalScenarioId:so1,gravity:4,likelihood:3,treatment:'RÃ©duction',notes:'PrioritÃ© absolue â€” impact mÃ©tier et rÃ©glementaire maximal'},
+    {id:rr2,operationalScenarioId:so2,gravity:4,likelihood:2,treatment:'RÃ©duction',notes:'Impact fort sur la compÃ©titivitÃ© â€” surveillance supply chain renforcÃ©e'},
+    {id:rr3,operationalScenarioId:so3,gravity:4,likelihood:2,treatment:'RÃ©duction',notes:'Risque insider â€” contrÃ´les techniques et procÃ©duraux combinÃ©s'},
+  ];
+
+  s.workshop5.measures = [
+    // Gouvernance
+    {id:ms1,category:'Gouvernance',name:'PSSI mise Ã  jour â€” volet prestataires',description:'Mise Ã  jour de la PSSI avec clauses de sÃ©curitÃ© obligatoires pour tous les prestataires ayant accÃ¨s au SI (MFA, logs, audit droit)',priority:'Haute',status:'Fait'},
+    {id:ms2,category:'Gouvernance',name:'Processus de rÃ©vocation immÃ©diate des accÃ¨s',description:'ProcÃ©dure RH/DSI : rÃ©vocation des comptes dans les 2h suivant notification de dÃ©part (dÃ©mission, licenciement)',priority:'Critique',status:'Fait'},
+    // Protection
+    {id:ms3,category:'Protection',name:'MFA sur tous les accÃ¨s prestataires',description:'DÃ©ploiement de l\'authentification multi-facteurs (Duo Security) pour 100% des comptes prestataires accÃ©dant au bastion SSH et Ã  la console AWS',priority:'Critique',status:'Fait'},
+    {id:ms4,category:'Protection',name:'Chiffrement BDD RH + gestion des clÃ©s KMS',description:'Activation du chiffrement AES-256 sur RDS PostgreSQL avec rotation automatique des clÃ©s AWS KMS tous les 90 jours',priority:'Haute',status:'Fait'},
+    // DÃ©fense
+    {id:ms5,category:'DÃ©fense',name:'SIEM + alertes sur accÃ¨s anormaux BDD',description:'IntÃ©gration des logs RDS/CloudTrail dans le SIEM (Elastic SIEM). RÃ¨gles d\'alerte : dump complet hors heures ouvrÃ©es, accÃ¨s depuis IP inconnue, volume exceptionnel',priority:'Critique',status:'En cours'},
+    {id:ms6,category:'DÃ©fense',name:'Sandbox pour plugins tiers',description:'ExÃ©cution des plugins RH tiers dans un environnement isolÃ© (AWS Fargate dÃ©diÃ©, sans accÃ¨s au dÃ©pÃ´t GitLab principal). Filtrage des flux sortants.',priority:'Haute',status:'En cours'},
+    // RÃ©silience
+    {id:ms7,category:'RÃ©silience',name:'Plan de continuitÃ© et exercice de crise cyber',description:'RÃ©daction du PCA/PRA cyber couvrant le scÃ©nario ransomware. Exercice de simulation (tabletop exercise) impliquant RSSI, DSI, DG et prestataires. Objectif RTO : 4h.',priority:'Haute',status:'Ã€ faire'},
+    // ConformitÃ©
+    {id:ms8,category:'ConformitÃ©',name:'Audit annuel des dÃ©pendances logicielles (SBOM)',description:'GÃ©nÃ©ration automatique du Software Bill of Materials Ã  chaque build CI/CD. Scan des vulnÃ©rabilitÃ©s CVE (Snyk). Revue trimestrielle des composants tiers.',priority:'Moyenne',status:'Ã€ faire'},
+  ];
+
+  s.workshop5.residualRisks = [
+    {id:res1,riskEntryId:rr1,residualGravity:3,residualLikelihood:2,justification:'AprÃ¨s MFA prestataires, SIEM et PCA : l\'impact reste Ã©levÃ© (donnÃ©es RH) mais la vraisemblance est rÃ©duite Ã  2. Risque rÃ©siduel Ã‰levÃ© â€” acceptÃ© par la direction avec engagement de rÃ©duction Ã  G2/V1 d\'ici 12 mois.'},
+    {id:res2,riskEntryId:rr3,residualGravity:3,residualLikelihood:1,justification:'RÃ©vocation immÃ©diate + chiffrement BDD + alertes SIEM rÃ©duisent fortement la vraisemblance. GravitÃ© 3 maintenue car l\'impact RGPD persiste. Risque rÃ©siduel ModÃ©rÃ© â€” acceptable.'},
+  ];
+
+  updateAllStatuses(s);
+  return {[sid]: s};
+}
+
+function saveStudies(){
+  if(currentStudyId && studies[currentStudyId]) studies[currentStudyId].updatedAt = nowDate();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(studies));
+  const el=document.getElementById('saveStatus');
+  if(el) el.innerHTML='<span class="save-dot"></span> SauvegardÃ©';
+}
+
+// =======================================================
+// WORKSHOP STATUS
+// =======================================================
+function isW1Complete(s){ return s.workshop1.missions.length>0 && s.workshop1.businessValues.length>0 && s.workshop1.fearedEvents.length>0; }
+function isW2Complete(s){ return s.workshop2.sourceObjectivePairs.some(p=>p.retained); }
+function isW3Complete(s){ return s.workshop3.strategicScenarios.length>0; }
+function isW4Complete(s){ return s.workshop4.operationalScenarios.length>0; }
+function isW5Complete(s){ return s.workshop5.measures.length>0; }
+
+function getWorkshopStatus(study, num){
+  switch(num){
+    case 1: return isW1Complete(study)?'completed':study.workshop1.team.length||study.workshop1.businessValues.length?'in_progress':'not_started';
+    case 2: return !isW1Complete(study)?'blocked':isW2Complete(study)?'completed':study.workshop2.riskSources.length?'in_progress':'not_started';
+    case 3: return !isW2Complete(study)?'blocked':isW3Complete(study)?'completed':study.workshop3.stakeholders.length?'in_progress':'not_started';
+    case 4: return !isW3Complete(study)?'blocked':isW4Complete(study)?'completed':study.workshop4.operationalModes.length?'in_progress':'not_started';
+    case 5: return !isW4Complete(study)?'blocked':isW5Complete(study)?'completed':study.workshop5.riskEntries.length?'in_progress':'not_started';
+  }
+}
+
+function calcStudyProgress(study){
+  const done=[1,2,3,4,5].filter(n=>getWorkshopStatus(study,n)==='completed').length;
+  return {done, pct:Math.round(done/5*100)};
+}
+
+function updateAllStatuses(study){
+  for(let i=1;i<=5;i++) study[`workshop${i}`].status = getWorkshopStatus(study,i);
+}
+
+// =======================================================
+// NAVIGATION
+// =======================================================
+function selectStudy(id){
+  currentStudyId = id;
+  currentWorkshop = 1;
+  openSections = {};
+  renderAll();
+  document.getElementById('topbarTitle').textContent = studies[id].name;
+  document.getElementById('topbarSub').textContent = studies[id].organization || 'Ã‰tude EBIOS RM';
+}
+
+function selectWorkshop(n){
+  if(!currentStudyId) return;
+  const s=studies[currentStudyId];
+  const st=getWorkshopStatus(s,n);
+  if(st==='blocked'&&n>1){ alert('Cet atelier est bloquÃ©. ComplÃ©tez d\'abord le prÃ©cÃ©dent.'); return; }
+  currentWorkshop=n;
+  renderWorkshopStepper();
+  renderContent();
+}
+
+function renderAll(){
+  renderStudiesList();
+  renderWorkshopStepper();
+  renderContent();
+}
+
+// =======================================================
+// SIDEBAR RENDERS
+// =======================================================
+function renderStudiesList(){
+  const c=document.getElementById('studiesList');
+  const list=Object.values(studies);
+  if(!list.length){ c.innerHTML='<p style="font-size:11px;color:var(--blue-300);padding:4px 8px;">Aucune Ã©tude</p>'; return; }
+  c.innerHTML=list.map(s=>`
+    <div onclick="selectStudy('${s.id}')" class="sidebar-study-item ${currentStudyId===s.id?'active':''}">
+      <div class="sidebar-study-name">${esc(s.name)}</div>
+      <div class="sidebar-study-org">${esc(s.organization)||'Sans organisation'}</div>
+    </div>
+  `).join('');
+}
+
+function renderWorkshopStepper(){
+  const c=document.getElementById('workshopStepper');
+  if(!currentStudyId){ c.innerHTML=''; return; }
+  const s=studies[currentStudyId];
+  const labels=['Cadrage','Sources','StratÃ©gique','OpÃ©rationnel','Traitement'];
+  const icons=['ðŸ“‹','ðŸŽ¯','âš¡','âš™ï¸','âœ…'];
+  const stText={not_started:'Non commencÃ©',in_progress:'En cours',completed:'TerminÃ©',blocked:'BloquÃ©'};
+  c.innerHTML=[1,2,3,4,5].map(n=>{
+    const st=getWorkshopStatus(s,n);
+    return `<div class="stepper-item ${currentWorkshop===n&&currentStudyId?'active':''}" onclick="selectWorkshop(${n})">
+      <div class="step-ball ${st}">${n}</div>
+      <div class="step-info">
+        <div class="step-name">${icons[n-1]} ${labels[n-1]}</div>
+        <div class="step-status ${st==='blocked'?'blocked':''}">${stText[st]||'â€”'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =======================================================
+// MAIN CONTENT RENDER
+// =======================================================
+function renderContent(){
+  const c=document.getElementById('contentArea');
+  if(!currentStudyId){ renderHome(c); return; }
+  renderStudyDetail(c);
+}
+
+// â”€â”€ HOME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function renderHome(c){
+  const list=Object.values(studies);
+  const inProgress=list.filter(s=>getWorkshopStatus(s,1)==='in_progress'||list.some(s2=>s2.workshop2.riskSources.length)).length;
+  const done=list.filter(s=>calcStudyProgress(s).done===5).length;
+  const avgPct=list.length?Math.round(list.reduce((a,s)=>a+calcStudyProgress(s).pct,0)/list.length):0;
+
+  c.innerHTML=`<div class="fade-in">
+    <div class="page-header">
+      <div><div class="page-title">Mes Ã©tudes EBIOS RM</div><div class="page-subtitle">Gestion des Ã©tudes de risque â€¢ MÃ©thode ANSSI</div></div>
+      <button class="btn btn-primary" onclick="openNewStudyModal()">+ Nouvelle Ã©tude</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card accent"><div class="stat-value" style="color:var(--blue-600)">${list.length}</div><div class="stat-label">Ã‰tudes totales</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--yellow)">${list.filter(s=>s.workshop1.status==='in_progress').length}</div><div class="stat-label">En cours</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--green)">${done}</div><div class="stat-label">ComplÃ©tÃ©es</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--blue-600)">${avgPct}%</div><div class="stat-label">Progression moy.</div></div>
+    </div>
+    ${list.length===0?`<div class="empty-state"><div class="empty-icon">ðŸ›¡ï¸</div><div class="empty-title">Aucune Ã©tude</div><div class="empty-desc">DÃ©marrez votre premiÃ¨re Ã©tude EBIOS RM</div><button class="btn btn-primary" onclick="openNewStudyModal()">+ Nouvelle Ã©tude</button></div>`
+    :`<div class="studies-grid">${list.map(renderStudyCard).join('')}</div>`}
+  </div>`;
+}
+
+function renderStudyCard(s){
+  const {done,pct}=calcStudyProgress(s);
+  const stMap={completed:'badge-done',in_progress:'badge-inprogress',not_started:'badge-draft'};
+  const globalSt=done===5?'completed':done>0?'in_progress':'not_started';
+  const stLabel={completed:'ComplÃ©tÃ©e',in_progress:'En cours',not_started:'Brouillon'};
+  return `<div class="study-card-home" onclick="selectStudy('${s.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div class="study-card-title">${esc(s.name)}</div>
+      <span class="badge ${stMap[globalSt]}"><span class="dot"></span>${stLabel[globalSt]}</span>
+    </div>
+    <div class="study-card-meta">
+      ${s.organization?`<div class="study-card-meta-item">ðŸ¢ ${esc(s.organization)}</div>`:''}
+      ${s.perimeter?`<div class="study-card-meta-item">ðŸ“Œ ${esc(s.perimeter)}</div>`:''}
+      <div class="study-card-meta-item">ðŸ‘¤ ${esc(s.author)||'â€”'} &nbsp;â€¢&nbsp; ðŸ“… ${esc(s.createdAt)}</div>
+      <div class="study-card-meta-item">ðŸ† ${done}/5 ateliers terminÃ©s</div>
+    </div>
+    <div style="margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-400);margin-bottom:5px;"><span>Progression</span><span style="color:var(--blue-600);font-weight:600;">${pct}%</span></div>
+      <div class="progress-wrap" style="height:5px;"><div class="progress-fill" style="width:${pct}%;height:100%;"></div></div>
+    </div>
+    <div style="margin-top:14px;display:flex;justify-content:space-between;">
+      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();selectStudy('${s.id}')">Ouvrir â†’</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="event.stopPropagation();confirmDelete('${s.id}')">Supprimer</button>
+    </div>
+  </div>`;
+}
+
+// â”€â”€ STUDY DETAIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function renderStudyDetail(c){
+  const s=studies[currentStudyId];
+  const {done,pct}=calcStudyProgress(s);
+  const stNames=['Cadrage','Sources de risque','ScÃ©narios stratÃ©giques','ScÃ©narios opÃ©rationnels','Traitement du risque'];
+  const stIcons=['ðŸ“‹','ðŸŽ¯','âš¡','âš™ï¸','âœ…'];
+
+  c.innerHTML=`<div class="fade-in">
+    <div class="breadcrumb"><a onclick="backHome()">â† Accueil</a><span>/</span><span>${esc(s.name)}</span></div>
+    <div class="study-header-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;">${esc(s.name)}</div>
+          <div style="font-size:13px;color:var(--blue-300);margin-top:4px;">${esc(s.description)||''}</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span style="font-size:13px;color:var(--blue-200);">${done}/5 ateliers</span>
+        </div>
+      </div>
+      <div class="study-header-meta">
+        <div class="study-header-meta-item"><label>PÃ©rimÃ¨tre</label><value>${esc(s.perimeter)||'â€”'}</value></div>
+        <div class="study-header-meta-item"><label>Organisation</label><value>${esc(s.organization)||'â€”'}</value></div>
+        <div class="study-header-meta-item"><label>Auteur / Date</label><value>${esc(s.author)||'â€”'} â€¢ ${esc(s.createdAt)}</value></div>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--blue-200);margin-bottom:6px;"><span>Progression globale</span><span style="font-weight:700;color:#fff;">${pct}%</span></div>
+        <div class="progress-wrap" style="height:6px;background:rgba(255,255,255,0.15);"><div class="progress-fill" style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--blue-400),#60d9fa);"></div></div>
+      </div>
+    </div>
+    <div class="atelier-tabs">
+      ${[1,2,3,4,5].map(n=>{
+        const st=getWorkshopStatus(s,n);
+        const isBlocked=st==='blocked';
+        const isDone=st==='completed';
+        return `<button class="atelier-tab ${currentWorkshop===n?'active':''} ${isBlocked?'blocked':''}" onclick="selectWorkshop(${n})" ${isBlocked?'title="BloquÃ© â€” complÃ©tez l\'atelier prÃ©cÃ©dent"':''}>
+          <span class="tab-num">${n}</span>
+          <span>${stIcons[n-1]} ${stNames[n-1].split(' ')[0]}</span>
+          ${isDone?'<span style="color:var(--green-bg)">âœ“</span>':''}
+          ${isBlocked?'<span style="color:rgba(220,38,38,0.7);font-size:12px;">ðŸ”’</span>':''}
+          ${st==='in_progress'?'<span style="width:7px;height:7px;border-radius:50%;background:var(--yellow);display:inline-block;"></span>':''}
+        </button>`;
+      }).join('')}
+    </div>
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:var(--gray-800);">Atelier ${currentWorkshop} â€” ${stNames[currentWorkshop-1]}</div>
+      <span class="badge ${getWorkshopStatus(s,currentWorkshop)==='completed'?'badge-done':getWorkshopStatus(s,currentWorkshop)==='in_progress'?'badge-inprogress':getWorkshopStatus(s,currentWorkshop)==='blocked'?'badge-blocked':'badge-draft'}">
+        <span class="dot"></span> ${({completed:'TerminÃ©',in_progress:'En cours',blocked:'BloquÃ©',not_started:'Non commencÃ©'})[getWorkshopStatus(s,currentWorkshop)]}
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="downloadLivrable(${currentWorkshop})" style="margin-left:auto;display:flex;align-items:center;gap:6px;border-color:var(--blue-300);color:var(--blue-700);">
+        <span>ðŸ“„</span> TÃ©lÃ©charger livrable PDF
+      </button>
+    </div>
+    <div id="workshopPanel"></div>
+  </div>`;
+
+  renderWorkshopPanel();
+}
+
+function backHome(){ currentStudyId=null; currentWorkshop=1; renderAll(); }
+
+function renderWorkshopPanel(){
+  const s=studies[currentStudyId];
+  const p=document.getElementById('workshopPanel');
+  if(!p) return;
+  switch(currentWorkshop){
+    case 1: p.innerHTML=buildW1(s); break;
+    case 2: p.innerHTML=buildW2(s); break;
+    case 3: p.innerHTML=buildW3(s); break;
+    case 4: p.innerHTML=buildW4(s); break;
+    case 5: p.innerHTML=buildW5(s); break;
+  }
+}
+
+// =======================================================
+// SECTION TOGGLE HELPER
+// =======================================================
+function toggleSection(key){
+  openSections[key] = !openSections[key];
+  const body=document.getElementById('sec-body-'+key);
+  const hdr=document.getElementById('sec-hdr-'+key);
+  const chev=document.getElementById('sec-chev-'+key);
+  if(body){ body.style.display=openSections[key]?'block':'none'; }
+  if(hdr){ hdr.classList.toggle('open',openSections[key]); }
+  if(chev){ chev.classList.toggle('open',openSections[key]); }
+}
+
+function buildSection(key, num, title, badge, body, defaultOpen){
+  if(defaultOpen && openSections[key]===undefined) openSections[key]=true;
+  const isOpen=!!openSections[key];
+  return `<div class="section-card">
+    <div class="section-header-bar ${isOpen?'open':''}" id="sec-hdr-${key}" onclick="toggleSection('${key}')">
+      <div class="section-header-title">
+        <span class="section-num-badge">${num}</span>
+        ${esc(title)}
+        ${badge||''}
+      </div>
+      <span class="chevron ${isOpen?'open':''}" id="sec-chev-${key}">â€º</span>
+    </div>
+    <div id="sec-body-${key}" style="display:${isOpen?'block':'none'};">
+      <div class="section-body">${body}</div>
+    </div>
+  </div>`;
+}
+
+function countBadge(n){ return `<span class="badge badge-count">${n}</span>`; }
+function blockedNotice(reason, reqs){
+  return `<div class="blocked-alert"><div class="blocked-alert-title">ðŸ”’ ${esc(reason)}</div><div class="blocked-alert-text">PrÃ©requis : ${reqs.map(r=>`<br>â€¢ ${r}`).join('')}</div></div>`;
+}
+
+// =======================================================
+// ATELIER 1
+// =======================================================
+function buildW1(s){
+  const w=s.workshop1;
+  let html='<div class="fade-in">';
+
+  // Infos gÃ©nÃ©rales
+  html+=buildSection('w1_info',1,'Informations gÃ©nÃ©rales','',`
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" value="${esc(w.generalInfo.date)}" onchange="updW1General('date',this.value)"/></div>
+      <div class="form-group"><label class="form-label">Version</label><input class="form-input" value="${esc(w.generalInfo.version)}" onchange="updW1General('version',this.value)"/></div>
+      <div class="form-group full"><label class="form-label">HypothÃ¨ses / Contraintes</label><textarea class="form-textarea" onchange="updW1General('constraints',this.value)">${esc(w.generalInfo.constraints)}</textarea></div>
+    </div>`,true);
+
+  // Contexte
+  html+=buildSection('w1_ctx',2,'Contexte de l\'Ã©tude','',`
+    <div class="help-tip">â„¹ï¸ Le contexte est la fondation. DÃ©crivez pÃ©rimÃ¨tre, environnement et enjeux.</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" rows="3" onchange="updW1Context('description',this.value)">${esc(w.context.description)}</textarea></div>
+      <div class="form-group"><label class="form-label">PÃ©rimÃ¨tre</label><textarea class="form-textarea" rows="2" onchange="updW1Context('perimeter',this.value)">${esc(w.context.perimeter)}</textarea></div>
+      <div class="form-group"><label class="form-label">Environnement</label><textarea class="form-textarea" rows="2" onchange="updW1Context('environment',this.value)">${esc(w.context.environment)}</textarea></div>
+    </div>`,true);
+
+  // Ã‰quipe
+  const teamRows=w.team.length?`<div class="table-wrap"><table><thead><tr><th>RÃ´le</th><th>Nom</th><th>ResponsabilitÃ©</th><th>Contact</th><th></th></tr></thead><tbody>${w.team.map(m=>`<tr><td>${esc(m.role)}</td><td><strong>${esc(m.name)}</strong></td><td>${esc(m.responsibility)}</td><td style="color:var(--gray-400)">${esc(m.contact||'â€”')}</td><td><button class="icon-btn" onclick="openEditTeam('${m.id}')">âœï¸</button><button class="icon-btn danger" onclick="delTeamMember('${m.id}')">ðŸ—‘</button></td></tr>`).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun membre dÃ©fini.</p>';
+  html+=buildSection('w1_team',3,'Ã‰quipe et responsabilitÃ©s',countBadge(w.team.length),`<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addTeamMember()">+ Ajouter un membre</button>${teamRows}`);
+
+  // Missions + Valeurs MÃ©tier
+  const missionChips=w.missions.map(m=>`<span class="mission-chip">${esc(m.name)}<button onclick="delMission('${m.id}')">Ã—</button></span>`).join('');
+  const bvRows=w.businessValues.length?`<div class="table-wrap"><table><thead><tr><th>Mission</th><th>Nom</th><th>Type</th><th>Description</th><th></th></tr></thead><tbody>${w.businessValues.map(v=>{const m=w.missions.find(x=>x.id===v.missionId);return `<tr><td>${esc(m?.name||'â€”')}</td><td><strong>${esc(v.name)}</strong></td><td>${esc(v.type||'â€”')}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(v.description||'â€”')}</td><td><button class="icon-btn" onclick="openEditBV('${v.id}')">âœï¸</button><button class="icon-btn danger" onclick="delBV('${v.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;margin-top:10px;">Aucune valeur mÃ©tier â€” crÃ©ez d\'abord une mission.</p>';
+  html+=buildSection('w1_bv',4,'Missions & Valeurs mÃ©tier',countBadge(w.businessValues.length),`
+    <div class="help-tip">â„¹ï¸ CrÃ©ez d'abord des missions, puis associez-y des valeurs mÃ©tier.</div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Missions</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <input class="form-input" id="newMission" placeholder="Nom de la mission" style="max-width:240px;"/>
+        <button class="btn btn-primary btn-sm" onclick="addMission()">+ Ajouter</button>
+      </div>
+      <div>${missionChips||'<span style="color:var(--gray-400);font-size:12px;">Aucune mission</span>'}</div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Valeurs mÃ©tier</div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:10px;" onclick="addBV()" ${!w.missions.length?'disabled':''}>+ Ajouter une valeur mÃ©tier</button>
+      ${bvRows}
+    </div>`);
+
+  // Biens supports
+  const bsRows=w.supportingAssets.length?`<div class="table-wrap"><table><thead><tr><th>Valeur mÃ©tier</th><th>Nom</th><th>Type</th><th>Localisation</th><th>CriticitÃ©</th><th></th></tr></thead><tbody>${w.supportingAssets.map(a=>{const v=w.businessValues.find(x=>x.id===a.businessValueId);const critCls={Critique:'lvl-4',Ã‰levÃ©e:'lvl-3',Moyenne:'lvl-2',Faible:'lvl-1'}[a.criticality]||'';return `<tr><td>${esc(v?.name||'â€”')}</td><td><strong>${esc(a.name)}</strong></td><td>${esc(a.type||'â€”')}</td><td>${esc(a.location||'â€”')}</td><td><span class="badge ${critCls}">${esc(a.criticality)}</span></td><td><button class="icon-btn" onclick="openEditBS('${a.id}')">âœï¸</button><button class="icon-btn danger" onclick="delBS('${a.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun bien support.</p>';
+  html+=buildSection('w1_bs',5,'Biens supports',countBadge(w.supportingAssets.length),(!w.businessValues.length?blockedNotice('Valeurs mÃ©tier requises',['CrÃ©er au moins une valeur mÃ©tier']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addBS()" '+((!w.businessValues.length)?'disabled':'')+'>+ Ajouter un bien support</button>'+bsRows);
+
+  // Ã‰vÃ©nements redoutÃ©s
+  const erRows=w.fearedEvents.length?`<div class="table-wrap"><table><thead><tr><th>Valeur mÃ©tier</th><th>Description</th><th>Impact</th><th>GravitÃ©</th><th></th></tr></thead><tbody>${w.fearedEvents.map(e=>{const v=w.businessValues.find(x=>x.id===e.businessValueId);return `<tr><td>${esc(v?.name||'â€”')}</td><td>${esc(e.description)}</td><td>${esc(e.impact||'â€”')}</td><td><span class="badge lvl-${e.gravity}">G${e.gravity} ${G_LABELS[e.gravity]}</span></td><td><button class="icon-btn" onclick="openEditER('${e.id}')">âœï¸</button><button class="icon-btn danger" onclick="delER('${e.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun Ã©vÃ©nement redoutÃ©.</p>';
+  html+=buildSection('w1_er',6,'Ã‰vÃ©nements redoutÃ©s',countBadge(w.fearedEvents.length),(!w.businessValues.length?blockedNotice('Valeurs mÃ©tier requises',['CrÃ©er au moins une valeur mÃ©tier']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addER()" '+((!w.businessValues.length)?'disabled':'')+'>+ Ajouter un Ã©vÃ©nement redoutÃ©</button>'+erRows);
+
+  // ISO 27001
+  const isoRows=w.isoControls.length?`<div class="table-wrap"><table><thead><tr><th>RÃ©fÃ©rence</th><th>Nom</th><th>Statut</th><th>Commentaires</th><th></th></tr></thead><tbody>${w.isoControls.map(c=>{const sCls={appliquÃ©:'badge-done',partiel:'badge-inprogress',non_appliquÃ©:'badge-blocked',en_cours:'badge-inprogress'}[c.status]||'';return `<tr><td><strong>${esc(c.reference)}</strong></td><td>${esc(c.name)}</td><td><span class="badge ${sCls}">${esc(c.status)}</span></td><td>${esc(c.comments||'â€”')}</td><td><button class="icon-btn" onclick="openEditISO('${c.id}')">âœï¸</button><button class="icon-btn danger" onclick="delISO('${c.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun contrÃ´le saisi.</p>';
+  html+=buildSection('w1_iso',7,'ContrÃ´les ISO 27001:2022',countBadge(w.isoControls.length),'<div class="help-tip">â„¹ï¸ Les contrÃ´les ISO enrichissent l\'analyse mais ne bloquent pas le workflow.</div><button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addISO()">+ Ajouter un contrÃ´le</button>'+isoRows);
+
+  html+='</div>';
+  return html;
+}
+
+// =======================================================
+// ATELIER 2
+// =======================================================
+function buildW2(s){
+  const w=s.workshop2; const w1=s.workshop1;
+  const a1ok=isW1Complete(s);
+  let html='<div class="fade-in">';
+  if(!a1ok) html+=`<div class="card" style="margin-bottom:18px;">${blockedNotice('Atelier 1 incomplet',['Au moins une mission','Au moins une valeur mÃ©tier','Au moins un Ã©vÃ©nement redoutÃ©'])}</div>`;
+
+  // Sources de risque
+  const rsRows=w.riskSources.length?`<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Type</th><th>Motivation</th><th>CapacitÃ©</th><th></th></tr></thead><tbody>${w.riskSources.map(r=>`<tr><td><strong>${esc(r.name)}</strong></td><td>${esc(r.type)}</td><td>${esc(r.motivation||'â€”')}</td><td><span class="badge lvl-${r.capability}">${r.capability}</span></td><td><button class="icon-btn" onclick="openEditRS('${r.id}')">âœï¸</button><button class="icon-btn danger" onclick="delRS('${r.id}')">ðŸ—‘</button></td></tr>`).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucune source de risque.</p>';
+  html+=buildSection('w2_rs',1,'Sources de risque',countBadge(w.riskSources.length),(!a1ok?blockedNotice('Atelier 1 requis',['ComplÃ©ter l\'atelier 1']):'')+`<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addRS()" ${!a1ok?'disabled':''}>+ Ajouter une source de risque</button>`+rsRows,true);
+
+  // Objectifs visÃ©s
+  const ovRows=w.targetObjectives.length?`<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Ã‰vÃ©nements redoutÃ©s liÃ©s</th><th></th></tr></thead><tbody>${w.targetObjectives.map(o=>{const ers=w1.fearedEvents.filter(e=>o.fearedEventIds?.includes(e.id));return `<tr><td><strong>${esc(o.name)}</strong></td><td>${ers.map(e=>`<span class="tag">${esc(e.description.slice(0,40))}</span>`).join(' ')||'â€”'}</td><td><button class="icon-btn" onclick="openEditOV('${o.id}')">âœï¸</button><button class="icon-btn danger" onclick="delOV('${o.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun objectif visÃ©.</p>';
+  html+=buildSection('w2_ov',2,'Objectifs visÃ©s',countBadge(w.targetObjectives.length),(!w.riskSources.length?blockedNotice('Sources de risque requises',['CrÃ©er au moins une source de risque']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addOV()" '+((!w.riskSources.length)?'disabled':'')+'>+ Ajouter un objectif visÃ©</button>'+ovRows);
+
+  // Couples SR/OV
+  const cpRows=w.sourceObjectivePairs.length?`<div class="table-wrap"><table><thead><tr><th>Source de risque</th><th>Objectif visÃ©</th><th>Pertinent ?</th><th>Justification</th><th></th></tr></thead><tbody>${w.sourceObjectivePairs.map(p=>{const rs=w.riskSources.find(r=>r.id===p.riskSourceId);const ov=w.targetObjectives.find(o=>o.id===p.targetObjectiveId);return `<tr><td>${esc(rs?.name||'?')}</td><td>${esc(ov?.name||'?')}</td><td><button class="badge ${p.retained?'badge-done':'badge-draft'}" onclick="toggleRetained('${p.id}')" style="cursor:pointer;border:none;">${p.retained?'âœ“ Pertinent':'âœ— Non pertinent'}</button></td><td style="color:var(--gray-400);font-size:12px;">${esc(p.justification||'â€”')}</td><td><button class="icon-btn danger" onclick="delPair('${p.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun couple SR/OV.</p>';
+  html+=buildSection('w2_pairs',3,'Couples SR/OV & Pertinence',`<span class="badge badge-blue">${w.sourceObjectivePairs.filter(p=>p.retained).length} pertinents</span>`,(!w.riskSources.length||!w.targetObjectives.length?blockedNotice('SR et OV requis',['Au moins une source de risque','Au moins un objectif visÃ©']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addPair()" '+(!w.riskSources.length||!w.targetObjectives.length?'disabled':'')+'>+ CrÃ©er un couple SR/OV</button>'+cpRows);
+
+  html+='</div>'; return html;
+}
+
+// =======================================================
+// ATELIER 3
+// =======================================================
+function buildW3(s){
+  const w=s.workshop3; const w2=s.workshop2;
+  const a2ok=isW2Complete(s);
+  const pertinentCouples=w2.sourceObjectivePairs.filter(p=>p.retained);
+  let html='<div class="fade-in">';
+  if(!a2ok) html+=`<div class="card" style="margin-bottom:18px;">${blockedNotice('Atelier 2 incomplet',['Au moins un couple SR/OV pertinent'])}</div>`;
+
+  // Parties prenantes
+  const ppRows=w.stakeholders.length?`<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Type</th><th>Exposition</th><th>FiabilitÃ©</th><th>AccÃ¨s</th><th></th></tr></thead><tbody>${w.stakeholders.map(p=>`<tr><td><strong>${esc(p.name)}</strong></td><td>${esc(p.type)}</td><td><span class="badge lvl-${p.exposure}">${p.exposure}</span></td><td><span class="badge lvl-${p.reliability}">${p.reliability}</span></td><td>${esc(p.access||'â€”')}</td><td><button class="icon-btn" onclick="openEditPP('${p.id}')">âœï¸</button><button class="icon-btn danger" onclick="delPP('${p.id}')">ðŸ—‘</button></td></tr>`).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucune partie prenante.</p>';
+  html+=buildSection('w3_pp',1,'Parties prenantes',countBadge(w.stakeholders.length),(!a2ok?blockedNotice('Atelier 2 requis',['ComplÃ©ter l\'atelier 2']):'')+`<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addPP()" ${!a2ok?'disabled':''}>+ Ajouter une partie prenante</button>`+ppRows,true);
+
+  // ScÃ©narios stratÃ©giques
+  const ssRows=w.strategicScenarios.length?w.strategicScenarios.map(ss=>{
+    const cp=w2.sourceObjectivePairs.find(p=>p.id===ss.coupleId);
+    const rs=cp?s.workshop2.riskSources.find(r=>r.id===cp.riskSourceId):null;
+    const ov=cp?s.workshop2.targetObjectives.find(o=>o.id===cp.targetObjectiveId):null;
+    const pps=w.stakeholders.filter(p=>ss.stakeholderIds?.includes(p.id));
+    return `<div class="item-row" style="flex-direction:column;align-items:flex-start;gap:7px;">
+      <div style="display:flex;width:100%;justify-content:space-between;align-items:center;">
+        <div class="item-name">${esc(ss.name)}</div>
+        <div style="display:flex;gap:7px;"><span class="badge lvl-${ss.gravity}">G${ss.gravity} ${G_LABELS[ss.gravity]}</span><button class="icon-btn danger" onclick="delSS('${ss.id}')">ðŸ—‘</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--gray-400);">${esc(rs?.name||'?')} â†’ ${esc(ov?.name||'?')}</div>
+      ${pps.length?`<div class="chips">${pps.map(p=>`<span class="tag">${esc(p.name)}</span>`).join('')}</div>`:''}
+      ${ss.description?`<div style="font-size:12px;color:var(--gray-600);">${esc(ss.description)}</div>`:''}
+    </div>`;
+  }).join(''):'<p style="color:var(--gray-400);font-size:13px;">Aucun scÃ©nario stratÃ©gique.</p>';
+  html+=buildSection('w3_ss',2,'ScÃ©narios stratÃ©giques',countBadge(w.strategicScenarios.length),(!pertinentCouples.length?blockedNotice('Couples SR/OV requis',['Au moins un couple SR/OV pertinent dans l\'atelier 2']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addSS()" '+(!pertinentCouples.length?'disabled':'')+'>+ CrÃ©er un scÃ©nario stratÃ©gique</button>'+ssRows);
+
+  // Traitement stratÃ©gique
+  const treatRows=w.treatments.length?`<div class="table-wrap"><table><thead><tr><th>ScÃ©nario</th><th>DÃ©cision</th><th>Justification</th><th></th></tr></thead><tbody>${w.treatments.map(t=>{const ss=w.strategicScenarios.find(s=>s.id===t.scenarioId);const dCls={RÃ©duction:'badge-inprogress',Acceptation:'badge-done',Refus:'badge-blocked',Partage:'badge-blue'}[t.decision]||'';return `<tr><td>${esc(ss?.name||'?')}</td><td><span class="badge ${dCls}">${esc(t.decision)}</span></td><td>${esc(t.justification||'â€”')}</td><td><button class="icon-btn danger" onclick="delTreat('${t.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun traitement stratÃ©gique.</p>';
+  html+=buildSection('w3_treat',3,'Traitement des risques stratÃ©giques',countBadge(w.treatments.length),(!w.strategicScenarios.length?blockedNotice('ScÃ©narios stratÃ©giques requis',['CrÃ©er au moins un scÃ©nario stratÃ©gique']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addTreat()" '+(!w.strategicScenarios.length?'disabled':'')+'>+ Ajouter un traitement</button>'+treatRows);
+
+  html+='</div>'; return html;
+}
+
+// =======================================================
+// ATELIER 4
+// =======================================================
+function buildW4(s){
+  const w=s.workshop4; const w3=s.workshop3;
+  const a3ok=isW3Complete(s);
+  let html='<div class="fade-in">';
+  if(!a3ok) html+=`<div class="card" style="margin-bottom:18px;">${blockedNotice('Atelier 3 incomplet',['Au moins un scÃ©nario stratÃ©gique'])}</div>`;
+
+  // Modes opÃ©ratoires
+  const moRows=w.operationalModes.length?w.operationalModes.map(m=>{
+    const ss=w3.strategicScenarios.find(s=>s.id===m.strategicScenarioId);
+    return `<div class="item-row">
+      <div class="item-info"><div class="item-name">${esc(m.name)}</div><div class="item-desc">${esc(ss?.name||'?')}</div></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        ${m.technics?.map(t=>`<span class="tag">${esc(t)}</span>`).join('')||''}
+        <button class="icon-btn" onclick="openEditMO('${m.id}')">âœï¸</button>
+        <button class="icon-btn danger" onclick="delMO('${m.id}')">ðŸ—‘</button>
+      </div>
+    </div>`;
+  }).join(''):'<p style="color:var(--gray-400);font-size:13px;">Aucun mode opÃ©ratoire.</p>';
+  html+=buildSection('w4_mo',1,'Modes opÃ©ratoires',countBadge(w.operationalModes.length),(!a3ok?blockedNotice('Atelier 3 requis',['ComplÃ©ter l\'atelier 3']):'')+`<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addMO()" ${!a3ok?'disabled':''}>+ Ajouter un mode opÃ©ratoire</button>`+moRows,true);
+
+  // ScÃ©narios opÃ©rationnels
+  const soRows=w.operationalScenarios.length?w.operationalScenarios.map(so=>{
+    const ss=w3.strategicScenarios.find(s=>s.id===so.strategicScenarioId);
+    const mos=w.operationalModes.filter(m=>so.operationalModeIds?.includes(m.id));
+    const bs=s.workshop1.supportingAssets.filter(a=>so.supportingAssetIds?.includes(a.id));
+    return `<div class="item-row" style="flex-direction:column;align-items:flex-start;gap:7px;">
+      <div style="display:flex;width:100%;justify-content:space-between;align-items:center;">
+        <div class="item-name">${esc(so.name)}</div>
+        <div style="display:flex;gap:7px;"><span class="badge lvl-${so.likelihood}">V${so.likelihood} ${V_LABELS[so.likelihood]}</span><button class="icon-btn danger" onclick="delSO('${so.id}')">ðŸ—‘</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--gray-400);">ScÃ©nario stratÃ©gique : ${esc(ss?.name||'?')}</div>
+      ${mos.length?`<div class="chips"><span style="font-size:11px;color:var(--gray-400);">Modes :</span>${mos.map(m=>`<span class="tag">${esc(m.name)}</span>`).join('')}</div>`:''}
+      ${bs.length?`<div class="chips"><span style="font-size:11px;color:var(--gray-400);">Biens :</span>${bs.map(b=>`<span class="tag">${esc(b.name)}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join(''):'<p style="color:var(--gray-400);font-size:13px;">Aucun scÃ©nario opÃ©rationnel.</p>';
+  html+=buildSection('w4_so',2,'ScÃ©narios opÃ©rationnels',countBadge(w.operationalScenarios.length),(!w.operationalModes.length?blockedNotice('Modes opÃ©ratoires requis',['CrÃ©er au moins un mode opÃ©ratoire']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addSO()" '+(!w.operationalModes.length?'disabled':'')+'>+ CrÃ©er un scÃ©nario opÃ©rationnel</button>'+soRows);
+
+  html+='</div>'; return html;
+}
+
+// =======================================================
+// ATELIER 5
+// =======================================================
+function buildW5(s){
+  const w=s.workshop5; const w4=s.workshop4;
+  const a4ok=isW4Complete(s);
+  let html='<div class="fade-in">';
+  if(!a4ok) html+=`<div class="card" style="margin-bottom:18px;">${blockedNotice('Atelier 4 incomplet',['Au moins un scÃ©nario opÃ©rationnel'])}</div>`;
+
+  // Registre des risques
+  const rrRows=w.riskEntries.length?`<div class="table-wrap"><table><thead><tr><th>ScÃ©nario opÃ©rationnel</th><th>GravitÃ©</th><th>Vraisemblance</th><th>Niveau de risque</th><th>Traitement</th><th></th></tr></thead><tbody>${w.riskEntries.map(r=>{const so=w4.operationalScenarios.find(o=>o.id===r.operationalScenarioId);const rl=riskLevel(r.gravity,r.likelihood);return `<tr><td>${esc(so?.name||'?')}</td><td><span class="badge lvl-${r.gravity}">G${r.gravity}</span></td><td><span class="badge lvl-${r.likelihood}">V${r.likelihood}</span></td><td><span class="badge ${rl.cls}">${rl.label}</span></td><td style="font-size:12px;color:var(--gray-500);">${esc(r.treatment)}</td><td><button class="icon-btn danger" onclick="delRR('${r.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Registre vide.</p>';
+  html+=buildSection('w5_rr',1,'Registre des risques',countBadge(w.riskEntries.length),(!a4ok?blockedNotice('Atelier 4 requis',['ComplÃ©ter l\'atelier 4']):'')+'<div class="help-tip">â„¹ï¸ Niveau de risque = GravitÃ© Ã— Vraisemblance. CalculÃ© automatiquement.</div><button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addRR()" '+((!a4ok)?'disabled':'')+'>+ Ajouter au registre</button>'+rrRows,true);
+
+  // Mesures de sÃ©curitÃ© â€” par catÃ©gorie
+  const measureCats=['Gouvernance','Protection','DÃ©fense','RÃ©silience','ConformitÃ©'];
+  const catIcons={Gouvernance:'ðŸ›ï¸',Protection:'ðŸ›¡ï¸',DÃ©fense:'âš”ï¸',RÃ©silience:'ðŸ”„',ConformitÃ©:'âœ…'};
+  const catColors={Gouvernance:'#6d28d9',Protection:'#1e4db7',DÃ©fense:'#dc2626',RÃ©silience:'#16a34a',ConformitÃ©:'#d97706'};
+  const catBodyHTML = (!w.riskEntries.length ? blockedNotice('Registre requis',['Ajouter au moins un risque dans le registre']) : '') +
+    measureCats.map(cat => {
+      const catMeasures = w.measures.filter(m => m.category === cat);
+      const catRows = catMeasures.length ? catMeasures.map(m=>`<div class="item-row">
+        <div class="item-info">
+          <div class="item-name">${esc(m.name)}</div>
+          <div class="item-desc">${esc(m.description?.slice(0,60)||'')}</div>
+        </div>
+        <div style="display:flex;gap:7px;align-items:center;">
+          <span class="badge ${({Critique:'lvl-4',Haute:'lvl-3',Moyenne:'lvl-2',Faible:'lvl-1'}[m.priority]||'')}}">${esc(m.priority)}</span>
+          <button class="badge ${m.status==='Fait'?'badge-done':'badge-inprogress'}" onclick="toggleMeasureStatus('${m.id}')" style="cursor:pointer;border:none;">${esc(m.status)}</button>
+          <button class="icon-btn" onclick="openEditMeasure('${m.id}')">âœï¸</button>
+          <button class="icon-btn danger" onclick="delMeasure('${m.id}')">ðŸ—‘</button>
+        </div>
+      </div>`).join('') : `<p style="color:var(--gray-400);font-size:12px;font-style:italic;padding:6px 0;">Aucune mesure dans cette catÃ©gorie.</p>`;
+      return `<div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">${catIcons[cat]}</span>
+            <span style="font-size:13px;font-weight:700;color:${catColors[cat]};">${cat}</span>
+            <span class="badge badge-count">${catMeasures.length}</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addMeasureForCat('${cat}')" ${!w.riskEntries.length?'disabled':''}>+ Ajouter</button>
+        </div>
+        <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:${catMeasures.length?'8px':'12px'} 10px;">
+          ${catRows}
+        </div>
+      </div>`;
+    }).join('');
+  html+=buildSection('w5_measures',2,'Mesures de sÃ©curitÃ©',countBadge(w.measures.length), catBodyHTML);
+
+  // Risques rÃ©siduels
+  const resRows=w.residualRisks.length?`<div class="table-wrap"><table><thead><tr><th>Risque initial</th><th>Niveau initial</th><th>GravitÃ© rÃ©sid.</th><th>Vrais. rÃ©sid.</th><th>Niveau rÃ©sid.</th><th>Justification</th><th></th></tr></thead><tbody>${w.residualRisks.map(r=>{const entry=w.riskEntries.find(e=>e.id===r.riskEntryId);const so=entry?w4.operationalScenarios.find(o=>o.id===entry.operationalScenarioId):null;const init=entry?riskLevel(entry.gravity,entry.likelihood):{label:'?',cls:''};const resid=riskLevel(r.residualGravity,r.residualLikelihood);return `<tr><td>${esc(so?.name||'?')}</td><td><span class="badge ${init.cls}">${init.label}</span></td><td><span class="badge lvl-${r.residualGravity}">G${r.residualGravity}</span></td><td><span class="badge lvl-${r.residualLikelihood}">V${r.residualLikelihood}</span></td><td><span class="badge ${resid.cls}">${resid.label}</span></td><td style="font-size:12px;color:var(--gray-400);">${esc(r.justification||'â€”')}</td><td><button class="icon-btn danger" onclick="delRes('${r.id}')">ðŸ—‘</button></td></tr>`}).join('')}</tbody></table></div>`:'<p style="color:var(--gray-400);font-size:13px;">Aucun risque rÃ©siduel.</p>';
+  html+=buildSection('w5_res',3,'Risques rÃ©siduels',countBadge(w.residualRisks.length),(!w.riskEntries.length?blockedNotice('Registre requis',['Renseigner le registre des risques']):'')+'<button class="btn btn-primary btn-sm" style="margin-bottom:12px;" onclick="addRes()" '+(!w.riskEntries.length?'disabled':'')+'>+ Ajouter un risque rÃ©siduel</button>'+resRows);
+
+  html+='</div>'; return html;
+}
+
+// =======================================================
+// CRUD HELPERS â€” generic modal open
+// =======================================================
+function openModal(id){ document.getElementById(id).style.display='flex'; }
+function closeModal(id){ document.getElementById(id).style.display='none'; }
+function openEditModal(title, bodyHTML, target){
+  document.getElementById('editModalTitle').textContent=title;
+  document.getElementById('editModalBody').innerHTML=bodyHTML;
+  editTarget=target;
+  openModal('editModal');
+}
+
+function saveEdit(){
+  if(!editTarget||!currentStudyId) return;
+  const s=studies[currentStudyId];
+  const t=editTarget.type;
+  if(t==='team'){
+    const m=s.workshop1.team.find(x=>x.id===editTarget.id);
+    if(m){m.role=val('eRole');m.name=val('eName');m.responsibility=val('eResp');m.contact=val('eContact');}
+  } else if(t==='bv'){
+    const v=s.workshop1.businessValues.find(x=>x.id===editTarget.id);
+    if(v){v.missionId=val('eMission');v.name=val('eName');v.type=getTypeVal('eTypeSelect','eTypeOther');v.description=val('eDesc');}
+  } else if(t==='bs'){
+    const a=s.workshop1.supportingAssets.find(x=>x.id===editTarget.id);
+    if(a){a.businessValueId=val('eBV');a.name=val('eName');a.type=getTypeVal('eBSTypeSelect','eBSTypeOther');a.location=val('eLocation');a.criticality=val('eCriticality');}
+  } else if(t==='er'){
+    const e=s.workshop1.fearedEvents.find(x=>x.id===editTarget.id);
+    if(e){e.businessValueId=val('eBV');e.description=val('eDesc');e.impact=val('eImpact');e.gravity=parseInt(val('eGravity'));}
+  } else if(t==='iso'){
+    const c=s.workshop1.isoControls.find(x=>x.id===editTarget.id);
+    if(c){c.reference=val('eRef');c.name=val('eName');c.status=val('eStatus');c.comments=val('eComments');}
+  } else if(t==='rs'){
+    const r=s.workshop2.riskSources.find(x=>x.id===editTarget.id);
+    if(r){r.name=val('eName');r.type=val('eType');r.motivation=val('eMotivation');r.capability=parseInt(val('eCapability'));}
+  } else if(t==='ov'){
+    const o=s.workshop2.targetObjectives.find(x=>x.id===editTarget.id);
+    if(o){o.name=val('eName');o.description=val('eDesc');o.fearedEventIds=multiVal('eERIds');}
+  } else if(t==='pair'){
+    const p=s.workshop2.sourceObjectivePairs.find(x=>x.id===editTarget.id)||{id:editTarget.id,riskSourceId:'',targetObjectiveId:'',retained:false,justification:''};
+    if(!s.workshop2.sourceObjectivePairs.find(x=>x.id===editTarget.id)) s.workshop2.sourceObjectivePairs.push(p);
+    p.riskSourceId=val('eRS');p.targetObjectiveId=val('eOV');p.retained=val('eRetained')==='true';p.justification=val('eJustification');
+  } else if(t==='pp'){
+    const p=s.workshop3.stakeholders.find(x=>x.id===editTarget.id);
+    if(p){p.name=val('eName');p.type=val('eType');p.exposure=parseInt(val('eExposure'));p.reliability=parseInt(val('eReliability'));p.access=val('eAccess');}
+  } else if(t==='ss'){
+    const ss={id:editTarget.id,coupleId:val('eCoupleId'),stakeholderIds:multiVal('ePPIds'),name:val('eName'),description:val('eDesc'),gravity:parseInt(val('eGravity'))};
+    const idx=s.workshop3.strategicScenarios.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop3.strategicScenarios[idx]=ss; else s.workshop3.strategicScenarios.push(ss);
+  } else if(t==='treat'){
+    const tr={id:editTarget.id,scenarioId:val('eScenarioId'),decision:val('eDecision'),justification:val('eJustification')};
+    const idx=s.workshop3.treatments.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop3.treatments[idx]=tr; else s.workshop3.treatments.push(tr);
+  } else if(t==='mo'){
+    const m=s.workshop4.operationalModes.find(x=>x.id===editTarget.id)||{id:editTarget.id};
+    m.strategicScenarioId=val('eSSId');m.name=val('eName');m.description=val('eDesc');m.technics=val('eTechnics').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!s.workshop4.operationalModes.find(x=>x.id===editTarget.id)) s.workshop4.operationalModes.push(m);
+  } else if(t==='so'){
+    const so={id:editTarget.id,strategicScenarioId:val('eSSId'),operationalModeIds:multiVal('eMOIds'),supportingAssetIds:multiVal('eBSIds'),likelihood:parseInt(val('eLikelihood')),name:val('eName'),description:val('eDesc')};
+    const idx=s.workshop4.operationalScenarios.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop4.operationalScenarios[idx]=so; else s.workshop4.operationalScenarios.push(so);
+  } else if(t==='rr'){
+    const rr={id:editTarget.id,operationalScenarioId:val('eSOId'),gravity:parseInt(val('eGravity')),likelihood:parseInt(val('eLikelihood')),treatment:val('eTreatment'),notes:val('eNotes')};
+    const idx=s.workshop5.riskEntries.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop5.riskEntries[idx]=rr; else s.workshop5.riskEntries.push(rr);
+  } else if(t==='measure'){
+    const m={id:editTarget.id,category:val('eCategory'),name:val('eName'),description:val('eDesc'),priority:val('ePriority'),status:val('eStatus')};
+    const idx=s.workshop5.measures.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop5.measures[idx]=m; else s.workshop5.measures.push(m);
+  } else if(t==='res'){
+    const r={id:editTarget.id,riskEntryId:val('eRRId'),residualGravity:parseInt(val('eGravity')),residualLikelihood:parseInt(val('eLikelihood')),justification:val('eJustification')};
+    const idx=s.workshop5.residualRisks.findIndex(x=>x.id===editTarget.id);
+    if(idx>=0) s.workshop5.residualRisks[idx]=r; else s.workshop5.residualRisks.push(r);
+  }
+  saveStudies();
+  updateAllStatuses(s);
+  closeModal('editModal');
+  renderContent();
+  renderWorkshopStepper();
+}
+
+const val=id=>{const el=document.getElementById(id);return el?el.value:'';}
+const multiVal=id=>{const el=document.getElementById(id);if(!el)return[];return [...el.selectedOptions].map(o=>o.value);}
+
+function toggleOtherField(selectId, groupId){
+  const sel=document.getElementById(selectId);
+  const grp=document.getElementById(groupId);
+  if(!sel||!grp) return;
+  grp.style.display=sel.value==='Autre'?'flex':'none';
+}
+
+function getTypeVal(selectId, otherId){
+  const sel=document.getElementById(selectId);
+  if(!sel) return val('eType');
+  if(sel.value==='Autre'){
+    const other=document.getElementById(otherId);
+    return other?other.value.trim():sel.value;
+  }
+  return sel.value;
+}
+
+// =======================================================
+// FORM HELPERS â€” SELECT BUILDERS
+// =======================================================
+function selectOpts(opts, selVal, labelFn){
+  return opts.map(o=>`<option value="${esc(o.id)}" ${o.id===selVal?'selected':''}>${esc(labelFn(o))}</option>`).join('');
+}
+function gravitySelect(selVal, id='eGravity'){
+  return `<select class="form-select" id="${id}">${[1,2,3,4].map(g=>`<option value="${g}" ${g===selVal?'selected':''}>G${g} â€” ${G_LABELS[g]}</option>`).join('')}</select>`;
+}
+function likelihoodSelect(selVal, id='eLikelihood'){
+  return `<select class="form-select" id="${id}">${[1,2,3,4].map(l=>`<option value="${l}" ${l===selVal?'selected':''}>V${l} â€” ${V_LABELS[l]}</option>`).join('')}</select>`;
+}
+
+// =======================================================
+// CRUD ACTIONS â€” W1
+// =======================================================
+function updW1General(f,v){ const s=studies[currentStudyId]; s.workshop1.generalInfo[f]=v; saveStudies(); }
+function updW1Context(f,v){ const s=studies[currentStudyId]; s.workshop1.context[f]=v; saveStudies(); updateAllStatuses(s); renderWorkshopStepper(); }
+
+function addTeamMember(){ const s=studies[currentStudyId]; const id=uid(); s.workshop1.team.push({id,role:'',name:'',responsibility:'',contact:''}); saveStudies(); openEditTeam(id, true); }
+function openEditTeam(id, isNew=false){ const s=studies[currentStudyId]; const m=s.workshop1.team.find(x=>x.id===id); if(!m)return;
+  openEditModal(isNew?'Ajouter un membre d\'Ã©quipe':'Modifier membre d\'Ã©quipe',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">RÃ´le</label><input class="form-input" id="eRole" value="${esc(m.role)}"/></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(m.name)}"/></div>
+    <div class="form-group"><label class="form-label">ResponsabilitÃ©</label><input class="form-input" id="eResp" value="${esc(m.responsibility)}"/></div>
+    <div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="eContact" value="${esc(m.contact||'')}"/></div>
+  </div>`,{type:'team',id}); }
+function delTeamMember(id){ confirmDo('Supprimer ce membre d\'Ã©quipe ?',()=>{ const s=studies[currentStudyId]; s.workshop1.team=s.workshop1.team.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addMission(){ const name=document.getElementById('newMission')?.value.trim(); if(!name){alert('Nom requis');return;} const s=studies[currentStudyId]; s.workshop1.missions.push({id:uid(),name,description:''}); document.getElementById('newMission').value=''; saveStudies(); renderContent(); }
+function delMission(id){ confirmDo('Supprimer cette mission et ses valeurs mÃ©tier liÃ©es ?',()=>{ const s=studies[currentStudyId]; s.workshop1.missions=s.workshop1.missions.filter(x=>x.id!==id); s.workshop1.businessValues=s.workshop1.businessValues.filter(x=>x.missionId!==id); saveStudies(); renderContent(); }); }
+
+function addBV(){ const s=studies[currentStudyId]; if(!s.workshop1.missions.length){alert('CrÃ©ez d\'abord une mission');return;} const id=uid(); s.workshop1.businessValues.push({id,missionId:s.workshop1.missions[0].id,name:'',type:'',description:''}); saveStudies(); openEditBV(id, true); }
+function openEditBV(id, isNew=false){ const s=studies[currentStudyId]; const v=s.workshop1.businessValues.find(x=>x.id===id); if(!v)return;
+  const bvTypes=['Information','Processus','Service','Produit','Savoir-faire','DonnÃ©es personnelles','Infrastructure critique','Autre'];
+  const currentType=v.type||'';
+  const isOther=currentType && !bvTypes.slice(0,-1).includes(currentType);
+  const displayOther=isOther?currentType:'';
+  const selectedType=isOther?'Autre':currentType;
+  openEditModal(isNew?'Ajouter une valeur mÃ©tier':'Modifier valeur mÃ©tier',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Mission</label><select class="form-select" id="eMission">${selectOpts(s.workshop1.missions,v.missionId,m=>m.name)}</select></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(v.name)}"/></div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <select class="form-select" id="eTypeSelect" onchange="toggleOtherField('eTypeSelect','eTypeOtherGroup')">
+        <option value="">â€” Choisir â€”</option>
+        ${bvTypes.map(t=>`<option value="${t}" ${t===selectedType?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" id="eTypeOtherGroup" style="display:${isOther?'flex':'none'};flex-direction:column;gap:5px;">
+      <label class="form-label">PrÃ©ciser le type</label>
+      <input class="form-input" id="eTypeOther" value="${esc(displayOther)}" placeholder="DÃ©crivez le typeâ€¦"/>
+    </div>
+    <input type="hidden" id="eType" value="${esc(currentType)}"/>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc">${esc(v.description||'')}</textarea></div>
+  </div>`,{type:'bv',id}); }
+function delBV(id){ confirmDo('Supprimer cette valeur mÃ©tier et ses biens supports / Ã©vÃ©nements liÃ©s ?',()=>{ const s=studies[currentStudyId]; s.workshop1.businessValues=s.workshop1.businessValues.filter(x=>x.id!==id); s.workshop1.supportingAssets=s.workshop1.supportingAssets.filter(x=>x.businessValueId!==id); s.workshop1.fearedEvents=s.workshop1.fearedEvents.filter(x=>x.businessValueId!==id); saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); }); }
+
+function addBS(){ const s=studies[currentStudyId]; if(!s.workshop1.businessValues.length){alert('CrÃ©ez d\'abord une valeur mÃ©tier');return;} const id=uid(); s.workshop1.supportingAssets.push({id,businessValueId:s.workshop1.businessValues[0].id,name:'',type:'SystÃ¨me',location:'',criticality:'Moyenne'}); saveStudies(); openEditBS(id, true); }
+function openEditBS(id, isNew=false){ const s=studies[currentStudyId]; const a=s.workshop1.supportingAssets.find(x=>x.id===id); if(!a)return;
+  const bsTypes=['SystÃ¨me','Serveur','Base de donnÃ©es','Application','RÃ©seau','Cloud','Poste de travail','Ã‰quipement IoT','Ressource humaine','Autre'];
+  const currentType=a.type||'SystÃ¨me';
+  const isOther=currentType && !bsTypes.slice(0,-1).includes(currentType);
+  const displayOther=isOther?currentType:'';
+  const selectedType=isOther?'Autre':currentType;
+  openEditModal(isNew?'Ajouter un bien support':'Modifier bien support',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Valeur mÃ©tier</label><select class="form-select" id="eBV">${selectOpts(s.workshop1.businessValues,a.businessValueId,v=>v.name)}</select></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(a.name)}"/></div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <select class="form-select" id="eBSTypeSelect" onchange="toggleOtherField('eBSTypeSelect','eBSTypeOtherGroup')">
+        ${bsTypes.map(t=>`<option value="${t}" ${t===selectedType?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" id="eBSTypeOtherGroup" style="display:${isOther?'flex':'none'};flex-direction:column;gap:5px;">
+      <label class="form-label">PrÃ©ciser le type</label>
+      <input class="form-input" id="eBSTypeOther" value="${esc(displayOther)}" placeholder="DÃ©crivez le typeâ€¦"/>
+    </div>
+    <input type="hidden" id="eType" value="${esc(currentType)}"/>
+    <div class="form-group"><label class="form-label">Localisation</label><input class="form-input" id="eLocation" value="${esc(a.location||'')}"/></div>
+    <div class="form-group"><label class="form-label">CriticitÃ©</label><select class="form-select" id="eCriticality">${['Faible','Moyenne','Ã‰levÃ©e','Critique'].map(c=>`<option ${c===a.criticality?'selected':''}>${c}</option>`).join('')}</select></div>
+  </div>`,{type:'bs',id}); }
+function delBS(id){ confirmDo('Supprimer ce bien support ?',()=>{ const s=studies[currentStudyId]; s.workshop1.supportingAssets=s.workshop1.supportingAssets.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addER(){ const s=studies[currentStudyId]; if(!s.workshop1.businessValues.length){alert('CrÃ©ez d\'abord une valeur mÃ©tier');return;} const id=uid(); s.workshop1.fearedEvents.push({id,businessValueId:s.workshop1.businessValues[0].id,description:'',impact:'',gravity:2}); saveStudies(); openEditER(id, true); }
+function openEditER(id, isNew=false){ const s=studies[currentStudyId]; const e=s.workshop1.fearedEvents.find(x=>x.id===id); if(!e)return;
+  openEditModal(isNew?'Ajouter un Ã©vÃ©nement redoutÃ©':'Modifier Ã©vÃ©nement redoutÃ©',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Valeur mÃ©tier</label><select class="form-select" id="eBV">${selectOpts(s.workshop1.businessValues,e.businessValueId,v=>v.name)}</select></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc">${esc(e.description)}</textarea></div>
+    <div class="form-group"><label class="form-label">Impact</label><input class="form-input" id="eImpact" value="${esc(e.impact||'')}" placeholder="Perte de donnÃ©es, indisponibilitÃ©â€¦"/></div>
+    <div class="form-group"><label class="form-label">GravitÃ©</label>${gravitySelect(e.gravity)}</div>
+  </div>`,{type:'er',id}); }
+function delER(id){ confirmDo('Supprimer cet Ã©vÃ©nement redoutÃ© ?',()=>{ const s=studies[currentStudyId]; s.workshop1.fearedEvents=s.workshop1.fearedEvents.filter(x=>x.id!==id); saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); }); }
+
+function addISO(){ const s=studies[currentStudyId]; const id=uid(); s.workshop1.isoControls.push({id,reference:'',name:'',status:'non_appliquÃ©',comments:''}); saveStudies(); openEditISO(id, true); }
+function openEditISO(id, isNew=false){ const s=studies[currentStudyId]; const c=s.workshop1.isoControls.find(x=>x.id===id); if(!c)return;
+  openEditModal(isNew?'Ajouter un contrÃ´le ISO 27001':'Modifier contrÃ´le ISO 27001',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">RÃ©fÃ©rence</label><input class="form-input" id="eRef" value="${esc(c.reference)}" placeholder="A.5.1"/></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(c.name)}"/></div>
+    <div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="eStatus">${['appliquÃ©','partiel','non_appliquÃ©','en_cours'].map(s=>`<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Commentaires</label><textarea class="form-textarea" id="eComments">${esc(c.comments||'')}</textarea></div>
+  </div>`,{type:'iso',id}); }
+function delISO(id){ confirmDo('Supprimer ce contrÃ´le ISO ?',()=>{ const s=studies[currentStudyId]; s.workshop1.isoControls=s.workshop1.isoControls.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+// =======================================================
+// CRUD â€” W2
+// =======================================================
+function addRS(){ const s=studies[currentStudyId]; const id=uid(); s.workshop2.riskSources.push({id,name:'',type:'Externe',motivation:'',capability:2}); saveStudies(); openEditRS(id, true); }
+function openEditRS(id, isNew=false){ const s=studies[currentStudyId]; const r=s.workshop2.riskSources.find(x=>x.id===id)||{id,name:'',type:'Externe',motivation:'',capability:2};
+  openEditModal(isNew?'Ajouter une source de risque':'Modifier source de risque',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(r.name)}" placeholder="Cybercriminel, Ã©tat Ã©trangerâ€¦"/></div>
+    <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="eType">${['Externe','Interne','Partenaire'].map(t=>`<option ${t===r.type?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Motivation</label><input class="form-input" id="eMotivation" value="${esc(r.motivation||'')}" placeholder="Gain financier, espionnageâ€¦"/></div>
+    <div class="form-group"><label class="form-label">CapacitÃ© (1â€“4)</label><select class="form-select" id="eCapability">${[1,2,3,4].map(c=>`<option value="${c}" ${c===r.capability?'selected':''}>${c}</option>`).join('')}</select></div>
+  </div>`,{type:'rs',id}); }
+function delRS(id){ confirmDo('Supprimer cette source de risque ?',()=>{ const s=studies[currentStudyId]; s.workshop2.riskSources=s.workshop2.riskSources.filter(x=>x.id!==id); s.workshop2.sourceObjectivePairs=s.workshop2.sourceObjectivePairs.filter(x=>x.riskSourceId!==id); saveStudies(); renderContent(); }); }
+
+function addOV(){ const s=studies[currentStudyId]; const id=uid(); s.workshop2.targetObjectives.push({id,name:'',description:'',fearedEventIds:[]}); saveStudies(); openEditOV(id, true); }
+function openEditOV(id, isNew=false){ const s=studies[currentStudyId]; const o=s.workshop2.targetObjectives.find(x=>x.id===id)||{id,name:'',description:'',fearedEventIds:[]};
+  openEditModal(isNew?'Ajouter un objectif visÃ©':'Modifier objectif visÃ©',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(o.name)}" placeholder="Exfiltrer des donnÃ©esâ€¦"/></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc">${esc(o.description||'')}</textarea></div>
+    <div class="form-group"><label class="form-label">Ã‰vÃ©nements redoutÃ©s liÃ©s (Ctrl+clic)</label>
+      <select class="form-select" id="eERIds" multiple style="min-height:80px;">${s.workshop1.fearedEvents.map(e=>`<option value="${e.id}" ${o.fearedEventIds?.includes(e.id)?'selected':''}>${esc(e.description?.slice(0,50))}</option>`).join('')}</select>
+    </div>
+  </div>`,{type:'ov',id}); }
+function delOV(id){ confirmDo('Supprimer cet objectif visÃ© ?',()=>{ const s=studies[currentStudyId]; s.workshop2.targetObjectives=s.workshop2.targetObjectives.filter(x=>x.id!==id); s.workshop2.sourceObjectivePairs=s.workshop2.sourceObjectivePairs.filter(x=>x.targetObjectiveId!==id); saveStudies(); renderContent(); }); }
+
+function addPair(){ const s=studies[currentStudyId]; const id=uid(); openEditModal('CrÃ©er couple SR/OV',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Source de risque</label><select class="form-select" id="eRS"><option value="">â€” Choisir â€”</option>${selectOpts(s.workshop2.riskSources,'',r=>r.name)}</select></div>
+    <div class="form-group"><label class="form-label">Objectif visÃ©</label><select class="form-select" id="eOV"><option value="">â€” Choisir â€”</option>${selectOpts(s.workshop2.targetObjectives,'',o=>o.name)}</select></div>
+    <div class="form-group"><label class="form-label">Pertinent ?</label><select class="form-select" id="eRetained"><option value="true">Oui â€” Pertinent</option><option value="false">Non â€” Non pertinent</option></select></div>
+    <div class="form-group"><label class="form-label">Justification</label><input class="form-input" id="eJustification" placeholder="Motivation, capacitÃ©â€¦"/></div>
+  </div>`,{type:'pair',id}); }
+function delPair(id){ confirmDo('Supprimer ce couple SR/OV ?',()=>{ const s=studies[currentStudyId]; s.workshop2.sourceObjectivePairs=s.workshop2.sourceObjectivePairs.filter(x=>x.id!==id); saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); }); }
+function toggleRetained(id){ const s=studies[currentStudyId]; const p=s.workshop2.sourceObjectivePairs.find(x=>x.id===id); if(p){p.retained=!p.retained; saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); } }
+
+// =======================================================
+// CRUD â€” W3
+// =======================================================
+function addPP(){ const s=studies[currentStudyId]; const id=uid(); s.workshop3.stakeholders.push({id,name:'',type:'Sous-traitant',exposure:2,reliability:2,access:''}); saveStudies(); openEditPP(id, true); }
+function openEditPP(id, isNew=false){ const s=studies[currentStudyId]; const p=s.workshop3.stakeholders.find(x=>x.id===id)||{id,name:'',type:'Sous-traitant',exposure:2,reliability:2,access:''};
+  openEditModal(isNew?'Ajouter une partie prenante':'Modifier partie prenante',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(p.name)}" placeholder="Prestataire maintenanceâ€¦"/></div>
+    <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="eType">${['Sous-traitant','Partenaire','Client','Fournisseur','RÃ©gulateur'].map(t=>`<option ${t===p.type?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Exposition (1â€“4)</label><select class="form-select" id="eExposure">${[1,2,3,4].map(n=>`<option value="${n}" ${n===p.exposure?'selected':''}>${n}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">FiabilitÃ© (1â€“4)</label><select class="form-select" id="eReliability">${[1,2,3,4].map(n=>`<option value="${n}" ${n===p.reliability?'selected':''}>${n}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Type d'accÃ¨s</label><input class="form-input" id="eAccess" value="${esc(p.access||'')}" placeholder="VPN restreint, accÃ¨s physiqueâ€¦"/></div>
+  </div>`,{type:'pp',id}); }
+function delPP(id){ confirmDo('Supprimer cette partie prenante ?',()=>{ const s=studies[currentStudyId]; s.workshop3.stakeholders=s.workshop3.stakeholders.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addSS(){ const s=studies[currentStudyId]; const id=uid();
+  const couples=s.workshop2.sourceObjectivePairs.filter(p=>p.retained);
+  openEditModal('CrÃ©er scÃ©nario stratÃ©gique',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom du scÃ©nario</label><input class="form-input" id="eName" placeholder="Attaque ransomware via prestataireâ€¦"/></div>
+    <div class="form-group"><label class="form-label">Couple SR/OV (pertinent)</label><select class="form-select" id="eCoupleId"><option value="">â€” Choisir â€”</option>${couples.map(cp=>{const rs=s.workshop2.riskSources.find(r=>r.id===cp.riskSourceId);const ov=s.workshop2.targetObjectives.find(o=>o.id===cp.targetObjectiveId);return `<option value="${cp.id}">${esc(rs?.name||'?')} â†’ ${esc(ov?.name||'?')}</option>`;}).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Parties prenantes (Ctrl+clic)</label><select class="form-select" id="ePPIds" multiple style="min-height:70px;">${s.workshop3.stakeholders.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">GravitÃ©</label>${gravitySelect(3)}</div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc" rows="2"></textarea></div>
+  </div>`,{type:'ss',id}); }
+function delSS(id){ confirmDo('Supprimer ce scÃ©nario stratÃ©gique ?',()=>{ const s=studies[currentStudyId]; s.workshop3.strategicScenarios=s.workshop3.strategicScenarios.filter(x=>x.id!==id); saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); }); }
+
+function addTreat(){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('Ajouter traitement stratÃ©gique',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">ScÃ©nario stratÃ©gique</label><select class="form-select" id="eScenarioId">${selectOpts(s.workshop3.strategicScenarios,'',ss=>ss.name)}</select></div>
+    <div class="form-group"><label class="form-label">DÃ©cision</label><select class="form-select" id="eDecision">${['RÃ©duction','Acceptation','Refus','Partage'].map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Justification</label><input class="form-input" id="eJustification" placeholder="CoÃ»t / bÃ©nÃ©ficeâ€¦"/></div>
+  </div>`,{type:'treat',id}); }
+function delTreat(id){ confirmDo('Supprimer ce traitement ?',()=>{ const s=studies[currentStudyId]; s.workshop3.treatments=s.workshop3.treatments.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+// =======================================================
+// CRUD â€” W4
+// =======================================================
+function addMO(){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('Ajouter mode opÃ©ratoire',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">ScÃ©nario stratÃ©gique</label><select class="form-select" id="eSSId">${selectOpts(s.workshop3.strategicScenarios,'',ss=>ss.name)}</select></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" placeholder="Phishing ciblÃ©, exploitation CVEâ€¦"/></div>
+    <div class="form-group"><label class="form-label">Techniques MITRE (sÃ©parÃ©es par ,)</label><input class="form-input" id="eTechnics" placeholder="T1566, T1078â€¦"/></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc" rows="2"></textarea></div>
+  </div>`,{type:'mo',id}); }
+function openEditMO(id){ const s=studies[currentStudyId]; const m=s.workshop4.operationalModes.find(x=>x.id===id); if(!m)return;
+  openEditModal('Modifier mode opÃ©ratoire',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">ScÃ©nario stratÃ©gique</label><select class="form-select" id="eSSId">${selectOpts(s.workshop3.strategicScenarios,m.strategicScenarioId,ss=>ss.name)}</select></div>
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(m.name)}"/></div>
+    <div class="form-group"><label class="form-label">Techniques MITRE</label><input class="form-input" id="eTechnics" value="${esc((m.technics||[]).join(', '))}"/></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc">${esc(m.description||'')}</textarea></div>
+  </div>`,{type:'mo',id}); }
+function delMO(id){ confirmDo('Supprimer ce mode opÃ©ratoire ?',()=>{ const s=studies[currentStudyId]; s.workshop4.operationalModes=s.workshop4.operationalModes.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addSO(){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('CrÃ©er scÃ©nario opÃ©rationnel',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" placeholder="Compromission VPNâ€¦"/></div>
+    <div class="form-group"><label class="form-label">ScÃ©nario stratÃ©gique</label><select class="form-select" id="eSSId">${selectOpts(s.workshop3.strategicScenarios,'',ss=>ss.name)}</select></div>
+    <div class="form-group"><label class="form-label">Modes opÃ©ratoires (Ctrl+clic)</label><select class="form-select" id="eMOIds" multiple style="min-height:70px;">${s.workshop4.operationalModes.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Biens supports concernÃ©s (Ctrl+clic)</label><select class="form-select" id="eBSIds" multiple style="min-height:70px;">${s.workshop1.supportingAssets.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Vraisemblance</label>${likelihoodSelect(2)}</div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc" rows="2"></textarea></div>
+  </div>`,{type:'so',id}); }
+function delSO(id){ confirmDo('Supprimer ce scÃ©nario opÃ©rationnel ?',()=>{ const s=studies[currentStudyId]; s.workshop4.operationalScenarios=s.workshop4.operationalScenarios.filter(x=>x.id!==id); saveStudies(); updateAllStatuses(s); renderContent(); renderWorkshopStepper(); }); }
+
+// =======================================================
+// CRUD â€” W5
+// =======================================================
+function addRR(){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('Ajouter au registre des risques',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">ScÃ©nario opÃ©rationnel</label><select class="form-select" id="eSOId"><option value="">â€” Choisir â€”</option>${selectOpts(s.workshop4.operationalScenarios,'',so=>so.name)}</select></div>
+    <div class="form-group"><label class="form-label">GravitÃ©</label>${gravitySelect(3)}</div>
+    <div class="form-group"><label class="form-label">Vraisemblance</label>${likelihoodSelect(2)}</div>
+    <div class="form-group"><label class="form-label">Traitement</label><select class="form-select" id="eTreatment">${['RÃ©duction','Acceptation','Refus','Partage'].map(t=>`<option>${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="eNotes" placeholder="PrioritÃ©, contexteâ€¦"/></div>
+  </div>`,{type:'rr',id}); }
+function delRR(id){ confirmDo('Supprimer cette entrÃ©e du registre ?',()=>{ const s=studies[currentStudyId]; s.workshop5.riskEntries=s.workshop5.riskEntries.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addMeasure(){ addMeasureForCat('Gouvernance'); }
+function addMeasureForCat(cat){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('Ajouter une mesure de sÃ©curitÃ©',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" placeholder="Plan de rÃ©ponse aux incidentsâ€¦"/></div>
+    <div class="form-group"><label class="form-label">CatÃ©gorie</label><select class="form-select" id="eCategory">${['Gouvernance','Protection','DÃ©fense','RÃ©silience','ConformitÃ©'].map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">PrioritÃ©</label><select class="form-select" id="ePriority">${['Critique','Haute','Moyenne','Faible'].map(p=>`<option>${p}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="eStatus">${['Ã€ faire','En cours','Fait'].map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc" rows="2"></textarea></div>
+  </div>`,{type:'measure',id}); }
+function openEditMeasure(id){ const s=studies[currentStudyId]; const m=s.workshop5.measures.find(x=>x.id===id); if(!m)return;
+  openEditModal('Modifier une mesure de sÃ©curitÃ©',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eName" value="${esc(m.name)}"/></div>
+    <div class="form-group"><label class="form-label">CatÃ©gorie</label><select class="form-select" id="eCategory">${['Gouvernance','Protection','DÃ©fense','RÃ©silience','ConformitÃ©'].map(c=>`<option ${c===m.category?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">PrioritÃ©</label><select class="form-select" id="ePriority">${['Critique','Haute','Moyenne','Faible'].map(p=>`<option ${p===m.priority?'selected':''}>${p}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="eStatus">${['Ã€ faire','En cours','Fait'].map(st=>`<option ${st===m.status?'selected':''}>${st}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="eDesc" rows="2">${esc(m.description||'')}</textarea></div>
+  </div>`,{type:'measure',id}); }
+function toggleMeasureStatus(id){ const s=studies[currentStudyId]; const m=s.workshop5.measures.find(x=>x.id===id); if(m){m.status=m.status==='Fait'?'Ã€ faire':'Fait'; saveStudies(); renderContent(); } }
+function delMeasure(id){ confirmDo('Supprimer cette mesure ?',()=>{ const s=studies[currentStudyId]; s.workshop5.measures=s.workshop5.measures.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+function addRes(){ const s=studies[currentStudyId]; const id=uid();
+  openEditModal('Ajouter un risque rÃ©siduel',`<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="form-group"><label class="form-label">Risque initial</label><select class="form-select" id="eRRId"><option value="">â€” Choisir â€”</option>${s.workshop5.riskEntries.map(r=>{const so=s.workshop4.operationalScenarios.find(o=>o.id===r.operationalScenarioId);return `<option value="${r.id}">${esc(so?.name||'?')} (G${r.gravity}Ã—V${r.likelihood})</option>`;}).join('')}</select></div>
+    <div class="form-group"><label class="form-label">GravitÃ© rÃ©siduelle</label>${gravitySelect(2)}</div>
+    <div class="form-group"><label class="form-label">Vraisemblance rÃ©siduelle</label>${likelihoodSelect(1)}</div>
+    <div class="form-group"><label class="form-label">Justification</label><input class="form-input" id="eJustification" placeholder="AprÃ¨s application des mesuresâ€¦"/></div>
+  </div>`,{type:'res',id}); }
+function delRes(id){ confirmDo('Supprimer ce risque rÃ©siduel ?',()=>{ const s=studies[currentStudyId]; s.workshop5.residualRisks=s.workshop5.residualRisks.filter(x=>x.id!==id); saveStudies(); renderContent(); }); }
+
+// =======================================================
+// NEW STUDY
+// =======================================================
+function openNewStudyModal(){
+  document.getElementById('ns_name').value='';
+  document.getElementById('ns_org').value='';
+  document.getElementById('ns_desc').value='';
+  document.getElementById('ns_perimeter').value='';
+  document.getElementById('ns_author').value='';
+  openModal('newStudyModal');
+}
+function createStudy(){
+  const name=document.getElementById('ns_name').value.trim();
+  if(!name){alert('Nom de l\'Ã©tude requis');return;}
+  const s=createEmptyStudy(name,document.getElementById('ns_org').value.trim(),document.getElementById('ns_desc').value.trim(),document.getElementById('ns_perimeter').value.trim(),document.getElementById('ns_author').value.trim());
+  studies[s.id]=s; saveStudies(); closeModal('newStudyModal'); selectStudy(s.id);
+}
+
+// =======================================================
+// DELETE STUDY
+// =======================================================
+function confirmDelete(id){ confirmDo(`Supprimer l'Ã©tude "${esc(studies[id]?.name)}" dÃ©finitivement ?`,()=>{ delete studies[id]; if(currentStudyId===id){currentStudyId=null;currentWorkshop=1;} saveStudies(); renderAll(); document.getElementById('topbarTitle').textContent='EBIOS RM Manager'; document.getElementById('topbarSub').textContent='SÃ©lectionnez ou crÃ©ez une Ã©tude'; }); }
+
+// =======================================================
+// CONFIRM DIALOG
+// =======================================================
+function confirmDo(msg, cb){ confirmCallback=cb; document.getElementById('confirmMsg').textContent=msg; document.getElementById('confirmOverlay').style.display='flex'; }
+function doConfirm(){ document.getElementById('confirmOverlay').style.display='none'; if(confirmCallback){confirmCallback(); confirmCallback=null;} }
+function cancelConfirm(){ document.getElementById('confirmOverlay').style.display='none'; confirmCallback=null; }
+
+// =======================================================
+// MITRE ATT&CK
+// =======================================================
+const MITRE_TACTICS=[
+  {id:'TA0043',name:'Reconnaissance',color:'#64748b',techniques:['Scan actif (T1595)','OSINT (T1591)','Phishing recon (T1598)','Scan de vulnÃ©rabilitÃ©s (T1592)']},
+  {id:'TA0001',name:'Initial Access',color:'#ef4444',techniques:['Phishing (T1566)','Exploit public app (T1190)','Supply chain (T1195)','Credential reuse (T1078)']},
+  {id:'TA0002',name:'Execution',color:'#f97316',techniques:['PowerShell (T1059.001)','Scripting (T1059)','Scheduled task (T1053)','WMI (T1047)']},
+  {id:'TA0003',name:'Persistence',color:'#8b5cf6',techniques:['Compte local (T1136)','ClÃ© de registre (T1547)','Backdoor (T1505)','Cron job (T1053.003)']},
+  {id:'TA0005',name:'Defense Evasion',color:'#06b6d4',techniques:['Obfuscation (T1027)','Masquerading (T1036)','Rootkit (T1014)','Timestomping (T1070.006)']},
+  {id:'TA0007',name:'Discovery',color:'#10b981',techniques:['Network scan (T1046)','Account discovery (T1087)','File discovery (T1083)','OS info (T1082)']},
+  {id:'TA0010',name:'Exfiltration',color:'#f59e0b',techniques:['Over C2 (T1041)','Alternate protocol (T1048)','Via cloud (T1567)','Scheduled (T1029)']},
+  {id:'TA0040',name:'Impact',color:'#dc2626',techniques:['Ransomware (T1486)','Wipe data (T1485)','Defacement (T1491)','DoS (T1498)']}
+];
+
+function showMitreModal(){ openModal('mitreModal'); renderMitre(); }
+function filterMitre(){
+  const q=document.getElementById('mitreSearch')?.value.toLowerCase()||'';
+  document.querySelectorAll('#mitreGrid .mitre-card').forEach(card=>{
+    card.style.display=card.innerText.toLowerCase().includes(q)?'':'none';
+  });
+}
+function renderMitre(){
+  document.getElementById('mitreGrid').innerHTML=MITRE_TACTICS.map(t=>`
+    <div class="mitre-card">
+      <div class="mitre-tactic-title"><span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;"></span>${esc(t.name)}</div>
+      ${t.techniques.map(tech=>`<div class="mitre-technique" onclick="alert('Technique copiÃ©e : ${esc(tech)}')">${esc(tech)}</div>`).join('')}
+    </div>`).join('');
+}
+
+// BDC
+function showBDCModal(){ openModal('bdcModal'); renderBDC(); }
+function renderBDC(){
+  document.getElementById('bdcContent').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card"><h4 style="color:var(--blue-700);font-weight:700;margin-bottom:8px;">ðŸ“š Guide mÃ©thodologique EBIOS RM</h4><p style="font-size:13px;color:var(--gray-500);">MÃ©thode ANSSI en 5 ateliers pour l'analyse des risques cyber. Conforme aux recommandations de l'ANSSI.</p></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="card"><h5 style="color:var(--orange);font-size:13px;font-weight:700;margin-bottom:8px;">Sources de risque types</h5><ul style="font-size:12px;color:var(--gray-500);list-style:none;display:flex;flex-direction:column;gap:4px;"><li>â€¢ Ã‰tat Ã©tranger / Officine spÃ©cialisÃ©e</li><li>â€¢ Crime organisÃ© / Cybercriminel</li><li>â€¢ Concurrent / Hacktiviste</li><li>â€¢ Attaquant interne / Amateur</li></ul></div>
+        <div class="card"><h5 style="color:var(--blue-700);font-size:13px;font-weight:700;margin-bottom:8px;">Objectifs visÃ©s types</h5><ul style="font-size:12px;color:var(--gray-500);list-style:none;display:flex;flex-direction:column;gap:4px;"><li>â€¢ Espionnage / PrÃ©-positionnement</li><li>â€¢ DÃ©stabilisation / Entrave</li><li>â€¢ Lucratif / Atteinte d'image</li><li>â€¢ Sabotage / Chantage</li></ul></div>
+      </div>
+      <div class="card"><h5 style="color:var(--green);font-size:13px;font-weight:700;margin-bottom:10px;">RÃ©fÃ©rentiels associÃ©s</h5><div style="display:flex;flex-wrap:wrap;gap:6px;">${['ISO 27001','NIST CSF','RGPD','NIS2','SecNumCloud','HDS','DORA','SOC2'].map(r=>`<span class="tag">${r}</span>`).join('')}</div></div>
+      <div class="card"><h5 style="color:var(--blue-700);font-size:13px;font-weight:700;margin-bottom:10px;">Ã‰chelle de gravitÃ© EBIOS RM</h5><div style="display:flex;flex-direction:column;gap:6px;">${[1,2,3,4].map(g=>`<div style="display:flex;align-items:center;gap:10px;"><span class="badge lvl-${g}" style="min-width:80px;justify-content:center;">G${g}</span><span style="font-size:13px;color:var(--gray-600);">${G_LABELS[g]}</span></div>`).join('')}</div></div>
+    </div>`;
+}
+
+// =======================================================
+// EXPORT
+// =======================================================
+function exportJSON(){
+  if(!currentStudyId){alert('Aucune Ã©tude sÃ©lectionnÃ©e');return;}
+  const s=studies[currentStudyId];
+  const blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`ebios_rm_${s.name.replace(/[^a-z0-9]/gi,'_')}_${s.createdAt}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =======================================================
+// LIVRABLE PDF EXPORT
+// =======================================================
+function downloadLivrable(workshopNum){
+  if(!currentStudyId){alert('Aucune Ã©tude sÃ©lectionnÃ©e');return;}
+  const s=studies[currentStudyId];
+  const today=new Date().toLocaleDateString('fr-FR');
+  const html=buildLivrableHTML(workshopNum,s,today);
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.onload=()=>{ w.focus(); w.print(); };
+}
+
+function livrableCSS(){
+  return `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',sans-serif;font-size:12px;color:#1e293b;background:#fff;}
+    .page{width:210mm;min-height:297mm;padding:0;margin:0 auto;background:#fff;}
+    /* COVER */
+    .cover{background:linear-gradient(135deg,#1a3a7e 0%,#7c3aed 100%);color:#fff;padding:60px 50px;min-height:180px;display:flex;flex-direction:column;justify-content:center;border-radius:0;}
+    .cover h1{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;}
+    .cover h2{font-size:16px;font-weight:400;opacity:0.85;}
+    /* INFO BOX */
+    .info-box{background:#f0f4ff;border:1px solid #dbeafe;border-radius:10px;padding:16px 20px;margin:20px 30px;display:flex;gap:40px;}
+    .info-item{display:flex;flex-direction:column;gap:2px;}
+    .info-label{font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;}
+    .info-value{font-size:13px;font-weight:600;color:#1e293b;}
+    /* SECTION */
+    .section{margin:0 30px 18px;}
+    .section-title{background:linear-gradient(90deg,#1e4db7,#6d28d9);color:#fff;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:10px 16px;border-radius:8px 8px 0 0;}
+    .section-body{border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:14px 16px;background:#fff;}
+    /* TABLE */
+    table{width:100%;border-collapse:collapse;font-size:11px;}
+    th{background:#f0f4ff;color:#1e4db7;font-size:10px;font-weight:700;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:2px solid #dbeafe;}
+    td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:top;}
+    tr:last-child td{border-bottom:none;}
+    tr:nth-child(even) td{background:#fafcff;}
+    /* BADGES */
+    .badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;}
+    .b-g1{background:#dcfce7;color:#16a34a;}.b-g2{background:#fef3c7;color:#d97706;}.b-g3{background:#ffedd5;color:#ea580c;}.b-g4{background:#fee2e2;color:#dc2626;}
+    .b-done{background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;}
+    .b-prog{background:#fef3c7;color:#d97706;border:1px solid #fde68a;}
+    .b-todo{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;}
+    .b-blue{background:#dbeafe;color:#1e4db7;}
+    .b-purple{background:#ede9fe;color:#7c3aed;}
+    .b-high{background:#fee2e2;color:#dc2626;}.b-med{background:#fef3c7;color:#d97706;}.b-low{background:#dcfce7;color:#16a34a;}
+    /* GRID 2 COL */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .mini-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;}
+    .mini-card h4{font-size:11px;font-weight:700;color:#1e4db7;margin-bottom:6px;}
+    .mini-card p{font-size:11px;color:#475569;line-height:1.5;}
+    .tag{display:inline-block;background:#dbeafe;color:#1e4db7;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500;margin:2px 2px 2px 0;}
+    /* RISK MATRIX */
+    .risk-matrix{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:8px;}
+    .matrix-cell{padding:6px;text-align:center;font-size:10px;font-weight:600;border-radius:4px;}
+    .empty-note{color:#94a3b8;font-style:italic;font-size:11px;padding:8px 0;}
+    /* SCALE TABLE */
+    .scale-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f1f5f9;}
+    .scale-row:last-child{border-bottom:none;}
+    /* FOOTER */
+    .footer{position:fixed;bottom:0;left:0;right:0;background:#f8fafc;border-top:1px solid #e2e8f0;padding:8px 30px;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;}
+    @media print{
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .footer{position:fixed;}
+      .no-break{page-break-inside:avoid;}
+    }
+  `;
+}
+
+function livrableCoverAndInfo(num,s,today){
+  const names=['Cadrage & Socle de sÃ©curitÃ©','Sources de risque','ScÃ©narios stratÃ©giques','ScÃ©narios opÃ©rationnels','Traitement du risque'];
+  const icons=['ðŸ“‹','ðŸŽ¯','âš¡','âš™ï¸','âœ…'];
+  return `
+    <div class="cover">
+      <div style="font-size:13px;opacity:0.7;margin-bottom:8px;">EBIOS Risk Manager</div>
+      <h1>Atelier ${num} â€” Livrables</h1>
+      <h2>${icons[num-1]} ${names[num-1]}</h2>
+    </div>
+    <div class="info-box">
+      <div class="info-item"><span class="info-label">Ã‰tude</span><span class="info-value">${s.name||'â€”'}</span></div>
+      <div class="info-item"><span class="info-label">Organisation</span><span class="info-value">${s.organization||'â€”'}</span></div>
+      <div class="info-item"><span class="info-label">Auteur</span><span class="info-value">${s.author||'â€”'}</span></div>
+      <div class="info-item"><span class="info-label">Date</span><span class="info-value">${today}</span></div>
+      <div class="info-item"><span class="info-label">PÃ©rimÃ¨tre</span><span class="info-value">${s.perimeter||'â€”'}</span></div>
+    </div>`;
+}
+
+function escH(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function gBadge(g){const cls=['','b-g1','b-g2','b-g3','b-g4'];const lbl=['','NÃ©gligeable','LimitÃ©','Important','Critique'];return `<span class="badge ${cls[g]||'b-g1'}">G${g} â€” ${lbl[g]||'?'}</span>`;}
+function vBadge(v){const cls=['','b-g1','b-g2','b-g3','b-g4'];const lbl=['','Minime','Significative','Forte','Maximale'];return `<span class="badge ${cls[v]||'b-g1'}">V${v} â€” ${lbl[v]||'?'}</span>`;}
+function rlBadge(g,v){const r=g*v;if(r>=12)return `<span class="badge b-high">Critique (${r})</span>`;if(r>=6)return `<span class="badge b-med">Ã‰levÃ© (${r})</span>`;if(r>=3)return `<span class="badge b-prog">ModÃ©rÃ© (${r})</span>`;return `<span class="badge b-low">Faible (${r})</span>`;}
+
+function buildLivrableHTML(num,s,today){
+  let body='';
+  if(num===1) body=buildL1(s);
+  else if(num===2) body=buildL2(s);
+  else if(num===3) body=buildL3(s);
+  else if(num===4) body=buildL4(s);
+  else if(num===5) body=buildL5(s);
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
+  <title>EBIOS RM â€” Atelier ${num} â€” ${escH(s.name)}</title>
+  <style>${livrableCSS()}</style></head><body>
+  <div class="page">
+    ${livrableCoverAndInfo(num,s,today)}
+    ${body}
+  </div>
+  <div class="footer"><span>EBIOS Risk Manager â€” Atelier ${num}</span><span>${escH(s.name)} | ${today}</span><span>GÃ©nÃ©rÃ© automatiquement â€” Confidentiel</span></div>
+  </body></html>`;
+}
+
+// â”€â”€ LIVRABLE ATELIER 1 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildL1(s){
+  const w=s.workshop1;
+  // Section Ã‰quipe
+  const teamRows=w.team.length?w.team.map(m=>`<tr><td>${escH(m.role)}</td><td>${escH(m.name)}</td><td>${escH(m.responsibility)}</td><td>${escH(m.contact)}</td></tr>`).join(''):`<tr><td colspan="4" class="empty-note">Aucun membre</td></tr>`;
+  const teamSection=`<div class="section no-break">
+    <div class="section-title">Ã‰quipe et ResponsabilitÃ©s</div>
+    <div class="section-body"><table><thead><tr><th>RÃ´le</th><th>Nom</th><th>ResponsabilitÃ©</th><th>Contact</th></tr></thead><tbody>${teamRows}</tbody></table></div>
+  </div>`;
+
+  // Section Contexte
+  const ctx=w.context||{};
+  const ctxSection=`<div class="section no-break">
+    <div class="section-title">Contexte de l'Ã©tude</div>
+    <div class="section-body">
+      <div class="grid2">
+        <div class="mini-card"><h4>Contexte gÃ©nÃ©ral</h4><p>${escH(ctx.general)||'<em style="color:#94a3b8">Non renseignÃ©</em>'}</p></div>
+        <div class="mini-card"><h4>Contraintes rÃ©glementaires</h4><p>${escH(ctx.regulatory)||'<em style="color:#94a3b8">Non renseignÃ©</em>'}</p></div>
+        <div class="mini-card"><h4>Menaces identifiÃ©es</h4><p>${escH(ctx.threats)||'<em style="color:#94a3b8">Non renseignÃ©</em>'}</p></div>
+        <div class="mini-card"><h4>HypothÃ¨ses</h4><p>${escH(ctx.assumptions)||'<em style="color:#94a3b8">Non renseignÃ©</em>'}</p></div>
+      </div>
+    </div>
+  </div>`;
+
+  // Section Missions & Valeurs MÃ©tier
+  const bvRows=w.businessValues.length?w.businessValues.map(v=>{
+    const mis=w.missions.find(m=>m.id===v.missionId);
+    return `<tr><td>${escH(mis?.name||'â€”')}</td><td>${escH(v.name)}</td><td><span class="badge b-blue">${escH(v.type||'â€”')}</span></td><td>${escH(v.description?.slice(0,80)||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty-note">Aucune valeur mÃ©tier</td></tr>`;
+  const bvSection=`<div class="section no-break">
+    <div class="section-title">Missions et Valeurs MÃ©tier</div>
+    <div class="section-body">
+      ${w.missions.length?`<div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px;">${w.missions.map(m=>`<span class="tag">ðŸŽ¯ ${escH(m.name)}</span>`).join('')}</div>`:''}
+      <table><thead><tr><th>Mission</th><th>Valeur MÃ©tier</th><th>Type</th><th>Description</th></tr></thead><tbody>${bvRows}</tbody></table>
+    </div>
+  </div>`;
+
+  // Section Biens Supports
+  const bsRows=w.supportingAssets.length?w.supportingAssets.map(a=>{
+    const bv=w.businessValues.find(v=>v.id===a.businessValueId);
+    const critCls={Critique:'b-high',Ã‰levÃ©e:'b-med',Moyenne:'b-prog',Faible:'b-low'}[a.criticality]||'b-blue';
+    return `<tr><td>${escH(a.name)}</td><td><span class="badge b-blue">${escH(a.type||'â€”')}</span></td><td>${escH(bv?.name||'â€”')}</td><td>${escH(a.location||'â€”')}</td><td><span class="badge ${critCls}">${escH(a.criticality||'â€”')}</span></td></tr>`;
+  }).join(''):`<tr><td colspan="5" class="empty-note">Aucun bien support</td></tr>`;
+  const bsSection=`<div class="section no-break">
+    <div class="section-title">Biens Supports</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>Type</th><th>Valeur MÃ©tier</th><th>Localisation</th><th>CriticitÃ©</th></tr></thead><tbody>${bsRows}</tbody></table></div>
+  </div>`;
+
+  // Section Ã‰vÃ©nements RedoutÃ©s
+  const erRows=w.fearedEvents.length?w.fearedEvents.map(e=>{
+    const bv=w.businessValues.find(v=>v.id===e.businessValueId);
+    return `<tr><td>${escH(bv?.name||'â€”')}</td><td>${escH(e.description)}</td><td>${escH(e.impact||'â€”')}</td><td>${gBadge(e.gravity)}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty-note">Aucun Ã©vÃ©nement redoutÃ©</td></tr>`;
+  const erSection=`<div class="section no-break">
+    <div class="section-title">Ã‰vÃ©nements RedoutÃ©s</div>
+    <div class="section-body"><table><thead><tr><th>Valeur MÃ©tier</th><th>Description</th><th>Impact</th><th>GravitÃ©</th></tr></thead><tbody>${erRows}</tbody></table></div>
+  </div>`;
+
+  // Section ContrÃ´les ISO 27001
+  const isoRows=w.isoControls.length?w.isoControls.map(c=>{
+    const stCls={appliquÃ©:'b-done',partiel:'b-prog',non_appliquÃ©:'b-high',en_cours:'b-med'}[c.status]||'b-todo';
+    return `<tr><td><strong>${escH(c.reference)}</strong></td><td>${escH(c.name)}</td><td><span class="badge ${stCls}">${escH(c.status)}</span></td><td>${escH(c.comments?.slice(0,80)||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty-note">Aucun contrÃ´le ISO</td></tr>`;
+  const isoSection=`<div class="section no-break">
+    <div class="section-title">ContrÃ´les ISO 27001:2022</div>
+    <div class="section-body"><table><thead><tr><th>RÃ©fÃ©rence</th><th>ContrÃ´le</th><th>Statut</th><th>Commentaires</th></tr></thead><tbody>${isoRows}</tbody></table></div>
+  </div>`;
+
+  return teamSection+ctxSection+bvSection+bsSection+erSection+isoSection;
+}
+
+// â”€â”€ LIVRABLE ATELIER 2 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildL2(s){
+  const w=s.workshop2;
+  // Section 1: Identification des couples SR/OV
+  const pairsRows=w.sourceObjectivePairs.length?w.sourceObjectivePairs.map(p=>{
+    const rs=w.riskSources.find(r=>r.id===p.riskSourceId);
+    const ov=w.targetObjectives.find(o=>o.id===p.targetObjectiveId);
+    return `<tr><td>${escH(rs?.name||'â€”')}</td><td>${escH(ov?.name||'â€”')}</td><td>${p.retained?'<span class="badge b-done">âœ“ Pertinent</span>':'<span class="badge b-todo">Non pertinent</span>'}</td><td>${escH(p.justification||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty-note">Aucun couple SR/OV</td></tr>`;
+  const pairsSection=`<div class="section no-break">
+    <div class="section-title">1. Identification des Couples (Source de risque / Objectif visÃ©)</div>
+    <div class="section-body"><table><thead><tr><th>Source de risque</th><th>Objectif visÃ©</th><th>Pertinence</th><th>Justification</th></tr></thead><tbody>${pairsRows}</tbody></table></div>
+  </div>`;
+
+  // Section 2: Tableau de rÃ©fÃ©rence (Pertinence) â€” matrice SR Ã— OV
+  const retained=w.sourceObjectivePairs.filter(p=>p.retained);
+  const refTable=w.riskSources.length&&w.targetObjectives.length?`
+    <table>
+      <thead><tr><th>Source / Objectif</th>${w.targetObjectives.map(o=>`<th style="max-width:80px;word-break:break-word;">${escH(o.name?.slice(0,20)||'?')}</th>`).join('')}</tr></thead>
+      <tbody>${w.riskSources.map(rs=>`<tr><td><strong>${escH(rs.name)}</strong></td>${w.targetObjectives.map(ov=>{
+        const p=w.sourceObjectivePairs.find(x=>x.riskSourceId===rs.id&&x.targetObjectiveId===ov.id);
+        return p?`<td style="text-align:center">${p.retained?'<span class="badge b-done">âœ“</span>':'<span class="badge b-todo">âœ—</span>'}</td>`:`<td style="text-align:center;color:#94a3b8">â€”</td>`;
+      }).join('')}</tr>`).join('')}</tbody>
+    </table>`:`<p class="empty-note">Sources ou objectifs non dÃ©finis</p>`;
+  const refSection=`<div class="section no-break">
+    <div class="section-title">2. Tableau de RÃ©fÃ©rence (Pertinence)</div>
+    <div class="section-body">${refTable}</div>
+  </div>`;
+
+  // Section 3: CaractÃ©risation des Sources de Risque
+  const rsRows=w.riskSources.length?w.riskSources.map(r=>`<tr><td>${escH(r.name)}</td><td><span class="badge b-blue">${escH(r.type||'â€”')}</span></td><td>${escH(r.motivation||'â€”')}</td><td><span class="badge ${r.capability>=3?'b-high':r.capability===2?'b-med':'b-low'}">${r.capability}/4</span></td></tr>`).join(''):`<tr><td colspan="4" class="empty-note">Aucune source de risque</td></tr>`;
+  const rsSection=`<div class="section no-break">
+    <div class="section-title">3. CaractÃ©risation des Sources de Risque</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>Type</th><th>Motivation</th><th>CapacitÃ©</th></tr></thead><tbody>${rsRows}</tbody></table></div>
+  </div>`;
+
+  return pairsSection+refSection+rsSection;
+}
+
+// â”€â”€ LIVRABLE ATELIER 3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildL3(s){
+  const w=s.workshop3; const w2=s.workshop2;
+  // Matrice criticitÃ© parties prenantes
+  const ppRows=w.stakeholders.length?w.stakeholders.map(p=>{
+    const score=p.exposure*p.reliability;
+    const zone=score>=9?'Critique':score>=6?'Ã‰levÃ©e':score>=3?'ModÃ©rÃ©e':'Faible';
+    const zCls={Critique:'b-high',Ã‰levÃ©e:'b-med',ModÃ©rÃ©e:'b-prog',Faible:'b-low'}[zone];
+    return `<tr><td>${escH(p.name)}</td><td><span class="badge b-blue">${escH(p.type)}</span></td><td style="text-align:center">${p.exposure}/4</td><td style="text-align:center">${p.reliability}/4</td><td style="text-align:center"><span class="badge ${zCls}">${zone}</span></td><td>${escH(p.access||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="6" class="empty-note">Aucune partie prenante</td></tr>`;
+  const ppSection=`<div class="section no-break">
+    <div class="section-title">Matrice de CriticitÃ© des Parties Prenantes â€” Tableau de RÃ©fÃ©rence</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>Type</th><th>Exposition</th><th>FiabilitÃ©</th><th>Zone de menace</th><th>AccÃ¨s</th></tr></thead><tbody>${ppRows}</tbody></table></div>
+  </div>`;
+
+  // Zones de menace
+  const zonesSection=`<div class="section no-break">
+    <div class="section-title">Zones de Menace des Parties Prenantes â€” Tableau de RÃ©fÃ©rence</div>
+    <div class="section-body">
+      <table><thead><tr><th>Zone</th><th>Score (Exposition Ã— FiabilitÃ©)</th><th>Description</th><th>Parties prenantes</th></tr></thead><tbody>
+        ${[['Critique','â‰¥ 9','Menace majeure, surveillance renforcÃ©e requise','b-high'],['Ã‰levÃ©e','6â€“8','Risque Ã©levÃ©, contrÃ´les stricts','b-med'],['ModÃ©rÃ©e','3â€“5','Risque modÃ©rÃ©, vigilance standard','b-prog'],['Faible','1â€“2','Risque faible, contrÃ´les de base','b-low']].map(([z,sc,desc,cls])=>{
+          const pps=w.stakeholders.filter(p=>{const sc2=p.exposure*p.reliability;return z==='Critique'?sc2>=9:z==='Ã‰levÃ©e'?sc2>=6&&sc2<9:z==='ModÃ©rÃ©e'?sc2>=3&&sc2<6:sc2<3;});
+          return `<tr><td><span class="badge ${cls}">${z}</span></td><td style="text-align:center">${sc}</td><td>${desc}</td><td>${pps.length?pps.map(p=>`<span class="tag">${escH(p.name)}</span>`).join(''):'<em style="color:#94a3b8">Aucune</em>'}</td></tr>`;
+        }).join('')}
+      </tbody></table>
+    </div>
+  </div>`;
+
+  // Parties prenantes - Formulaire
+  const ppFormSection=`<div class="section no-break">
+    <div class="section-title">Parties Prenantes â€” Formulaire</div>
+    <div class="section-body">
+      ${w.stakeholders.length?w.stakeholders.map(p=>`<div class="mini-card" style="margin-bottom:8px;">
+        <h4>${escH(p.name)} <span class="badge b-blue" style="margin-left:6px;">${escH(p.type)}</span></h4>
+        <p>Exposition : ${p.exposure}/4 | FiabilitÃ© : ${p.reliability}/4 | AccÃ¨s : ${escH(p.access||'Non dÃ©fini')}</p>
+      </div>`).join(''):'<p class="empty-note">Aucune partie prenante dÃ©finie</p>'}
+    </div>
+  </div>`;
+
+  // ScÃ©narios stratÃ©giques - Formulaire
+  const ssRows=w.strategicScenarios.length?w.strategicScenarios.map(ss=>{
+    const couple=w2.sourceObjectivePairs.find(p=>p.id===ss.coupleId);
+    const rs=couple?w2.riskSources.find(r=>r.id===couple.riskSourceId):null;
+    const ov=couple?w2.targetObjectives.find(o=>o.id===couple.targetObjectiveId):null;
+    const pps=w.stakeholders.filter(p=>ss.stakeholderIds?.includes(p.id));
+    return `<tr><td>${escH(ss.name)}</td><td style="font-size:10px;">${rs?escH(rs.name):'â€”'} â†’ ${ov?escH(ov.name):'â€”'}</td><td>${pps.map(p=>`<span class="tag">${escH(p.name)}</span>`).join('')||'â€”'}</td><td>${gBadge(ss.gravity)}</td><td style="font-size:10px;">${escH(ss.description?.slice(0,60)||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="5" class="empty-note">Aucun scÃ©nario stratÃ©gique</td></tr>`;
+  const ssSection=`<div class="section no-break">
+    <div class="section-title">ScÃ©narios StratÃ©giques â€” Formulaire</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>Couple SR/OV</th><th>Parties prenantes</th><th>GravitÃ©</th><th>Description</th></tr></thead><tbody>${ssRows}</tbody></table></div>
+  </div>`;
+
+  // Traitement des risques stratÃ©giques
+  const treatRows=w.treatments.length?w.treatments.map(t=>{
+    const ss=w.strategicScenarios.find(x=>x.id===t.scenarioId);
+    const dCls={RÃ©duction:'b-done',Acceptation:'b-prog',Refus:'b-high',Partage:'b-blue'}[t.decision]||'b-todo';
+    return `<tr><td>${escH(ss?.name||'â€”')}</td><td><span class="badge ${dCls}">${escH(t.decision)}</span></td><td>${escH(t.justification||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="3" class="empty-note">Aucun traitement dÃ©fini</td></tr>`;
+  const treatSection=`<div class="section no-break">
+    <div class="section-title">Traitement des Risques StratÃ©giques â€” Formulaire</div>
+    <div class="section-body"><table><thead><tr><th>ScÃ©nario stratÃ©gique</th><th>DÃ©cision</th><th>Justification</th></tr></thead><tbody>${treatRows}</tbody></table></div>
+  </div>`;
+
+  return ppSection+zonesSection+ppFormSection+ssSection+treatSection;
+}
+
+// â”€â”€ LIVRABLE ATELIER 4 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildL4(s){
+  const w=s.workshop4; const w3=s.workshop3;
+  // Ã‰chelle de calcul de vraisemblance
+  const scaleSection=`<div class="section no-break">
+    <div class="section-title">Ã‰chelle de Calcul de Vraisemblance</div>
+    <div class="section-body">
+      <table><thead><tr><th>Niveau</th><th>Label</th><th>Description</th></tr></thead><tbody>
+        <tr><td>${vBadge(1)}</td><td>Minime</td><td>Attaque trÃ¨s peu probable, peu de ressources, protection forte</td></tr>
+        <tr><td>${vBadge(2)}</td><td>Significative</td><td>Attaque possible avec des ressources limitÃ©es</td></tr>
+        <tr><td>${vBadge(3)}</td><td>Forte</td><td>Attaque probable, ressources disponibles, vulnÃ©rabilitÃ©s connues</td></tr>
+        <tr><td>${vBadge(4)}</td><td>Maximale</td><td>Attaque trÃ¨s probable, ressources importantes, cible exposÃ©e</td></tr>
+      </tbody></table>
+    </div>
+  </div>`;
+
+  // Modes opÃ©ratoires
+  const moRows=w.operationalModes.length?w.operationalModes.map(m=>{
+    const ss=w3.strategicScenarios.find(x=>x.id===m.strategicScenarioId);
+    return `<tr><td>${escH(m.name)}</td><td>${escH(ss?.name||'â€”')}</td><td>${(m.technics||[]).map(t=>`<span class="tag">${escH(t)}</span>`).join('')||'â€”'}</td><td style="font-size:10px;">${escH(m.description?.slice(0,80)||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" class="empty-note">Aucun mode opÃ©ratoire</td></tr>`;
+  const moSection=`<div class="section no-break">
+    <div class="section-title">Modes OpÃ©ratoires</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>ScÃ©nario stratÃ©gique</th><th>Techniques (MITRE)</th><th>Description</th></tr></thead><tbody>${moRows}</tbody></table></div>
+  </div>`;
+
+  // ScÃ©narios opÃ©rationnels
+  const soRows=w.operationalScenarios.length?w.operationalScenarios.map(so=>{
+    const ss=w3.strategicScenarios.find(x=>x.id===so.strategicScenarioId);
+    const mos=w.operationalModes.filter(m=>so.operationalModeIds?.includes(m.id));
+    const bs=s.workshop1.supportingAssets.filter(a=>so.supportingAssetIds?.includes(a.id));
+    return `<tr><td>${escH(so.name)}</td><td>${escH(ss?.name||'â€”')}</td><td>${mos.map(m=>`<span class="tag">${escH(m.name)}</span>`).join('')||'â€”'}</td><td>${bs.map(b=>`<span class="tag">${escH(b.name)}</span>`).join('')||'â€”'}</td><td>${vBadge(so.likelihood)}</td></tr>`;
+  }).join(''):`<tr><td colspan="5" class="empty-note">Aucun scÃ©nario opÃ©rationnel</td></tr>`;
+  const soSection=`<div class="section no-break">
+    <div class="section-title">ScÃ©narios OpÃ©rationnels</div>
+    <div class="section-body"><table><thead><tr><th>Nom</th><th>ScÃ©nario stratÃ©gique</th><th>Modes opÃ©ratoires</th><th>Biens supports</th><th>Vraisemblance</th></tr></thead><tbody>${soRows}</tbody></table></div>
+  </div>`;
+
+  return scaleSection+moSection+soSection;
+}
+
+// â”€â”€ LIVRABLE ATELIER 5 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function buildL5(s){
+  const w=s.workshop5; const w4=s.workshop4;
+  // Registre des risques
+  const rrRows=w.riskEntries.length?w.riskEntries.map(r=>{
+    const so=w4.operationalScenarios.find(o=>o.id===r.operationalScenarioId);
+    return `<tr><td>${escH(so?.name||'â€”')}</td><td>${gBadge(r.gravity)}</td><td>${vBadge(r.likelihood)}</td><td>${rlBadge(r.gravity,r.likelihood)}</td><td><span class="badge b-blue">${escH(r.treatment||'â€”')}</span></td><td style="font-size:10px;">${escH(r.notes?.slice(0,60)||'â€”')}</td></tr>`;
+  }).join(''):`<tr><td colspan="6" class="empty-note">Registre vide</td></tr>`;
+  const rrSection=`<div class="section no-break">
+    <div class="section-title">Registre des Risques</div>
+    <div class="section-body"><table><thead><tr><th>ScÃ©nario opÃ©rationnel</th><th>GravitÃ©</th><th>Vraisemblance</th><th>Niveau de risque</th><th>Traitement</th><th>Notes</th></tr></thead><tbody>${rrRows}</tbody></table></div>
+  </div>`;
+
+  // Matrice de risque â€” cartographie
+  const matrixSection=`<div class="section no-break">
+    <div class="section-title">Matrice de Risque â€” Cartographie</div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th></th><th>V1 â€” Minime</th><th>V2 â€” Significative</th><th>V3 â€” Forte</th><th>V4 â€” Maximale</th></tr></thead>
+        <tbody>${[4,3,2,1].map(g=>`<tr>
+          <td><strong>${gBadge(g)}</strong></td>
+          ${[1,2,3,4].map(v=>{
+            const score=g*v;
+            const bg=score>=12?'#fee2e2':score>=6?'#ffedd5':score>=3?'#fef3c7':'#dcfce7';
+            const scenarios=w.riskEntries.filter(r=>r.gravity===g&&r.likelihood===v);
+            return `<td style="background:${bg};text-align:center;vertical-align:top;padding:6px;">
+              <div style="font-weight:700;font-size:10px;margin-bottom:3px;">${score}</div>
+              ${scenarios.map(r=>{const so=w4.operationalScenarios.find(o=>o.id===r.operationalScenarioId);return `<div style="font-size:9px;background:rgba(255,255,255,0.7);border-radius:3px;padding:2px 4px;margin:1px 0;">${escH(so?.name?.slice(0,20)||'?')}</div>`;}).join('')}
+            </td>`;
+          }).join('')}
+        </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top:8px;display:flex;gap:10px;">
+        <span class="badge b-high">Critique (â‰¥12)</span><span class="badge b-med">Ã‰levÃ© (6â€“11)</span><span class="badge b-prog">ModÃ©rÃ© (3â€“5)</span><span class="badge b-low">Faible (1â€“2)</span>
+      </div>
+    </div>
+  </div>`;
+
+  // Tableau des critÃ¨res de traitement
+  const criteresSection=`<div class="section no-break">
+    <div class="section-title">Tableau des CritÃ¨res de Traitement</div>
+    <div class="section-body">
+      <table><thead><tr><th>ScÃ©nario</th><th>Niveau initial</th><th>Traitement</th><th>Notes</th></tr></thead>
+      <tbody>${w.riskEntries.length?w.riskEntries.map(r=>{
+        const so=w4.operationalScenarios.find(o=>o.id===r.operationalScenarioId);
+        const dCls={RÃ©duction:'b-done',Acceptation:'b-prog',Refus:'b-high',Partage:'b-blue'}[r.treatment]||'b-todo';
+        return `<tr><td>${escH(so?.name||'â€”')}</td><td>${rlBadge(r.gravity,r.likelihood)}</td><td><span class="badge ${dCls}">${escH(r.treatment||'â€”')}</span></td><td style="font-size:10px;">${escH(r.notes?.slice(0,80)||'â€”')}</td></tr>`;
+      }).join(''):`<tr><td colspan="4" class="empty-note">Aucune entrÃ©e</td></tr>`}
+      </tbody></table>
+    </div>
+  </div>`;
+
+  // Matrice des risques rÃ©siduels
+  const residMatrix=`<div class="section no-break">
+    <div class="section-title">Matrice des Risques RÃ©siduels</div>
+    <div class="section-body">
+      <table><thead><tr><th>ScÃ©nario</th><th>GravitÃ© rÃ©sid.</th><th>Vrais. rÃ©sid.</th><th>Niveau rÃ©siduel</th><th>Justification</th></tr></thead>
+      <tbody>${w.residualRisks.length?w.residualRisks.map(r=>{
+        const entry=w.riskEntries.find(e=>e.id===r.riskEntryId);
+        const so=entry?w4.operationalScenarios.find(o=>o.id===entry.operationalScenarioId):null;
+        return `<tr><td>${escH(so?.name||'â€”')}</td><td>${gBadge(r.residualGravity)}</td><td>${vBadge(r.residualLikelihood)}</td><td>${rlBadge(r.residualGravity,r.residualLikelihood)}</td><td style="font-size:10px;">${escH(r.justification||'â€”')}</td></tr>`;
+      }).join(''):`<tr><td colspan="5" class="empty-note">Aucun risque rÃ©siduel</td></tr>`}
+      </tbody></table>
+    </div>
+  </div>`;
+
+  // Mesures par catÃ©gorie
+  const cats=['Gouvernance','Protection','DÃ©fense','RÃ©silience','ConformitÃ©'];
+  const measureSections=cats.map(cat=>{
+    const items=w.measures.filter(m=>m.category===cat);
+    if(!items.length) return `<div class="section no-break"><div class="section-title">${cat}</div><div class="section-body"><p class="empty-note">Aucune mesure dans cette catÃ©gorie</p></div></div>`;
+    const rows=items.map(m=>{
+      const pCls={Critique:'b-high',Haute:'b-med',Moyenne:'b-prog',Faible:'b-low'}[m.priority]||'b-todo';
+      const sCls={Fait:'b-done','En cours':'b-prog','Ã€ faire':'b-todo'}[m.status]||'b-todo';
+      return `<tr><td>${escH(m.name)}</td><td>${escH(m.description?.slice(0,80)||'â€”')}</td><td><span class="badge ${pCls}">${escH(m.priority)}</span></td><td><span class="badge ${sCls}">${escH(m.status)}</span></td></tr>`;
+    }).join('');
+    return `<div class="section no-break"><div class="section-title">Tableau des Mesures de SÃ©curitÃ© â€” ${cat}</div><div class="section-body"><table><thead><tr><th>Mesure</th><th>Description</th><th>PrioritÃ©</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join('');
+
+  // Risques rÃ©siduels - Formulaire
+  const resFormSection=`<div class="section no-break">
+    <div class="section-title">Risques RÃ©siduels â€” Formulaire</div>
+    <div class="section-body">
+      ${w.residualRisks.length?w.residualRisks.map(r=>{
+        const entry=w.riskEntries.find(e=>e.id===r.riskEntryId);
+        const so=entry?w4.operationalScenarios.find(o=>o.id===entry.operationalScenarioId):null;
+        const init=entry?rlBadge(entry.gravity,entry.likelihood):'?';
+        const resid=rlBadge(r.residualGravity,r.residualLikelihood);
+        return `<div class="mini-card" style="margin-bottom:8px;">
+          <h4>${escH(so?.name||'â€”')}</h4>
+          <p>Niveau initial : ${init} â†’ Niveau rÃ©siduel : ${resid}</p>
+          <p style="margin-top:4px;">Justification : ${escH(r.justification||'Non renseignÃ©e')}</p>
+        </div>`;
+      }).join(''):'<p class="empty-note">Aucun risque rÃ©siduel dÃ©fini</p>'}
+    </div>
+  </div>`;
+
+  // Gouvernance & Anticipation
+  const govSection=`<div class="section no-break">
+    <div class="section-title">Gouvernance &amp; Anticipation</div>
+    <div class="section-body">
+      <div class="grid2">
+        <div class="mini-card"><h4>ðŸ“Š SynthÃ¨se des risques</h4>
+          <p>Total risques : <strong>${w.riskEntries.length}</strong></p>
+          <p>Mesures dÃ©finies : <strong>${w.measures.length}</strong></p>
+          <p>Risques rÃ©siduels : <strong>${w.residualRisks.length}</strong></p>
+          <p>Mesures complÃ©tÃ©es : <strong>${w.measures.filter(m=>m.status==='Fait').length}</strong></p>
+        </div>
+        <div class="mini-card"><h4>ðŸŽ¯ RÃ©partition des traitements</h4>
+          ${['RÃ©duction','Acceptation','Refus','Partage'].map(t=>{
+            const n=w.riskEntries.filter(r=>r.treatment===t).length;
+            return `<p>${t} : <strong>${n}</strong> risque(s)</p>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  return rrSection+matrixSection+criteresSection+residMatrix+measureSections+resFormSection+govSection;
+}
+
+function resetDemo(){
+  if(!confirm('RÃ©initialiser avec l\'Ã©tude de dÃ©mo complÃ¨te ? Toutes les donnÃ©es actuelles seront perdues.')) return;
+  localStorage.removeItem('ebios_rm_studies');
+  studies = buildDemoStudy();
+  currentStudyId = null; currentWorkshop = 1;
+  saveStudies();
+  selectStudy(Object.keys(studies)[0]);
+}
+
+loadStudies();
+const firstId=Object.keys(studies)[0];
+if(firstId) selectStudy(firstId); else renderContent();
+</script>
+</body>
+</html>
+
+

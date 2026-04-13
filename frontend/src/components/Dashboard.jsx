@@ -1,969 +1,756 @@
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  PieChart, Pie, Cell, Tooltip, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, ResponsiveContainer,
-} from "recharts";
-import {
-  ShieldCheck, AlertTriangle, FileText, RefreshCcw,
+  AlertTriangle,
+  Ban,
+  Building2,
+  CheckCircle2,
   ClipboardList,
-} from "lucide-react";
+  Clock3,
+  FileText,
+  Lock,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
+import axiosInstance from '../api/axiosInstance';
+import { getDashboard, getGlobalStats } from '../api/clauses';
+import { getCycle, getCycles } from '../api/pdca';
+import { getCurrentRiskStorageKey, getEffectiveWorkshopStatus, getStudyProgress, loadInitialStudies } from './risques/riskModel';
 
-/* ─────────────────────────────────────────────
-   DESIGN TOKENS  (from Controles page)
-───────────────────────────────────────────── */
-const T = {
-  xs: 12, sm: 14, base: 15, md: 16, lg: 18, xl: 22,
-  normal: 400, medium: 500, semibold: 600, bold: 700,
-  black:   "#0b1526",
-  gray900: "#17263c",
-  gray700: "#304866",
-  gray500: "#5b6f88",
-  gray400: "#8a98ad",
-  gray200: "#d8dee8",
-  gray100: "#e8edf4",
-  gray50:  "#f3f6fa",
-  white:   "#ffffff",
-  bg:      "#f1f5f9",
+const PHS = { plan: 'PLAN', do: 'DO', check: 'CHECK', act: 'ACT' };
+const CAT_LABELS = { mgmt: 'Management', real: 'Realisation', supp: 'Support' };
+const DASHBOARD_TABS = [
+  { key: 'synthese', label: 'Synthese' },
+  { key: 'risques', label: 'Risques' },
+  { key: 'conformite', label: 'Conformite' },
+  { key: 'pdca', label: 'PDCA' },
+  { key: 'operations', label: 'Operations' },
+];
+const VIEW_MODES = [
+  { key: 'compact', label: 'Compact' },
+  { key: 'detail', label: 'Detail' },
+];
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const pct = (v, t) => (t > 0 ? Math.round((v / t) * 100) : 0);
+const dmy = (v) => {
+  if (!v) return '-';
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('fr-FR');
 };
+const pdcaStatus = (s) => (s === 'done' || s === 'completed' ? 'done' : s === 'ip' || s === 'in-progress' ? 'ip' : 'todo');
+const classifKey = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').toLowerCase();
+const toneFromRate = (v) => (num(v) >= 80 ? 'green' : num(v) >= 50 ? 'amber' : 'red');
+const toneFromAlertCount = (v) => (num(v) === 0 ? 'green' : num(v) <= 2 ? 'amber' : 'red');
 
-/* ─────────────────────────────────────────────
-   TAB THEMES — one gradient + palette per tab
-───────────────────────────────────────────── */
-const TAB_THEMES = {
-  global: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-  conformite: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-  risques: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-  actions: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-  incidents: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-  amelioration: {
-    accent: "#2f63d9", accentLight: "#eff4ff", border: "#dbe5ff",
-    bg: "#eff4ff", rowBgHover: "#eef4ff",
-    headerBg: "#ffffff", tabBg: "#f3f6fa",
-  },
-};
-
-const TABS = [
-  { value: "global",       label: "Vue globale" },
-  { value: "conformite",   label: "Conformité ISO" },
-  { value: "risques",      label: "Risques" },
-  { value: "actions",      label: "Plan d'actions" },
-  { value: "incidents",    label: "Incidents" },
-  { value: "amelioration", label: "Amélioration continue" },
-];
-
-/* ─────────────────────────────────────────────
-   MOCK DATA
-───────────────────────────────────────────── */
-const governanceKpis = [
-  { id:"GOV-01", label:"Indicateurs SMSI suivis",  value:92, unit:"%", greenThreshold:"≥ 90%", redThreshold:"< 70%",  status:"green",  trend:3  },
-  { id:"GOV-02", label:"Actions SMSI réalisées",    value:78, unit:"%", greenThreshold:"≥ 85%", redThreshold:"< 60%",  status:"orange", trend:-2 },
-  { id:"GOV-03", label:"Avancement PDCA",           value:85, unit:"%", greenThreshold:"≥ 90%", redThreshold:"< 70%",  status:"orange", trend:5  },
-  { id:"GOV-04", label:"Conformité ISO 27001",      value:88, unit:"%", greenThreshold:"≥ 90%", redThreshold:"< 70%",  status:"orange", trend:4  },
-  { id:"GOV-05", label:"Écarts d'audit (NC)",       value:7,  unit:"%", greenThreshold:"≤ 5%",  redThreshold:"> 15%",  status:"orange", trend:-1 },
-];
-const riskKpis = [
-  { id:"RSK-01", label:"Risques réévalués",           value:95, unit:"%", greenThreshold:"100%",  redThreshold:"< 80%", status:"orange" },
-  { id:"RSK-02", label:"Réduction risques critiques", value:72, unit:"%", greenThreshold:"≥ 70%", redThreshold:"< 40%", status:"green"  },
-  { id:"RSK-03", label:"Risques traités",             value:81, unit:"%", greenThreshold:"≥ 80%", redThreshold:"< 60%", status:"green"  },
-  { id:"RSK-04", label:"Risques critiques ouverts",   value:12, unit:"%", greenThreshold:"≤ 10%", redThreshold:"> 25%", status:"orange" },
-  { id:"RSK-05", label:"Délai moyen traitement",      value:28, unit:"j", greenThreshold:"≤ 30j", redThreshold:"> 60j", status:"green"  },
-];
-const clauseScores = [
-  { clause:"4",  title:"Contexte",       score:90 },
-  { clause:"5",  title:"Leadership",     score:85 },
-  { clause:"6",  title:"Planification",  score:72 },
-  { clause:"7",  title:"Support",        score:88 },
-  { clause:"8",  title:"Fonctionnement", score:80 },
-  { clause:"9",  title:"Évaluation",     score:75 },
-  { clause:"10", title:"Amélioration",   score:70 },
-];
-const annexADomains = [
-  { id:"A.5",       title:"Politiques de sécurité",    controls:37, implemented:30, partial:5, notImplemented:2 },
-  { id:"A.6",       title:"Organisation de la sécurité",controls:8,  implemented:6,  partial:2, notImplemented:0 },
-  { id:"A.7",       title:"Sécurité des RH",            controls:6,  implemented:5,  partial:1, notImplemented:0 },
-  { id:"A.8",       title:"Gestion des actifs",         controls:34, implemented:25, partial:6, notImplemented:3 },
-  { id:"5.1–5.6",   title:"Gouvernance",                controls:6,  implemented:5,  partial:1, notImplemented:0 },
-  { id:"5.7–5.14",  title:"Gestion identités",          controls:8,  implemented:6,  partial:1, notImplemented:1 },
-  { id:"5.15–5.23", title:"Relations fournisseurs",     controls:5,  implemented:3,  partial:2, notImplemented:0 },
-  { id:"5.24–5.30", title:"Gestion incidents",          controls:7,  implemented:6,  partial:1, notImplemented:0 },
-  { id:"5.31–5.36", title:"Continuité & conformité",    controls:6,  implemented:4,  partial:1, notImplemented:1 },
-  { id:"6.1–6.8",   title:"Sécurité personnes",         controls:8,  implemented:7,  partial:1, notImplemented:0 },
-  { id:"7.1–7.14",  title:"Sécurité physique",          controls:14, implemented:10, partial:3, notImplemented:1 },
-  { id:"8.1–8.12",  title:"Sécurité techno (accès)",    controls:12, implemented:9,  partial:2, notImplemented:1 },
-  { id:"8.13–8.24", title:"Sécurité techno (ops)",      controls:12, implemented:8,  partial:3, notImplemented:1 },
-  { id:"8.25–8.34", title:"Sécurité techno (dev)",      controls:10, implemented:7,  partial:2, notImplemented:1 },
-];
-const riskEntries = [
-  { id:"R-001", name:"Ransomware sur serveur principal",   impact:4, probability:3, score:12, level:"Critique", treatment:"Réduire",    owner:"DSI"  },
-  { id:"R-002", name:"Fuite données clients",              impact:4, probability:2, score:8,  level:"Élevé",    treatment:"Réduire",    owner:"RSSI" },
-  { id:"R-003", name:"Indisponibilité cloud provider",     impact:3, probability:2, score:6,  level:"Modéré",   treatment:"Transférer", owner:"DSI"  },
-  { id:"R-004", name:"Phishing ciblé direction",           impact:3, probability:3, score:9,  level:"Élevé",    treatment:"Réduire",    owner:"RSSI" },
-  { id:"R-005", name:"Perte de clés de chiffrement",       impact:4, probability:1, score:4,  level:"Modéré",   treatment:"Éviter",     owner:"DSI"  },
-  { id:"R-006", name:"Non-conformité RGPD",                impact:3, probability:2, score:6,  level:"Modéré",   treatment:"Réduire",    owner:"DPO"  },
-  { id:"R-007", name:"Intrusion réseau interne",           impact:4, probability:2, score:8,  level:"Élevé",    treatment:"Réduire",    owner:"DSI"  },
-  { id:"R-008", name:"Erreur humaine suppression données", impact:2, probability:3, score:6,  level:"Modéré",   treatment:"Réduire",    owner:"RSSI" },
-  { id:"R-009", name:"Défaillance sauvegarde",             impact:3, probability:1, score:3,  level:"Faible",   treatment:"Accepter",   owner:"DSI"  },
-  { id:"R-010", name:"Vol de matériel mobile",             impact:2, probability:2, score:4,  level:"Faible",   treatment:"Accepter",   owner:"RSSI" },
-];
-const actionEntries = [
-  { id:"ACT-001", title:"Déployer MFA sur tous les comptes",      responsible:"DSI",  deadline:"2026-04-15", progress:85,  status:"En cours",  module:"Sécurité"       },
-  { id:"ACT-002", title:"Mettre à jour la politique de sécurité", responsible:"RSSI", deadline:"2026-03-01", progress:100, status:"Terminé",   module:"Gouvernance"    },
-  { id:"ACT-003", title:"Former 100% des employés à la sécurité", responsible:"RH",   deadline:"2026-06-30", progress:65,  status:"En cours",  module:"RH"             },
-  { id:"ACT-004", title:"Audit fournisseurs critiques",            responsible:"RSSI", deadline:"2026-03-10", progress:40,  status:"En retard", module:"Fournisseurs"   },
-  { id:"ACT-005", title:"Corriger NC audit interne Q4",            responsible:"RSSI", deadline:"2026-05-01", progress:30,  status:"En cours",  module:"Conformité"     },
-  { id:"ACT-006", title:"Implémenter SIEM centralisé",             responsible:"DSI",  deadline:"2026-07-15", progress:15,  status:"Planifié",  module:"Infrastructure" },
-  { id:"ACT-007", title:"Revue des droits d'accès annuelle",       responsible:"DSI",  deadline:"2026-04-30", progress:50,  status:"En cours",  module:"Sécurité"       },
-  { id:"ACT-008", title:"Plan de continuité — test annuel",        responsible:"RSSI", deadline:"2026-03-20", progress:20,  status:"En retard", module:"Continuité"     },
-];
-const incidentEntries = [
-  { id:"INC-001", title:"Tentative de phishing — DG",       type:"Phishing",           date:"2026-03-12", severity:"Majeur",   resolved:true, resolutionTime:4  },
-  { id:"INC-002", title:"Brute force SSH serveur prod",      type:"Intrusion",          date:"2026-03-05", severity:"Critique", resolved:true, resolutionTime:2  },
-  { id:"INC-003", title:"Fuite email interne accidentelle",  type:"Fuite données",      date:"2026-02-28", severity:"Mineur",   resolved:true, resolutionTime:1  },
-  { id:"INC-004", title:"Malware poste utilisateur",         type:"Malware",            date:"2026-02-15", severity:"Majeur",   resolved:true, resolutionTime:6  },
-  { id:"INC-005", title:"Indisponibilité VPN 2h",            type:"Disponibilité",      date:"2026-01-22", severity:"Mineur",   resolved:true, resolutionTime:2  },
-  { id:"INC-006", title:"Accès non autorisé partage réseau", type:"Accès non autorisé", date:"2026-01-10", severity:"Majeur",   resolved:true, resolutionTime:8  },
-  { id:"INC-007", title:"Ransomware bloqué par EDR",         type:"Malware",            date:"2025-12-18", severity:"Critique", resolved:true, resolutionTime:1  },
-  { id:"INC-008", title:"Perte clé USB chiffrée",            type:"Perte matériel",     date:"2025-11-30", severity:"Mineur",   resolved:true, resolutionTime:24 },
-  { id:"INC-009", title:"DDoS site web 30min",               type:"Disponibilité",      date:"2025-10-15", severity:"Majeur",   resolved:true, resolutionTime:3  },
-];
-const nonConformities = [
-  { id:"NC-001", clause:"6.1", description:"Appréciation des risques incomplète",      status:"En cours",  dateOpened:"2026-01-15" },
-  { id:"NC-002", clause:"7.2", description:"Compétences sécurité non documentées",     status:"Clôturée",  dateOpened:"2025-11-01", dateClosed:"2026-02-10" },
-  { id:"NC-003", clause:"9.2", description:"Programme d'audit non respecté",           status:"Ouverte",   dateOpened:"2026-02-20" },
-  { id:"NC-004", clause:"7.5", description:"Documents obsolètes non retirés",          status:"En cours",  dateOpened:"2026-01-30" },
-  { id:"NC-005", clause:"8.1", description:"Plan de traitement risques incomplet",     status:"Clôturée",  dateOpened:"2025-10-15", dateClosed:"2026-01-20" },
-  { id:"NC-006", clause:"5.3", description:"Rôles SMSI non formalisés",                status:"Ouverte",   dateOpened:"2026-03-01" },
-];
-const incidentsByMonth = [
-  { month:"Oct", count:1 },{ month:"Nov", count:1 },{ month:"Déc", count:1 },
-  { month:"Jan", count:2 },{ month:"Fév", count:2 },{ month:"Mar", count:2 },
-];
-const auditHistory = [
-  { date:"2025-06-15", type:"Audit interne",           scope:"Clauses 4–10",       findings:5, status:"Clôturé"  },
-  { date:"2025-12-10", type:"Audit interne",           scope:"Annexe A",           findings:3, status:"Clôturé"  },
-  { date:"2026-02-20", type:"Audit externe (stage 1)", scope:"Documentation SMSI", findings:2, status:"En cours" },
-];
-const trainingData = [
-  { name:"Sensibilisation sécurité", actual:89, target:95 },
-  { name:"Formation RGPD",           actual:78, target:90 },
-  { name:"Réponse incidents",        actual:65, target:80 },
-  { name:"Développement sécurisé",   actual:72, target:95 },
-];
-
-/* ─────────────────────────────────────────────
-   SEMANTIC STYLE MAPS
-───────────────────────────────────────────── */
-const S_COLOR = { green:"#059669", orange:"#d97706", red:"#dc2626" };
-
-const RISK_S = {
-  Critique:{ color:"#ef4444", bg:"#f7e8eb", border:"#f1d4da" },
-  Élevé:   { color:"#f59e0b", bg:"#f6edd9", border:"#efe2c0" },
-  Modéré:  { color:"#0284d8", bg:"#deedf8", border:"#d4e5f2" },
-  Faible:  { color:"#0e9f4c", bg:"#dcf2e2", border:"#d0ead8" },
-};
-const ACT_S = {
-  "Terminé":  { color:"#0e9f4c", bg:"#dcf2e2", border:"#d0ead8" },
-  "En cours": { color:"#0284d8", bg:"#deedf8", border:"#d4e5f2" },
-  "En retard":{ color:"#ef4444", bg:"#f8e4e8", border:"#f1d4da" },
-  "Planifié": { color:"#64748b", bg:"#edf1f6", border:"#e3e8ef" },
-};
-const NC_S = {
-  Ouverte:    { color:"#ef4444", bg:"#f8e4e8", border:"#f1d4da" },
-  "En cours": { color:"#f59e0b", bg:"#f6edd9", border:"#efe2c0" },
-  Clôturée:   { color:"#0e9f4c", bg:"#dcf2e2", border:"#d0ead8" },
-};
-const SEV_S = {
-  Critique:{ color:"#ef4444", bg:"#f8e4e8", border:"#f1d4da" },
-  Majeur:  { color:"#f59e0b", bg:"#f6edd9", border:"#efe2c0" },
-  Mineur:  { color:"#0284d8", bg:"#deedf8", border:"#d4e5f2" },
-};
-
-/* ─────────────────────────────────────────────
-   REUSABLE UI COMPONENTS
-───────────────────────────────────────────── */
-
-function Pill({ label, style = {} }) {
+function Card({ title, value, sub, icon, tone = 'blue' }) {
+  const tones = {
+    blue: 'from-blue-50 to-indigo-50 border-blue-100 text-blue-700',
+    green: 'from-emerald-50 to-green-50 border-emerald-100 text-emerald-700',
+    amber: 'from-amber-50 to-orange-50 border-amber-100 text-amber-700',
+    red: 'from-red-50 to-rose-50 border-red-100 text-red-700',
+    violet: 'from-violet-50 to-fuchsia-50 border-violet-100 text-violet-700',
+    slate: 'from-slate-50 to-zinc-50 border-slate-200 text-slate-700',
+  };
   return (
-    <span style={{
-      fontSize:T.sm, fontWeight:T.medium,
-      borderRadius:999, padding:"4px 12px",
-      whiteSpace:"nowrap", display:"inline-block",
-      border:`1px solid ${style.border||T.gray200}`,
-      background:style.bg||T.gray100,
-      color:style.color||T.gray700,
-    }}>{label}</span>
-  );
-}
-
-function StatCard({ label, value, color, valueColor, icon, iconColor = "#f59e0b", iconBg = "#fff3dc", footnote }) {
-  const finalValueColor = valueColor || color || T.black;
-  return (
-    <div style={{
-      background:T.white, border:`1px solid ${T.gray200}`,
-      borderRadius:16, padding:"18px 20px",
-      boxShadow:"0 1px 2px rgba(15,23,42,0.06)",
-    }}>
-      {icon && (
-        <div style={{ width:40, height:40, borderRadius:14, background:iconBg, color:iconColor, display:"inline-flex", alignItems:"center", justifyContent:"center", marginBottom:12 }}>
-          {icon}
-        </div>
-      )}
-      <div style={{ fontSize:36, fontWeight:T.bold, color:finalValueColor, lineHeight:1, marginBottom:6 }}>{value}</div>
-      <div style={{ fontSize:T.base, color:T.gray500, fontWeight:T.normal }}>{label}</div>
-      {footnote && <div style={{ marginTop:4, fontSize:T.sm, color:T.gray500 }}>{footnote}</div>}
-    </div>
-  );
-}
-
-/* Card with optional gradient header */
-function Card({ children, title, subtitle, p = 0, actionLabel }) {
-  return (
-    <div style={{
-      background:T.white, border:`1px solid ${T.gray200}`,
-      borderRadius:16, overflow:"hidden",
-      boxShadow:"0 1px 2px rgba(15,23,42,0.06)",
-    }}>
-      {title && (
-        <div style={{ padding:"18px 24px", borderBottom:`1px solid ${T.gray200}`, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-          <div>
-            <span style={{ fontWeight:T.bold, fontSize:T.lg, color:T.black }}>{title}</span>
-            {subtitle ? <div style={{ marginTop:2, fontSize:T.sm, color:T.gray500 }}>{subtitle}</div> : null}
-          </div>
-          {actionLabel ? <button style={{ border:"none", background:"transparent", color:"#2f63d9", fontSize:T.base, fontWeight:T.medium, cursor:"pointer" }}>{actionLabel}</button> : null}
-        </div>
-      )}
-      <div style={{ padding:p }}>{children}</div>
-    </div>
-  );
-}
-
-function ProgressBar({ value, height = 6, color = "#2f63d9" }) {
-  return (
-    <div style={{ background:"#e6ebf3", borderRadius:999, height, overflow:"hidden", flex:1 }}>
-      <div style={{ width:`${Math.min(value,100)}%`, height:"100%", background:color, borderRadius:999, transition:"width .4s" }} />
-    </div>
-  );
-}
-
-function MiniDonut({ value, color }) {
-  return (
-    <div style={{ width:76, height:76, flexShrink:0 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={[{value},{value:100-value}]} cx="50%" cy="50%"
-            innerRadius={22} outerRadius={32} startAngle={90} endAngle={-270}
-            dataKey="value" strokeWidth={0}>
-            <Cell fill={color}/><Cell fill={T.gray200}/>
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-const TT = { contentStyle:{ borderRadius:12, border:`1px solid ${T.gray200}`, boxShadow:"0 8px 24px rgba(15,23,42,.12)", fontSize:12 } };
-
-const Th = ({ children, center }) => (
-  <th style={{ padding:"12px 18px", fontWeight:T.medium, fontSize:T.md, color:T.gray500,
-    textAlign:center?"center":"left", borderBottom:`1px solid ${T.gray200}`,
-    whiteSpace:"nowrap", background:T.gray50 }}>{children}</th>
-);
-const Td = ({ children, center, mono, bold, color }) => (
-  <td style={{ padding:"12px 18px", textAlign:center?"center":"left",
-    fontVariantNumeric:mono?"tabular-nums":undefined,
-    fontWeight:bold?T.semibold:T.normal, color:color||T.gray700, fontSize:T.base }}>{children}</td>
-);
-function TRow({ children }) {
-  const [h,setH] = useState(false);
-  return <tr onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
-    style={{ borderBottom:`1px solid ${T.gray200}`, background:h?"#f7f9fc":T.white, transition:"background .15s" }}>{children}</tr>;
-}
-
-/* ─────────────────────────────────────────────
-   TAB: VUE GLOBALE
-───────────────────────────────────────────── */
-const MATURITE = [
-  { label:"Maturité organisationnelle", value:78, color:"#4f46e5" },
-  { label:"Maturité technique",         value:72, color:"#0ea5e9" },
-  { label:"Maturité humaine",           value:85, color:"#059669" },
-];
-
-function TabVueGlobale({ theme }) {
-  const topRisks = riskEntries.filter(r=>r.level==="Critique"||r.level==="Élevé").slice(0,5);
-  const kpis = [
-    { label:"Conformité ISO",       value:`${governanceKpis[3].value}%`, status:governanceKpis[3].status, icon:<ShieldCheck size={18}/> },
-    { label:"Contrôles Annexe A",   value:"76/93",                        status:"orange",                  icon:<ClipboardList size={18}/> },
-    { label:"Risques résiduels",    value:`${riskEntries.filter(r=>r.level==="Critique"||r.level==="Élevé").length}`, status:"orange", icon:<AlertTriangle size={18}/> },
-    { label:"NC ouvertes",          value:"4",                             status:"orange",                  icon:<FileText size={18}/> },
-    { label:"Avancement PDCA",      value:`${governanceKpis[2].value}%`, status:governanceKpis[2].status, icon:<RefreshCcw size={18}/> },
-  ];
-
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      {/* KPI stat cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14 }}>
-        {kpis.map(k=>(
-          <StatCard key={k.label} label={k.label} value={k.value}
-            valueColor={T.black} icon={k.icon} iconColor="#f59e0b" iconBg="#fff3dc" />
-        ))}
+    <div className={`rounded-2xl border bg-gradient-to-br p-4 shadow-sm ${tones[tone] || tones.blue}`}>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
+        {icon}
       </div>
+      <div className="text-3xl font-extrabold leading-none">{value}</div>
+      <div className="mt-2 text-xs font-medium text-slate-500">{sub}</div>
+    </div>
+  );
+}
 
-      {/* Maturité donuts */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
-        {MATURITE.map(d=>(
-          <div key={d.label} style={{
-            background:T.white, border:`1px solid ${T.gray200}`,
-            borderRadius:12, padding:20, boxShadow:"0 1px 3px rgba(0,0,0,.06)",
-            display:"flex", alignItems:"center", gap:16,
-          }}>
-            <MiniDonut value={d.value} color={d.color}/>
-            <div>
-              <div style={{ fontSize:24, fontWeight:T.bold, color:T.black }}>{d.value}%</div>
-              <div style={{ fontSize:T.sm, color:T.gray500, marginTop:4 }}>{d.label}</div>
-            </div>
+function LeanKpi({ title, value, sub, tone = 'blue' }) {
+  const tones = {
+    blue: 'border-blue-200 text-blue-700',
+    green: 'border-emerald-200 text-emerald-700',
+    amber: 'border-amber-200 text-amber-700',
+    red: 'border-red-200 text-red-700',
+    violet: 'border-violet-200 text-violet-700',
+    slate: 'border-slate-200 text-slate-700',
+  };
+  return (
+    <div className={`rounded-xl border bg-white p-4 shadow-sm ${tones[tone] || tones.blue}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+      <div className="mt-1 text-2xl font-extrabold leading-none">{value}</div>
+      <div className="mt-2 text-xs font-medium text-slate-500">{sub}</div>
+    </div>
+  );
+}
+
+function Block({ title, children }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Donut({ data }) {
+  const total = data.reduce((s, x) => s + num(x.value), 0);
+  let at = 0;
+  const gradient =
+    total === 0
+      ? 'conic-gradient(#e2e8f0 0deg 360deg)'
+      : `conic-gradient(${data
+          .map((x) => {
+            const a = at;
+            const b = at + (num(x.value) / total) * 360;
+            at = b;
+            return `${x.color} ${a}deg ${b}deg`;
+          })
+          .join(', ')})`;
+  return (
+    <div className="flex items-center gap-5">
+      <div className="relative h-32 w-32 rounded-full" style={{ background: gradient }}>
+        <div className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-center">
+          <div>
+            <div className="text-lg font-extrabold text-slate-800">{total}</div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">total</div>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 space-y-2">
+        {data.map((x) => (
+          <div key={x.label} className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2 text-slate-600">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: x.color }} />
+              {x.label}
+            </span>
+            <span className="font-bold text-slate-700">
+              {x.value} <span className="text-xs text-slate-400">({pct(x.value, total)}%)</span>
+            </span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Certification + Incidents */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <Card>
-          <div style={{ padding:"24px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
-              <div style={{ width:48, height:48, borderRadius:14, background:"#dcf4e3", color:"#0e9f4c", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <ShieldCheck size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize:T.xl, fontWeight:T.bold, color:T.black }}>Certification ISO 27001:2022</div>
-                <div style={{ fontSize:T.lg, fontWeight:T.semibold, color:"#0e9f4c" }}>Active — Valide jusqu'au 15/09/2028</div>
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize:T.xs, fontWeight:T.bold, color:T.gray400, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Synthèse par clause</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                {clauseScores.map(c=>(
-                  <div key={c.clause} style={{ display:"flex", alignItems:"center", gap:12 }}>
-                    <span style={{ fontSize:T.sm, color:T.gray500, width:120, flexShrink:0 }}>Cl. {c.clause} – {c.title}</span>
-                    <ProgressBar value={c.score}/>
-                    <span style={{ fontSize:T.sm, fontWeight:T.bold, width:36, textAlign:"right",
-                      color:c.score>=90?"#059669":c.score>=70?"#d97706":"#dc2626" }}>{c.score}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+function Bars({ rows }) {
+  const max = rows.reduce((m, x) => Math.max(m, num(x.value)), 0);
+  return (
+    <div className="space-y-3">
+      {rows.map((x) => (
+        <div key={x.label}>
+          <div className="mb-1 flex items-center justify-between text-sm">
+            <span className="text-slate-600">{x.label}</span>
+            <span className="font-bold text-slate-700">{x.value}</span>
           </div>
-        </Card>
-
-        <Card title="Incidents (6 derniers mois)">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={incidentsByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.gray200}/>
-                <XAxis dataKey="month" tick={{ fontSize:12 }} stroke={T.gray400}/>
-                <YAxis tick={{ fontSize:12 }} stroke={T.gray400} allowDecimals={false}/>
-                <Tooltip {...TT}/>
-                <Bar dataKey="count" name="Incidents" fill="#ef4444" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full" style={{ width: `${max ? Math.max(6, Math.round((num(x.value) / max) * 100)) : 0}%`, background: x.color || '#2563eb' }} />
           </div>
-        </Card>
-      </div>
+        </div>
+      ))}
+      {rows.length === 0 && <div className="text-sm text-slate-400">Aucune donnee.</div>}
+    </div>
+  );
+}
 
-      {/* Top risques + Actions */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <Card title="Top risques" actionLabel="Voir tout →">
-          <div>
-            {topRisks.map(r=>{
-              const s=RISK_S[r.level]||RISK_S.Faible;
-              return (
-                <div key={r.id} style={{
-                  display:"flex", alignItems:"center", justifyContent:"space-between",
-                  padding:"14px 24px", borderBottom:`1px solid ${T.gray200}`,
-                }}>
-                  <div>
-                    <div style={{ fontWeight:T.semibold, fontSize:T.base, color:T.black }}>{r.name}</div>
-                    <div style={{ fontSize:T.sm, color:T.gray500, marginTop:3 }}>{r.owner} · Score {r.score}</div>
-                  </div>
-                  <Pill label={r.level} style={s}/>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card title="Plan d'actions" actionLabel="Voir tout →">
-          <div>
-            {actionEntries.slice(0,5).map(a=>{
-              const s=ACT_S[a.status]||ACT_S["Planifié"];
-              return (
-                <div key={a.id} style={{
-                  display:"flex", alignItems:"center", gap:14,
-                  padding:"14px 24px", borderBottom:`1px solid ${T.gray200}`,
-                }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:T.semibold, fontSize:T.base, color:T.black, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.title}</div>
-                    <div style={{ fontSize:T.sm, color:T.gray500, marginTop:3 }}>{a.responsible} · {a.deadline}</div>
-                  </div>
-                  <div style={{ width:80 }}><ProgressBar value={a.progress} height={5}/></div>
-                  <Pill label={a.status} style={s}/>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      {/* Audits */}
-      <Card title="Historique des audits">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr><Th>Date</Th><Th>Type</Th><Th>Périmètre</Th><Th center>Constats</Th><Th>Statut</Th></tr></thead>
-            <tbody>
-              {auditHistory.map((a,i)=>(
-                <TRow key={i}>
-                  <Td mono color={T.gray500}>{a.date}</Td>
-                  <Td bold color={T.black}>{a.type}</Td>
-                  <Td color={T.gray500}>{a.scope}</Td>
-                  <Td center mono>{a.findings}</Td>
-                  <Td><Pill label={a.status} style={a.status==="Clôturé"
-                    ?{color:"#059669",bg:"#f0fdf4",border:"#bbf7d0"}
-                    :{color:"#2563eb",bg:"#eff6ff",border:"#bfdbfe"}}/></Td>
-                </TRow>
+function Table({ columns, rows }) {
+  if (!rows.length) return <div className="text-sm text-slate-400">Aucune donnee.</div>;
+  return (
+    <div className="overflow-auto">
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200">
+            {columns.map((c) => (
+              <th key={c.key} className="pb-2 text-left text-xs font-bold uppercase tracking-wide text-slate-400">
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-b border-slate-100 last:border-0">
+              {columns.map((c) => (
+                <td key={c.key} className="py-2 text-slate-700">
+                  {r[c.key]}
+                </td>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────
-   TAB: CONFORMITÉ
-───────────────────────────────────────────── */
-const CONF_DONUT = [
-  { name:"Conforme",     value:42, color:"#059669" },
-  { name:"Partiel",      value:18, color:"#d97706" },
-  { name:"Non conforme", value:8,  color:"#dc2626" },
-  { name:"Non évalué",   value:12, color:T.gray400 },
-];
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState('synthese');
+  const [viewMode, setViewMode] = useState('compact');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [warnings, setWarnings] = useState([]);
+  const [clauses, setClauses] = useState([]);
+  const [stats, setStats] = useState({ averageConformity: 0, totalClauses: 0, conformeClauses: 0, nonConformeClauses: 0, totalActions: 0, completedActions: 0, inProgressActions: 0, delayedActions: 0 });
+  const [controles, setControles] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [actifs, setActifs] = useState([]);
+  const [pdca, setPdca] = useState({ phase: { plan: 0, do: 0, check: 0, act: 0 }, done: 0, ip: 0, todo: 0, total: 0, global: 0 });
+  const [carto, setCarto] = useState([]);
+  const [riskStudies, setRiskStudies] = useState([]);
 
-function TabConformite({ theme }) {
-  const kpis = [
-    { label:"Conformité globale",  value:governanceKpis[3].value, color:"#f59e0b" },
-    { label:"Indicateurs suivis",  value:governanceKpis[0].value, color:"#059669" },
-    { label:"Écarts d'audit (OK)", value:100-governanceKpis[4].value, color:"#d97706" },
-  ];
+  useEffect(() => {
+    let on = true;
+    const pdcaLoad = async () => {
+      const list = await getCycles();
+      const cycles = Array.isArray(list) ? list : [];
+      if (!cycles.length) return { phase: { plan: 0, do: 0, check: 0, act: 0 }, done: 0, ip: 0, todo: 0, total: 0, global: 0 };
+      const cycle = await getCycle(cycles[0].id);
+      const groups = { plan: [], do: [], check: [], act: [] };
+      (cycle?.phases || []).forEach((p) => {
+        const k = String(p?.key || '').toLowerCase();
+        if (!Object.prototype.hasOwnProperty.call(groups, k)) return;
+        groups[k] = (p?.sections || []).flatMap((s) => (s?.items || []).map((i) => pdcaStatus(i?.status)));
+      });
+      const all = Object.values(groups).flat();
+      const done = all.filter((s) => s === 'done').length;
+      const ip = all.filter((s) => s === 'ip').length;
+      const todo = all.filter((s) => s === 'todo').length;
+      return {
+        phase: Object.fromEntries(Object.keys(groups).map((k) => [k, pct(groups[k].filter((x) => x === 'done').length, groups[k].length)])),
+        done, ip, todo, total: all.length, global: pct(done, all.length),
+      };
+    };
+    (async () => {
+      setLoading(true);
+      setError('');
+      const warn = [];
+      try {
+        const [c1, c2, c3, c4, c5, c6] = await Promise.allSettled([getDashboard(), getGlobalStats(), axiosInstance.get('/api/controles'), axiosInstance.get('/api/documentation'), axiosInstance.get('/api/actifs'), pdcaLoad()]);
+        if (!on) return;
+        c1.status === 'fulfilled' ? setClauses(Array.isArray(c1.value) ? c1.value : []) : warn.push('Clauses indisponibles');
+        c2.status === 'fulfilled' ? setStats((s) => ({ ...s, ...(c2.value || {}) })) : warn.push('Stats clauses indisponibles');
+        c3.status === 'fulfilled' ? setControles(Array.isArray(c3.value?.data) ? c3.value.data : []) : warn.push('Controles indisponibles');
+        c4.status === 'fulfilled' ? setDocs(Array.isArray(c4.value?.data) ? c4.value.data : []) : warn.push('Documentation indisponible');
+        c5.status === 'fulfilled' ? setActifs(Array.isArray(c5.value?.data) ? c5.value.data : []) : warn.push('Actifs indisponibles');
+        c6.status === 'fulfilled' ? setPdca(c6.value) : warn.push('PDCA indisponible');
+        try { const raw = localStorage.getItem('smq_v7'); setCarto(raw ? JSON.parse(raw) : []); } catch { warn.push('Cartographie locale illisible'); setCarto([]); }
+      } catch (e) {
+        if (on) setError(e?.message || 'Erreur chargement dashboard');
+      } finally {
+        if (on) { setWarnings(warn); setLoading(false); }
+      }
+    })();
+    return () => { on = false; };
+  }, []);
+
+  useEffect(() => {
+    const refreshRiskStudies = () => {
+      try {
+        const storageKey = getCurrentRiskStorageKey();
+        setRiskStudies(loadInitialStudies(storageKey));
+      } catch {
+        setRiskStudies([]);
+      }
+    };
+
+    refreshRiskStudies();
+    const onFocus = () => refreshRiskStudies();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshRiskStudies();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  const controls = useMemo(() => {
+    const rows = controles.map((c) => ({ code: c?.code ?? c?.Code, titre: c?.titre ?? c?.Titre, domaine: c?.domaine ?? c?.Domaine, statut: c?.statut ?? c?.Statut ?? 'NonEvalue' }));
+    const total = rows.length;
+    const n = {
+      total,
+      nonEvalue: rows.filter((x) => x.statut === 'NonEvalue').length,
+      conforme: rows.filter((x) => x.statut === 'Conforme').length,
+      remarque: rows.filter((x) => x.statut === 'Remarque').length,
+      ncMineure: rows.filter((x) => x.statut === 'NCMineure').length,
+      ncMajeure: rows.filter((x) => x.statut === 'NCMajeure').length,
+      byDomain: {},
+      rows,
+    };
+    rows.forEach((x) => { n.byDomain[x.domaine || 'Non renseigne'] = (n.byDomain[x.domaine || 'Non renseigne'] || 0) + 1; });
+    n.taux = pct(n.conforme, total);
+    return n;
+  }, [controles]);
+
+  const documentation = useMemo(() => {
+    const rows = docs.map((d) => ({ name: d?.name ?? d?.Name ?? 'Sans nom', type: d?.type ?? d?.Type ?? '-', status: d?.status ?? d?.Status ?? 'brouillon', updatedAt: d?.updatedAt ?? d?.UpdatedAt }));
+    return {
+      total: rows.length,
+      approuve: rows.filter((x) => x.status === 'approuve').length,
+      validation: rows.filter((x) => x.status === 'en-validation').length,
+      brouillon: rows.filter((x) => x.status === 'brouillon').length,
+      aRevoir: rows.filter((x) => x.status === 'a-revoir').length,
+      rows,
+    };
+  }, [docs]);
+
+  const assets = useMemo(() => {
+    const rows = actifs.map((a) => ({ nom: a?.nom ?? a?.Nom ?? 'Actif', type: a?.type ?? a?.Type ?? '-', categorie: a?.categorie ?? a?.Categorie ?? '-', classification: a?.classification ?? a?.Classification ?? '-' }));
+    return {
+      total: rows.length,
+      sensibles: rows.filter((x) => ['secret', 'topsecret'].includes(classifKey(x.classification))).length,
+      primaires: rows.filter((x) => x.type === 'Primaire').length,
+      support: rows.filter((x) => x.type === 'Support').length,
+      rows,
+      byType: rows.reduce((o, x) => ({ ...o, [x.type]: (o[x.type] || 0) + 1 }), {}),
+    };
+  }, [actifs]);
+
+  const cartography = useMemo(() => {
+    const by = { mgmt: 0, real: 0, supp: 0 };
+    let docsCount = 0;
+    const p = (Array.isArray(carto) ? carto : []).map((x) => {
+      const cat = x?.cat || 'supp';
+      if (Object.prototype.hasOwnProperty.call(by, cat)) by[cat] += 1;
+      const d = Array.isArray(x?.docs) ? x.docs.length : 0;
+      docsCount += d;
+      return { name: x?.name || 'Processus', docs: d };
+    });
+    return { by, total: p.length, docs: docsCount, top: [...p].sort((a, b) => b.docs - a.docs).slice(0, 5) };
+  }, [carto]);
+
+  const clauseBars = useMemo(() => [...clauses].map((x) => ({ label: `Clause ${x?.clause?.number ?? '-'}`, value: num(x?.computedScore), color: '#2563eb', n: Number(x?.clause?.number) || 0 })).sort((a, b) => a.n - b.n).slice(0, 10), [clauses]);
+  const clausesNC = useMemo(() => [...clauses].filter((x) => !x?.isFullyCompliant).sort((a, b) => num(a?.computedScore) - num(b?.computedScore)).slice(0, 6).map((x) => ({ clause: x?.clause?.number || '-', titre: x?.clause?.title || '-', score: `${num(x?.computedScore)}%`, ecart: `${Object.values(x?.subConformities || {}).filter((s) => s?.status !== 'conforme').length} ecarts` })), [clauses]);
+  const docsReview = useMemo(() => documentation.rows.filter((x) => x.status === 'a-revoir').slice(0, 6).map((x) => ({ nom: x.name, type: x.type, maj: dmy(x.updatedAt) })), [documentation.rows]);
+  const controlsCritical = useMemo(() => controls.rows.filter((x) => x.statut === 'NCMajeure' || x.statut === 'Remarque').slice(0, 6).map((x) => ({ controle: x.code || '-', domaine: x.domaine || '-', statut: x.statut === 'NCMajeure' ? 'NC majeure' : 'Remarque' })), [controls.rows]);
+  const sensitiveAssets = useMemo(() => assets.rows.filter((x) => ['secret', 'topsecret'].includes(classifKey(x.classification))).slice(0, 6).map((x) => ({ actif: x.nom, type: x.type, classif: x.classification })), [assets.rows]);
+  const riskMetrics = useMemo(() => {
+    const studyStatus = { non_evalue: 0, en_cours: 0, a_valider: 0, termine: 0, bloque: 0 };
+    const workshopStatus = { non_evalue: 0, en_cours: 0, a_valider: 0, termine: 0, bloque: 0 };
+    let totalPct = 0;
+    let studiesDone = 0;
+    let studiesInProgress = 0;
+    let workshopsToValidate = 0;
+    let workshopsBlocked = 0;
+    let riskEntries = 0;
+    let criticalRisks = 0;
+    let residualRisks = 0;
+    let totalMeasures = 0;
+    let measureDone = 0;
+    let measureInProgress = 0;
+    let measureTodo = 0;
+    let isoApplied = 0;
+    let isoPartial = 0;
+    let isoNotApplied = 0;
+    const topCriticalStudies = [];
+
+    riskStudies.forEach((study) => {
+      const progress = getStudyProgress(study);
+      totalPct += num(progress.pct);
+      workshopsToValidate += num(progress.toValidate);
+      workshopsBlocked += num(progress.blocked);
+
+      if (progress.done === 5) studiesDone += 1;
+      if (progress.status === 'en_cours') studiesInProgress += 1;
+      if (Object.prototype.hasOwnProperty.call(studyStatus, progress.status)) studyStatus[progress.status] += 1;
+
+      [1, 2, 3, 4, 5].forEach((workshopId) => {
+        const status = getEffectiveWorkshopStatus(study, workshopId);
+        if (Object.prototype.hasOwnProperty.call(workshopStatus, status)) workshopStatus[status] += 1;
+      });
+
+      const entries = Array.isArray(study?.workshop5?.riskEntries) ? study.workshop5.riskEntries : [];
+      const criticalCount = entries.filter((risk) => num(risk?.gravity) * num(risk?.likelihood) >= 10).length;
+      riskEntries += entries.length;
+      criticalRisks += criticalCount;
+
+      const residual = Array.isArray(study?.workshop5?.residualRisks) ? study.workshop5.residualRisks : [];
+      residualRisks += residual.length;
+
+      const measures = Array.isArray(study?.workshop5?.measures) ? study.workshop5.measures : [];
+      totalMeasures += measures.length;
+      measures.forEach((item) => {
+        const status = String(item?.status || '').toLowerCase();
+        if (status.includes('fait')) {
+          measureDone += 1;
+          return;
+        }
+        if (status.includes('cours')) {
+          measureInProgress += 1;
+          return;
+        }
+        measureTodo += 1;
+      });
+
+      const controlsIso = Array.isArray(study?.workshop1?.isoControls) ? study.workshop1.isoControls : [];
+      controlsIso.forEach((item) => {
+        const status = String(item?.status || '').toLowerCase();
+        if (status === 'applique') {
+          isoApplied += 1;
+          return;
+        }
+        if (status === 'partiel' || status === 'en_cours') {
+          isoPartial += 1;
+          return;
+        }
+        if (status === 'non_applique') isoNotApplied += 1;
+      });
+
+      topCriticalStudies.push({
+        etude: study?.name || 'Etude',
+        critiques: criticalCount,
+        registre: entries.length,
+        progression: `${num(progress.pct)}%`,
+      });
+    });
+
+    const avgProgress = riskStudies.length ? Math.round(totalPct / riskStudies.length) : 0;
+    const topCritical = topCriticalStudies
+      .filter((x) => x.critiques > 0)
+      .sort((a, b) => b.critiques - a.critiques || b.registre - a.registre)
+      .slice(0, 6);
+
+    return {
+      totalStudies: riskStudies.length,
+      avgProgress,
+      studiesDone,
+      studiesInProgress,
+      workshopsToValidate,
+      workshopsBlocked,
+      riskEntries,
+      criticalRisks,
+      residualRisks,
+      totalMeasures,
+      measureDone,
+      measureInProgress,
+      measureTodo,
+      isoApplied,
+      isoPartial,
+      isoNotApplied,
+      studyStatus,
+      workshopStatus,
+      topCritical,
+    };
+  }, [riskStudies]);
+  const riskMeasureDoneRate = pct(riskMetrics.measureDone, riskMetrics.totalMeasures);
+  const isoTotal = riskMetrics.isoApplied + riskMetrics.isoPartial + riskMetrics.isoNotApplied;
+  const isoAppliedRate = pct(riskMetrics.isoApplied, isoTotal);
+  const docsApprovedRate = pct(documentation.approuve, documentation.total);
+  const priorityKpis = useMemo(
+    () => [
+      {
+        title: 'Ateliers a valider',
+        value: riskMetrics.workshopsToValidate,
+        sub: `${riskMetrics.workshopsBlocked} bloques`,
+        tone: toneFromAlertCount(riskMetrics.workshopsToValidate),
+      },
+      {
+        title: 'Etudes terminees',
+        value: `${riskMetrics.studiesDone}/${Math.max(riskMetrics.totalStudies, 1)}`,
+        sub: `${Math.max(0, riskMetrics.totalStudies - riskMetrics.studiesDone)} restantes`,
+        tone: toneFromRate(pct(riskMetrics.studiesDone, riskMetrics.totalStudies)),
+      },
+      {
+        title: 'Mesures en cours',
+        value: riskMetrics.measureInProgress,
+        sub: `${riskMetrics.measureDone} faites · ${riskMetrics.measureTodo} a faire`,
+        tone: 'blue',
+      },
+      {
+        title: 'Taux ISO appliques',
+        value: `${isoAppliedRate}%`,
+        sub: `${riskMetrics.isoApplied}/${Math.max(isoTotal, 1)} controles`,
+        tone: toneFromRate(isoAppliedRate),
+      },
+      {
+        title: 'Documents approuves',
+        value: `${documentation.approuve}/${Math.max(documentation.total, 1)}`,
+        sub: `${docsApprovedRate}% approuves`,
+        tone: toneFromRate(docsApprovedRate),
+      },
+      {
+        title: 'Actifs support',
+        value: assets.support,
+        sub: `${assets.total} actifs au total`,
+        tone: 'slate',
+      },
+    ],
+    [
+      riskMetrics.workshopsToValidate,
+      riskMetrics.workshopsBlocked,
+      riskMetrics.studiesDone,
+      riskMetrics.totalStudies,
+      riskMetrics.measureInProgress,
+      riskMetrics.measureDone,
+      riskMetrics.measureTodo,
+      riskMetrics.isoApplied,
+      isoAppliedRate,
+      isoTotal,
+      documentation.approuve,
+      documentation.total,
+      docsApprovedRate,
+      assets.support,
+      assets.total,
+    ],
+  );
+  const isCompact = viewMode === 'compact';
+  const executiveTones = useMemo(() => ({
+    conformite: toneFromRate(stats.averageConformity),
+    risquesCritiques: toneFromAlertCount(riskMetrics.criticalRisks),
+    ateliersBloques: toneFromAlertCount(riskMetrics.workshopsBlocked),
+    actionsRetard: toneFromAlertCount(stats.delayedActions),
+    pdca: toneFromRate(pdca.global),
+    progressionRisques: toneFromRate(riskMetrics.avgProgress),
+    isoApplied: toneFromRate(isoAppliedRate),
+  }), [
+    stats.averageConformity,
+    riskMetrics.criticalRisks,
+    riskMetrics.workshopsBlocked,
+    stats.delayedActions,
+    pdca.global,
+    riskMetrics.avgProgress,
+    isoAppliedRate,
+  ]);
+  const alertRows = useMemo(
+    () => ([
+      { label: 'Risques critiques', value: riskMetrics.criticalRisks, color: '#dc2626' },
+      { label: 'Ateliers bloques', value: riskMetrics.workshopsBlocked, color: '#ef4444' },
+      { label: 'Actions en retard', value: num(stats.delayedActions), color: '#f59e0b' },
+      { label: 'NC majeures', value: controls.ncMajeure, color: '#dc2626' },
+      { label: 'Documents a revoir', value: documentation.aRevoir, color: '#f59e0b' },
+    ]).filter((item) => num(item.value) > 0),
+    [riskMetrics.criticalRisks, riskMetrics.workshopsBlocked, stats.delayedActions, controls.ncMajeure, documentation.aRevoir],
+  );
+  const pulseRows = useMemo(
+    () => [
+      { label: 'Conformite globale', value: Math.round(num(stats.averageConformity)), color: '#16a34a' },
+      { label: 'PDCA global', value: pdca.global, color: '#7c3aed' },
+      { label: 'Progression risques', value: riskMetrics.avgProgress, color: '#2563eb' },
+      { label: 'Mesures de risque realisees', value: riskMeasureDoneRate, color: '#0891b2' },
+      { label: 'Taux conformite controles', value: controls.taux, color: '#4f46e5' },
+    ],
+    [stats.averageConformity, pdca.global, riskMetrics.avgProgress, riskMeasureDoneRate, controls.taux],
+  );
+
+  if (loading) {
+    return <div className="min-h-screen bg-slate-100 p-8"><div className="mx-auto max-w-7xl animate-pulse space-y-4"><div className="h-40 rounded-3xl bg-slate-200" /><div className="h-96 rounded-3xl bg-slate-200" /></div></div>;
+  }
+
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
-        {kpis.map(d=>(
-          <div key={d.label} style={{
-            background:T.white, border:`1px solid ${T.gray200}`,
-            borderRadius:12, padding:20, boxShadow:"0 1px 3px rgba(0,0,0,.06)",
-            display:"flex", alignItems:"center", gap:16,
-          }}>
-            <MiniDonut value={d.value} color={d.color}/>
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 px-6 py-7 text-white shadow-xl md:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <div style={{ fontSize:24, fontWeight:T.bold, color:T.black }}>{d.value}%</div>
-              <div style={{ fontSize:T.sm, color:T.gray500, marginTop:4 }}>{d.label}</div>
+              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider"><TrendingUp size={14} /> Executive dashboard SMSI</p>
+              <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Tableau de bord global</h1>
+              <p className="mt-2 max-w-2xl text-sm text-blue-100">Vision centralisee des KPI conformite, controles, documentation, actifs, PDCA et cartographie.</p>
+            </div>
+            <div className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 backdrop-blur">
+              <p className="text-xs uppercase tracking-widest text-blue-100">Conformite globale</p>
+              <p className="text-4xl font-extrabold leading-none">{Math.round(num(stats.averageConformity))}%</p>
+              <p className="mt-1 text-xs text-blue-100">{num(stats.totalClauses)} clauses</p>
             </div>
           </div>
-        ))}
-      </div>
+        </header>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <Card title="Répartition par statut">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={CONF_DONUT} cx="50%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={3} dataKey="value">
-                  {CONF_DONUT.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                </Pie>
-                <Tooltip {...TT}/>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:10, marginTop:8 }}>
-              {CONF_DONUT.map(e=>(
-                <div key={e.name} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <div style={{ width:10, height:10, borderRadius:"50%", background:e.color }}/>
-                  <span style={{ fontSize:T.sm, color:T.gray500 }}>{e.name} ({e.value})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
+        {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {warnings.length > 0 && <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Chargement partiel: {warnings.join(' | ')}</div>}
 
-        <Card title="Score par clause (4–10)">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={clauseScores} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={T.gray200}/>
-                <XAxis type="number" domain={[0,100]} tick={{ fontSize:11 }} stroke={T.gray400}/>
-                <YAxis type="category" dataKey="clause" tick={{ fontSize:11 }} stroke={T.gray400} width={25}/>
-                <Tooltip {...TT}/>
-                <Bar dataKey="score" name="Score %" fill={theme.accent} radius={[0,4,4,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card title="Conformite globale" value={`${Math.round(num(stats.averageConformity))}%`} sub={`${num(stats.conformeClauses)}/${Math.max(num(stats.totalClauses), 1)} clauses conformes`} icon={<CheckCircle2 size={18} />} tone={executiveTones.conformite} />
+          <Card title="Risques critiques" value={riskMetrics.criticalRisks} sub={`${riskMetrics.riskEntries} dans le registre`} icon={<AlertTriangle size={18} />} tone={executiveTones.risquesCritiques} />
+          <Card title="Actions en retard" value={num(stats.delayedActions)} sub={`${num(stats.inProgressActions)} en cours`} icon={<Clock3 size={18} />} tone={executiveTones.actionsRetard} />
+          <Card title="PDCA global" value={`${pdca.global}%`} sub={`${pdca.done}/${Math.max(pdca.total, 1)} items termines`} icon={<ClipboardList size={18} />} tone={executiveTones.pdca} />
+        </section>
 
-      <Card title={`Annexe A — 14 domaines (${annexADomains.reduce((s,d)=>s+d.controls,0)} contrôles)`}>
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr>
-              <Th>Domaine</Th><Th>Titre</Th>
-              <Th center>Contrôles</Th><Th center>Implémentés</Th>
-              <Th center>Partiels</Th><Th center>Non impl.</Th><Th>Progression</Th>
-            </tr></thead>
-            <tbody>
-              {annexADomains.map(d=>{
-                const pct=Math.round((d.implemented/d.controls)*100);
+        <section className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {DASHBOARD_TABS.map((tab) => {
+                const active = activeTab === tab.key;
                 return (
-                  <TRow key={d.id}>
-                    <Td bold color={T.black}>{d.id}</Td>
-                    <Td>{d.title}</Td>
-                    <Td center mono color={T.gray500}>{d.controls}</Td>
-                    <Td center mono color="#059669">{d.implemented}</Td>
-                    <Td center mono color="#d97706">{d.partial}</Td>
-                    <Td center mono color="#dc2626">{d.notImplemented}</Td>
-                    <Td>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <ProgressBar value={pct} height={5}/>
-                        <span style={{ fontSize:T.sm, fontWeight:T.bold, width:34,
-                          color:pct>=90?"#059669":pct>=70?"#d97706":"#dc2626" }}>{pct}%</span>
-                      </div>
-                    </Td>
-                  </TRow>
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                      active ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   TAB: RISQUES
-───────────────────────────────────────────── */
-const MATRIX_BG = {
-  "1-1":"#d2e8d8","1-2":"#d2e8d8","1-3":"#f0e2c5","1-4":"#f0e2c5",
-  "2-1":"#d2e8d8","2-2":"#f0e2c5","2-3":"#f0e2c5","2-4":"#ecd0d4",
-  "3-1":"#f0e2c5","3-2":"#f0e2c5","3-3":"#ecd0d4","3-4":"#ecd0d4",
-  "4-1":"#f0e2c5","4-2":"#ecd0d4","4-3":"#ecd0d4","4-4":"#e7bcc2",
-};
-
-function TabRisques({ theme }) {
-  const critiques=riskEntries.filter(r=>r.level==="Critique").length;
-  const eleves=riskEntries.filter(r=>r.level==="Élevé").length;
-  const acceptes=riskEntries.filter(r=>r.treatment==="Accepter").length;
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14 }}>
-        {riskKpis.map(k=>(
-          <StatCard key={k.id} label={k.label} value={`${k.value}${k.unit}`}
-            valueColor={S_COLOR[k.status]} footnote={`${k.greenThreshold} / ${k.redThreshold}`}/>
-        ))}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14 }}>
-        {[
-          { label:"Critiques", value:critiques, ...RISK_S.Critique },
-          { label:"Élevés",    value:eleves,    ...RISK_S.Élevé    },
-          { label:"Acceptés",  value:acceptes,  ...RISK_S.Faible   },
-        ].map(s=>(
-          <div key={s.label} style={{
-            background:s.bg, border:`1px solid ${s.border}`,
-            borderRadius:12, padding:"20px 24px", textAlign:"center",
-          }}>
-            <div style={{ fontSize:32, fontWeight:T.bold, color:s.color }}>{s.value}</div>
-            <div style={{ fontSize:T.sm, color:s.color, fontWeight:T.semibold, marginTop:4 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <Card title="Matrice de criticité (Impact × Probabilité)">
-        <div style={{ padding:"20px 24px", overflowX:"auto" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, minWidth:320 }}>
-            {[4,3,2,1].map(impact=>
-              [1,2,3,4].map(prob=>{
-                const risks=riskEntries.filter(r=>r.impact===impact&&r.probability===prob);
+            </div>
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+              {VIEW_MODES.map((mode) => {
+                const active = viewMode === mode.key;
                 return (
-                  <div key={`${impact}-${prob}`} style={{
-                    borderRadius:8, padding:"8px 6px", minHeight:58,
-                    background:MATRIX_BG[`${impact}-${prob}`]||T.gray50,
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
-                  }}>
-                    <span style={{ fontSize:10, color:T.gray500, fontWeight:T.semibold }}>{impact}×{prob}={impact*prob}</span>
-                    {risks.map(r=>(
-                      <span key={r.id} style={{ fontSize:9, color:T.gray700, overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%", whiteSpace:"nowrap" }} title={r.name}>{r.id}</span>
-                    ))}
-                  </div>
+                  <button
+                    key={mode.key}
+                    type="button"
+                    onClick={() => setViewMode(mode.key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                      active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
                 );
-              })
-            )}
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, padding:"0 4px" }}>
-            {[1,2,3,4].map(p=><span key={p} style={{ fontSize:10, color:T.gray400 }}>{p}</span>)}
-          </div>
-          <p style={{ fontSize:10, color:T.gray400, textAlign:"center", margin:"4px 0 0" }}>Probabilité →</p>
-        </div>
-      </Card>
-
-      <Card title="Registre des risques">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr>
-              <Th>ID</Th><Th>Risque</Th><Th center>I</Th><Th center>P</Th>
-              <Th center>Score</Th><Th>Niveau</Th><Th>Traitement</Th><Th>Propriétaire</Th>
-            </tr></thead>
-            <tbody>
-              {riskEntries.map(r=>(
-                <TRow key={r.id}>
-                  <Td mono color={T.gray400}>{r.id}</Td>
-                  <Td bold color={T.black}>{r.name}</Td>
-                  <Td center mono>{r.impact}</Td>
-                  <Td center mono>{r.probability}</Td>
-                  <Td center mono bold>{r.score}</Td>
-                  <Td><Pill label={r.level} style={RISK_S[r.level]||RISK_S.Faible}/></Td>
-                  <Td color={T.gray500}>{r.treatment}</Td>
-                  <Td color={T.gray500}>{r.owner}</Td>
-                </TRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   TAB: ACTIONS
-───────────────────────────────────────────── */
-function TabActions({ theme }) {
-  const total=actionEntries.length;
-  const done=actionEntries.filter(a=>a.status==="Terminé").length;
-  const late=actionEntries.filter(a=>a.status==="En retard").length;
-  const avg=Math.round(actionEntries.reduce((s,a)=>s+a.progress,0)/total);
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
-        {[
-          { label:"Total actions",    value:total,    valueColor:T.black },
-          { label:"Terminées",        value:done,     valueColor:"#0e9f4c" },
-          { label:"En retard",        value:late,     valueColor:"#ef4444" },
-          { label:"Avancement moyen", value:`${avg}%`,valueColor:"#2f63d9" },
-        ].map(k=><StatCard key={k.label} {...k}/>)}
-      </div>
-
-      <Card title="Plan d'actions complet">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr>
-              <Th>ID</Th><Th>Action</Th><Th>Module</Th><Th>Responsable</Th>
-              <Th>Échéance</Th><Th>Avancement</Th><Th>Statut</Th>
-            </tr></thead>
-            <tbody>
-              {actionEntries.map(a=>(
-                <TRow key={a.id}>
-                  <Td mono color={T.gray400}>{a.id}</Td>
-                  <Td bold color={T.black}>{a.title}</Td>
-                  <Td color={T.gray500}>{a.module}</Td>
-                  <Td color={T.gray500}>{a.responsible}</Td>
-                  <Td mono color={T.gray500}>{a.deadline}</Td>
-                  <Td>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:100 }}>
-                      <ProgressBar value={a.progress} height={5}/>
-                      <span style={{ fontSize:T.sm, fontWeight:T.bold, width:32 }}>{a.progress}%</span>
-                    </div>
-                  </Td>
-                  <Td><Pill label={a.status} style={ACT_S[a.status]||ACT_S["Planifié"]}/></Td>
-                </TRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   TAB: INCIDENTS
-───────────────────────────────────────────── */
-function TabIncidents({ theme }) {
-  const total=incidentEntries.length;
-  const avg=Math.round(incidentEntries.reduce((s,i)=>s+i.resolutionTime,0)/total);
-  const rate=Math.round((incidentEntries.filter(i=>i.resolved).length/total)*100);
-  const byType=incidentEntries.reduce((acc,inc)=>{ acc[inc.type]=(acc[inc.type]||0)+1; return acc; },{});
-  const typeData=Object.entries(byType).map(([name,value])=>({name,value}));
-  const TC=["#4f46e5","#dc2626","#d97706","#059669","#0ea5e9","#9333ea"];
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
-        {[
-          { label:"Total incidents", value:total,   valueColor:T.black },
-          { label:"MTTR moyen",      value:`${avg}h`,valueColor:"#0b9ad5" },
-          { label:"Taux résolution", value:`${rate}%`,valueColor:"#0e9f4c" },
-          { label:"Critiques",       value:incidentEntries.filter(i=>i.severity==="Critique").length, valueColor:"#ef4444" },
-        ].map(k=><StatCard key={k.label} {...k}/>)}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <Card title="Incidents par mois">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={incidentsByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.gray200}/>
-                <XAxis dataKey="month" tick={{ fontSize:11 }} stroke={T.gray400}/>
-                <YAxis tick={{ fontSize:11 }} stroke={T.gray400} allowDecimals={false}/>
-                <Tooltip {...TT}/>
-                <Bar dataKey="count" name="Incidents" fill="#ef4444" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card title="Répartition par type">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={typeData} cx="50%" cy="50%" innerRadius={50} outerRadius={84} paddingAngle={3} dataKey="value">
-                  {typeData.map((_,i)=><Cell key={i} fill={TC[i%TC.length]}/>)}
-                </Pie>
-                <Tooltip {...TT}/>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:10, marginTop:8 }}>
-              {typeData.map((t,i)=>(
-                <div key={t.name} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <div style={{ width:10, height:10, borderRadius:"50%", background:TC[i%TC.length] }}/>
-                  <span style={{ fontSize:T.sm, color:T.gray500 }}>{t.name} ({t.value})</span>
-                </div>
-              ))}
+              })}
             </div>
           </div>
-        </Card>
-      </div>
+        </section>
 
-      <Card title="Registre des incidents">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr><Th>ID</Th><Th>Incident</Th><Th>Type</Th><Th>Date</Th><Th>Sévérité</Th><Th center>Résolu</Th><Th center>Temps</Th></tr></thead>
-            <tbody>
-              {incidentEntries.map(inc=>(
-                <TRow key={inc.id}>
-                  <Td mono color={T.gray400}>{inc.id}</Td>
-                  <Td bold color={T.black}>{inc.title}</Td>
-                  <Td color={T.gray500}>{inc.type}</Td>
-                  <Td mono color={T.gray500}>{inc.date}</Td>
-                  <Td><Pill label={inc.severity} style={SEV_S[inc.severity]||SEV_S.Mineur}/></Td>
-                  <Td center color={inc.resolved?"#059669":"#dc2626"}>{inc.resolved?"Oui":"Non"}</Td>
-                  <Td center mono color={T.gray500}>{inc.resolutionTime}h</Td>
-                </TRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   TAB: AMÉLIORATION
-───────────────────────────────────────────── */
-function TabAmelioration({ theme }) {
-  const total=nonConformities.length;
-  const closed=nonConformities.filter(n=>n.status==="Clôturée").length;
-  const rate=Math.round((closed/total)*100);
-  const byClause=nonConformities.reduce((acc,nc)=>{ acc[nc.clause]=(acc[nc.clause]||0)+1; return acc; },{});
-  const ncChart=Object.entries(byClause).map(([clause,count])=>({clause:`Cl. ${clause}`,count}));
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
-        {[
-          { label:"Non-conformités", value:total, color:T.black },
-          { label:"Ouvertes",        value:nonConformities.filter(n=>n.status==="Ouverte").length, color:"#ef4444" },
-          { label:"Taux clôture",    value:`${rate}%`, color:"#0e9f4c" },
-          { label:"Audits réalisés", value:auditHistory.length, color:"#2f63d9" },
-        ].map(k=><StatCard key={k.label} {...k}/>)}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <Card title="Non-conformités par clause">
-          <div style={{ padding:"20px 24px" }}>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={ncChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.gray200}/>
-                <XAxis dataKey="clause" tick={{ fontSize:11 }} stroke={T.gray400}/>
-                <YAxis tick={{ fontSize:11 }} stroke={T.gray400} allowDecimals={false}/>
-                <Tooltip {...TT}/>
-                <Bar dataKey="count" name="NC" fill="#ef4444" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card title="Suivi des formations">
-          <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:18 }}>
-            {trainingData.map(t=>{
-              const c=t.actual>=t.target?"#059669":t.actual>=t.target*.8?"#d97706":"#dc2626";
-              return (
-                <div key={t.name}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
-                    <span style={{ fontSize:T.sm, color:T.gray500 }}>{t.name}</span>
-                    <span style={{ fontSize:T.sm, fontWeight:T.bold, color:c }}>{t.actual}% / {t.target}%</span>
+        {activeTab === 'synthese' ? (
+          <>
+            <Block title="KPI prioritaires">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {priorityKpis.map((kpi) => (
+                  <LeanKpi key={kpi.title} title={kpi.title} value={kpi.value} sub={kpi.sub} tone={kpi.tone} />
+                ))}
+              </div>
+            </Block>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Alertes immediates">
+                {alertRows.length ? (
+                  <div className="space-y-2">
+                    {alertRows.map((item) => (
+                      <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                        <span className="rounded-full px-2 py-0.5 text-sm font-bold text-white" style={{ background: item.color }}>{item.value}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ position:"relative" }}>
-                    <ProgressBar value={t.actual} height={7}/>
-                    <div style={{ position:"absolute", top:0, left:`${t.target}%`, width:2, height:7, background:"rgba(0,0,0,.25)", borderRadius:1 }} title={`Cible: ${t.target}%`}/>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">Aucune alerte immediate.</div>
+                )}
+              </Block>
+              <Block title="Pulse global (%)">
+                <Bars rows={pulseRows} />
+              </Block>
+            </section>
+            {!isCompact ? (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Top etudes a risque critique">
+                  <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
+                </Block>
+                <Block title="Plans d'action par etat">
+                  <Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} />
+                </Block>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {activeTab === 'risques' ? (
+          <>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Card title="Progression risques" value={`${riskMetrics.avgProgress}%`} sub={`${riskMetrics.studiesInProgress} en cours`} icon={<TrendingUp size={18} />} tone={executiveTones.progressionRisques} />
+              <Card title="Risques residuels" value={riskMetrics.residualRisks} sub="Apres traitement" icon={<Ban size={18} />} tone={toneFromAlertCount(riskMetrics.residualRisks)} />
+              <Card title="Mesures securite" value={riskMetrics.totalMeasures} sub={`${riskMetrics.measureDone} faites`} icon={<CheckCircle2 size={18} />} tone="green" />
+              <Card title="ISO non appliques" value={riskMetrics.isoNotApplied} sub="A traiter / justifier" icon={<AlertTriangle size={18} />} tone={toneFromAlertCount(riskMetrics.isoNotApplied)} />
+            </section>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Etudes de risques par statut">
+                <Donut data={[{ label: 'Terminees', value: riskMetrics.studyStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.studyStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.studyStatus.en_cours, color: '#2563eb' }, { label: 'Non evaluees', value: riskMetrics.studyStatus.non_evalue, color: '#94a3b8' }]} />
+              </Block>
+              <Block title="Ateliers de risques par statut">
+                <Bars rows={[{ label: 'Termines', value: riskMetrics.workshopStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.workshopStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.workshopStatus.en_cours, color: '#2563eb' }, { label: 'Bloques', value: riskMetrics.workshopStatus.bloque, color: '#dc2626' }, { label: 'Non evalues', value: riskMetrics.workshopStatus.non_evalue, color: '#94a3b8' }]} />
+              </Block>
+            </section>
+            {!isCompact ? (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Mesures de securite - Atelier 5">
+                  <Donut data={[{ label: 'Faites', value: riskMetrics.measureDone, color: '#16a34a' }, { label: 'En cours', value: riskMetrics.measureInProgress, color: '#2563eb' }, { label: 'A faire', value: riskMetrics.measureTodo, color: '#94a3b8' }]} />
+                </Block>
+                <Block title="Top etudes a risque critique">
+                  <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
+                </Block>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {activeTab === 'conformite' ? (
+          <>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Conformite par clause"><Bars rows={clauseBars} /></Block>
+              <Block title="Controles par domaine"><Bars rows={Object.entries(controls.byDomain).map(([label, value]) => ({ label, value, color: '#4f46e5' }))} /></Block>
+            </section>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Clauses conformes / non conformes"><Donut data={[{ label: 'Conformes', value: num(stats.conformeClauses), color: '#16a34a' }, { label: 'Non conformes', value: num(stats.nonConformeClauses), color: '#dc2626' }]} /></Block>
+              <Block title="Controles par statut"><Donut data={[{ label: 'Conformes', value: controls.conforme, color: '#16a34a' }, { label: 'Remarques', value: controls.remarque, color: '#2563eb' }, { label: 'NC mineures', value: controls.ncMineure, color: '#f59e0b' }, { label: 'NC majeures', value: controls.ncMajeure, color: '#dc2626' }, { label: 'Non evalues', value: controls.nonEvalue, color: '#94a3b8' }]} /></Block>
+            </section>
+            {!isCompact ? (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Top clauses non conformes"><Table columns={[{ key: 'clause', label: 'Clause' }, { key: 'titre', label: 'Titre' }, { key: 'score', label: 'Score' }, { key: 'ecart', label: 'Ecart' }]} rows={clausesNC} /></Block>
+                <Block title="Controles critiques"><Table columns={[{ key: 'controle', label: 'Controle' }, { key: 'domaine', label: 'Domaine' }, { key: 'statut', label: 'Statut' }]} rows={controlsCritical} /></Block>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {activeTab === 'pdca' ? (
+          <>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Card title="PDCA global" value={`${pdca.global}%`} sub={`${pdca.done}/${Math.max(pdca.total, 1)} termines`} icon={<ClipboardList size={18} />} tone={executiveTones.pdca} />
+              <Card title="Taches terminees" value={pdca.done} sub={`${pdca.total} au total`} icon={<CheckCircle2 size={18} />} tone="green" />
+              <Card title="Taches en cours" value={pdca.ip} sub="Execution active" icon={<Clock3 size={18} />} tone="blue" />
+              <Card title="Taches a faire" value={pdca.todo} sub="Backlog" icon={<Ban size={18} />} tone="slate" />
+            </section>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Progression PDCA par phase"><Bars rows={Object.keys(pdca.phase).map((k) => ({ label: PHS[k], value: pdca.phase[k], color: k === 'plan' ? '#a855f7' : k === 'do' ? '#2563eb' : k === 'check' ? '#0891b2' : '#ef4444' }))} /></Block>
+              <Block title="PDCA taches"><Donut data={[{ label: 'Terminees', value: pdca.done, color: '#16a34a' }, { label: 'En cours', value: pdca.ip, color: '#f59e0b' }, { label: 'A faire', value: pdca.todo, color: '#94a3b8' }]} /></Block>
+            </section>
+            {!isCompact ? (
+              <section className="grid grid-cols-1 gap-4">
+                <Block title="Plans d'action par etat"><Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} /></Block>
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {activeTab === 'operations' ? (
+          <>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Card title="Documents a revoir" value={documentation.aRevoir} sub={`${documentation.total} documents`} icon={<FileText size={18} />} tone={toneFromAlertCount(documentation.aRevoir)} />
+              <Card title="Actifs sensibles" value={assets.sensibles} sub={`${assets.total} actifs`} icon={<Lock size={18} />} tone={toneFromAlertCount(assets.sensibles)} />
+              <Card title="Actifs primaires" value={assets.primaires} sub={`${assets.support} actifs support`} icon={<Building2 size={18} />} tone="slate" />
+              <Card title="Total controles" value={controls.total} sub={`Conformite ${controls.taux}%`} icon={<Users size={18} />} tone="blue" />
+            </section>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <Block title="Documentation par statut"><Donut data={[{ label: 'Approuves', value: documentation.approuve, color: '#16a34a' }, { label: 'En validation', value: documentation.validation, color: '#f59e0b' }, { label: 'Brouillons', value: documentation.brouillon, color: '#64748b' }, { label: 'A revoir', value: documentation.aRevoir, color: '#ef4444' }]} /></Block>
+              <Block title="Cartographie: processus par categorie"><Bars rows={Object.entries(cartography.by).map(([k, value]) => ({ label: CAT_LABELS[k] || k, value, color: k === 'mgmt' ? '#0ea5e9' : k === 'real' ? '#8b5cf6' : '#10b981' }))} /></Block>
+            </section>
+            {!isCompact ? (
+              <>
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Block title="Documents a revoir"><Table columns={[{ key: 'nom', label: 'Document' }, { key: 'type', label: 'Type' }, { key: 'maj', label: 'Derniere MAJ' }]} rows={docsReview} /></Block>
+                  <Block title="Actifs sensibles"><Table columns={[{ key: 'actif', label: 'Actif' }, { key: 'type', label: 'Type' }, { key: 'classif', label: 'Classification' }]} rows={sensitiveAssets} /></Block>
+                </section>
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Block title="Cartographie">
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div className="flex justify-between"><span>Total processus</span><span className="font-bold">{cartography.total}</span></div>
+                      <div className="flex justify-between"><span>Documents associes</span><span className="font-bold">{cartography.docs}</span></div>
+                    </div>
+                  </Block>
+                  <Block title="Conformite controles">
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div className="flex justify-between"><span>Conformes</span><span className="font-bold text-emerald-600">{controls.conforme}</span></div>
+                      <div className="flex justify-between"><span>NC mineures</span><span className="font-bold text-amber-600">{controls.ncMineure}</span></div>
+                      <div className="flex justify-between"><span>NC majeures</span><span className="font-bold text-red-600">{controls.ncMajeure}</span></div>
+                    </div>
+                  </Block>
+                </section>
+              </>
+            ) : null}
+          </>
+        ) : null}
       </div>
-
-      <Card title="Non-conformités">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr><Th>ID</Th><Th>Clause</Th><Th>Description</Th><Th>Statut</Th><Th>Ouvert le</Th><Th>Clôturé le</Th></tr></thead>
-            <tbody>
-              {nonConformities.map(nc=>(
-                <TRow key={nc.id}>
-                  <Td mono color={T.gray400}>{nc.id}</Td>
-                  <Td bold color={T.black}>{nc.clause}</Td>
-                  <Td color={T.gray700}>{nc.description}</Td>
-                  <Td><Pill label={nc.status} style={NC_S[nc.status]||NC_S["En cours"]}/></Td>
-                  <Td mono color={T.gray500}>{nc.dateOpened}</Td>
-                  <Td mono color={T.gray500}>{nc.dateClosed||"—"}</Td>
-                </TRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card title="Historique des audits">
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr><Th>Date</Th><Th>Type</Th><Th>Périmètre</Th><Th center>Constats</Th><Th>Statut</Th></tr></thead>
-            <tbody>
-              {auditHistory.map((a,i)=>(
-                <TRow key={i}>
-                  <Td mono color={T.gray500}>{a.date}</Td>
-                  <Td bold color={T.black}>{a.type}</Td>
-                  <Td color={T.gray500}>{a.scope}</Td>
-                  <Td center mono>{a.findings}</Td>
-                  <Td><Pill label={a.status} style={a.status==="Clôturé"
-                    ?{color:"#059669",bg:"#f0fdf4",border:"#bbf7d0"}
-                    :{color:"#2563eb",bg:"#eff6ff",border:"#bfdbfe"}}/></Td>
-                </TRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }
-
-/* ─────────────────────────────────────────────
-   ROOT COMPONENT
-───────────────────────────────────────────── */
-export default function SmsiDashboard() {
-  const [activeTab, setActiveTab] = useState("global");
-  const theme = TAB_THEMES[activeTab] || TAB_THEMES.global;
-
-  return (
-    <div style={{
-      minHeight:"100vh", background:T.bg,
-      fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-      fontSize:T.base, color:T.gray900,
-    }}>
-
-      {/* ── HEADER ── */}
-      <header style={{
-        background:T.bg,
-        padding:"22px 32px 12px",
-        display:"flex", alignItems:"center", gap:14,
-      }}>
-        <div style={{ width:50, height:50, borderRadius:16, background:"#dbe5f4", color:"#2f63d9", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <ShieldCheck size={22} />
-        </div>
-        <div>
-          <h1 style={{ fontSize:T.xl, fontWeight:T.bold, color:T.black, margin:0, letterSpacing:"-0.02em" }}>
-            Tableau de bord SMSI
-          </h1>
-          <p style={{ fontSize:T.sm, color:T.gray500, margin:"4px 0 0", fontWeight:T.normal }}>
-            ISO 27001:2022 — ALEXSYS Solutions · Dernière mise à jour : 18 mars 2026
-          </p>
-        </div>
-      </header>
-
-      <main style={{ maxWidth:1500, margin:"0 auto", padding:"8px 24px 32px", display:"flex", flexDirection:"column", gap:24 }}>
-
-        {/* ── TABS ── */}
-        <div style={{
-          background:T.gray50, border:`1px solid ${T.gray100}`,
-          borderRadius:16, overflowX:"auto",
-          padding:"10px 12px",
-          display:"flex", justifyContent:"center", gap:6,
-        }}>
-          {TABS.map(t=>{
-            const isActive=activeTab===t.value;
-            return (
-              <button key={t.value} onClick={()=>setActiveTab(t.value)} style={{
-                padding:"10px 14px",
-                fontSize:T.md, fontWeight:isActive?T.semibold:T.medium,
-                cursor:"pointer", border:`1px solid ${isActive ? T.gray200 : "transparent"}`,
-                borderRadius:12,
-                background:isActive?T.white:"transparent",
-                color:isActive?T.black:T.gray700,
-                transition:"all 0.15s", whiteSpace:"nowrap",
-                fontFamily:"inherit",
-              }}>
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── CONTENT ── */}
-        {activeTab==="global"       && <TabVueGlobale    theme={theme}/>}
-        {activeTab==="conformite"   && <TabConformite    theme={theme}/>}
-        {activeTab==="risques"      && <TabRisques       theme={theme}/>}
-        {activeTab==="actions"      && <TabActions       theme={theme}/>}
-        {activeTab==="incidents"    && <TabIncidents     theme={theme}/>}
-        {activeTab==="amelioration" && <TabAmelioration  theme={theme}/>}
-      </main>
-    </div>
-  );
-}
-

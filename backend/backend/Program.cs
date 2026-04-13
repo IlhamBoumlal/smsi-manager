@@ -1,27 +1,28 @@
-﻿using backend.Application.Services;
+using backend.Application.Auth.Commands.Login;
+using backend.Application.Services;
+using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using Domain.Interfaces;
+using Infrastructure.Repositories;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException(
-        "La chaîne de connexion 'DefaultConnection' est introuvable dans la configuration.");
-var isEfDesignTime = AppDomain.CurrentDomain.GetAssemblies()
-    .Any(a => string.Equals(a.GetName().Name, "Microsoft.EntityFrameworkCore.Design", StringComparison.Ordinal));
 
-// ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+// ─── DATABASE ────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ─── IDENTITY ─────────────────────────────────────────────────────────────────
+// ─── IDENTITY ────────────────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 {
     opt.Password.RequiredLength = 8;
@@ -34,7 +35,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// ─── JWT ──────────────────────────────────────────────────────────────────────
+// ─── AUTH / JWT ─────────────────────────────────────────────────────────────
 builder.Services.AddAuthentication(opt =>
 {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -55,30 +56,36 @@ builder.Services.AddAuthentication(opt =>
     };
 });
 
-// ─── CORS ─────────────────────────────────────────────────────────────────────
+// ─── CORS ───────────────────────────────────────────────────────────────────
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("AllowReact", p =>
         p.WithOrigins("http://localhost:3000", "http://localhost:5173")
-         .AllowAnyMethod()
          .AllowAnyHeader()
+         .AllowAnyMethod()
          .AllowCredentials());
 });
 
-// ─── CONTROLLERS ──────────────────────────────────────────────────────────────
+// ─── CONTROLLERS / JSON ─────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(opt =>
     {
-        opt.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-        opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// ─── MEDIATR ──────────────────────────────────────────────────────────────────
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// ─── REPOSITORIES ─────────────────────────────────────────────────────────────
+// ─── MEDIATR ─────────────────────────────────────────────────────────────────
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblies(
+        Assembly.GetExecutingAssembly(),
+        typeof(LoginCommand).Assembly);
+});
+
+// ─── REPOSITORIES ────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocieteRepository, SocieteRepository>();
 builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
@@ -86,64 +93,36 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IActifRepository, ActifRepository>();
 builder.Services.AddScoped<IControleRepository, ControleRepository>();
 builder.Services.AddScoped<IDocumentationRepository, DocumentationRepository>();
+builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
+builder.Services.AddScoped<IRiskStudyRepository, RiskStudyRepository>();
 
-
-// ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
+// ─── INFRA SERVICES ──────────────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IClauseService, ClauseService>();
 
-// ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
-if (!isEfDesignTime)
+// ─── STARTUP INITIALIZATION ──────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
     await DbInitializer.InitializeAsync(scope.ServiceProvider);
-    await SeedAdminAsync(scope.ServiceProvider);
+
+    var clauseService = scope.ServiceProvider.GetRequiredService<IClauseService>();
+    await clauseService.SeedClausesAsync();
 }
 
-// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+// ─── PIPELINE ────────────────────────────────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();
-
-// ─── SEED ADMIN ───────────────────────────────────────────────────────────────
-static async Task SeedAdminAsync(IServiceProvider services)
-{
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-    const string adminEmail = "admin@alexsys.com";
-    const string adminPassword = "Admin@123456!";
-    const string adminRole = "Admin";
-
-    // Créer le rôle Admin s'il n'existe pas
-    if (!await roleManager.RoleExistsAsync(adminRole))
-        await roleManager.CreateAsync(new IdentityRole(adminRole));
-
-    // Créer l'utilisateur Admin s'il n'existe pas
-    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
-    if (existingAdmin is null)
-    {
-        var admin = new ApplicationUser
-        {
-            UserName = adminEmail,
-            Email = adminEmail,
-            NomComplet = "Administrateur",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var result = await userManager.CreateAsync(admin, adminPassword);
-        if (result.Succeeded)
-            await userManager.AddToRoleAsync(admin, adminRole);
-    }
-}

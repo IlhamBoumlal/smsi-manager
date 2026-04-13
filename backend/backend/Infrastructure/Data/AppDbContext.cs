@@ -1,4 +1,6 @@
-﻿using backend.Domain.Entities;
+using backend.Domain.Entities;
+using Domain.Entities;
+using Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -15,18 +17,118 @@ namespace backend.Infrastructure.Data
         public DbSet<Controle> Controles { get; set; }
         public DbSet<Actif> Actifs { get; set; }
         public DbSet<DocumentationDocument> DocumentationDocuments { get; set; }
-
+        public DbSet<RiskStudy> RiskStudies { get; set; }
+        public DbSet<IsoClause> IsoClauses { get; set; }
+        public DbSet<ConformityStatus> ConformityStatuses { get; set; }
+        public DbSet<ActionPlan> ActionPlans { get; set; }
+        public DbSet<PdcaCycle> PdcaCycles { get; set; }
+        public DbSet<PdcaItem> PdcaItems { get; set; }
+        public DbSet<Phase> Phases { get; set; }
+        public DbSet<PlanStep> PlanSteps { get; set; }
+        public DbSet<Section> Sections { get; set; }
+        public DbSet<ConformityProof> ConformityProofs => Set<ConformityProof>();
+        public DbSet<FileAttachment>   FileAttachments   => Set<FileAttachment>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<ConformityProof>(e =>
+            {
+                e.HasKey(p => p.Id);
+                e.HasOne(p => p.Clause)
+                 .WithMany()
+                 .HasForeignKey(p => p.IsoClauseId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(p => new { p.IsoClauseId, p.UserId });
+            });
 
-            // Configuration Utilisateur -> Société
+            modelBuilder.Entity<FileAttachment>(e =>
+            {
+                e.HasKey(f => f.Id);
+
+                // Contenu binaire — pas de limite de taille côté EF
+                // SQL Server crée automatiquement varbinary(max) pour byte[]
+                // PostgreSQL crée bytea
+                e.Property(f => f.Content).IsRequired();
+
+                e.HasOne(f => f.ConformityProof)
+                 .WithMany(p => p.Files)
+                 .HasForeignKey(f => f.ConformityProofId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(f => f.ActionPlan)
+                 .WithMany()
+                 .HasForeignKey(f => f.ActionPlanId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(f => f.ConformityProofId);
+                e.HasIndex(f => f.ActionPlanId);
+                e.HasIndex(f => f.UserId);
+            });
+            // ── ApplicationUser → Société ──────────────────────────────────────
             modelBuilder.Entity<ApplicationUser>()
                 .HasOne(u => u.Societe)
                 .WithMany()
                 .HasForeignKey(u => u.SocieteId);
 
-            // Configuration des Enums en String pour la DB
+            modelBuilder.Entity<DocumentationDocument>(entity =>
+            {
+                entity.ToTable("DocumentationDocuments");
+                entity.HasIndex(d => d.UpdatedAt);
+                entity.HasIndex(d => new { d.SocieteId, d.Status });
+                entity.HasIndex(d => new { d.SocieteId, d.Category });
+
+                entity.HasOne(d => d.Societe)
+                    .WithMany()
+                    .HasForeignKey(d => d.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(d => d.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(d => d.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(d => d.LastModifiedByUser)
+                    .WithMany()
+                    .HasForeignKey(d => d.LastModifiedByUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(d => d.ApprovedByUser)
+                    .WithMany()
+                    .HasForeignKey(d => d.ApprovedByUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<RiskStudy>(entity =>
+            {
+                entity.ToTable("RiskStudies");
+                entity.HasIndex(r => r.SocieteId);
+                entity.HasIndex(r => new { r.SocieteId, r.UpdatedAt });
+
+                entity.Property(r => r.Name).HasMaxLength(200);
+                entity.Property(r => r.Organization).HasMaxLength(200);
+                entity.Property(r => r.Perimeter).HasMaxLength(300);
+                entity.Property(r => r.Author).HasMaxLength(200);
+                entity.Property(r => r.PayloadJson).HasColumnType("nvarchar(max)");
+
+                entity.HasOne(r => r.Societe)
+                    .WithMany()
+                    .HasForeignKey(r => r.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(r => r.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(r => r.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(r => r.LastModifiedByUser)
+                    .WithMany()
+                    .HasForeignKey(r => r.LastModifiedByUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ── Controle : enum → string + index ──────────────────────────────
             modelBuilder.Entity<Controle>()
                 .Property(c => c.Domaine)
                 .HasConversion<string>();
@@ -35,31 +137,49 @@ namespace backend.Infrastructure.Data
                 .Property(c => c.Statut)
                 .HasConversion<string>();
 
-            // Index pour recherche rapide par Code (ex: A.5.1)
             modelBuilder.Entity<Controle>()
                 .HasIndex(c => c.Code);
 
-            modelBuilder.Entity<DocumentationDocument>()
-                .ToTable("documentation_documents");
+            // ── IsoClause : index sur Number ───────────────────────────────────
+            modelBuilder.Entity<IsoClause>()
+                .HasIndex(c => c.Number);
 
-            modelBuilder.Entity<DocumentationDocument>()
-                .HasIndex(d => d.UpdatedAt);
+            // ── ActionPlan : deux FK vers IsoClause ───────────────────────────
+            //
+            // EF Core ne peut pas deviner automatiquement quelle propriété de
+            // navigation correspond à quelle clé étrangère quand une entité
+            // possède plusieurs relations vers la même table. On les configure
+            // explicitement ici.
+            //
+            // Relation 1 : ActionPlan.IsoClauseId → IsoClause (clause parente)
+            modelBuilder.Entity<ActionPlan>()
+                .HasOne(ap => ap.Clause)
+                .WithMany(c => c.ActionPlans)
+                .HasForeignKey(ap => ap.IsoClauseId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // ─── SEEDING DES CONTROLES VIA JSON ──────────────────────────────────
+            // Relation 2 : ActionPlan.SubClauseId → IsoClause (sous-clause ciblée)
+            // Pas de collection inverse sur IsoClause pour cette relation.
+            modelBuilder.Entity<ActionPlan>()
+                .HasOne(ap => ap.SubClause)
+                .WithMany()
+                .HasForeignKey(ap => ap.SubClauseId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ── Seeding ────────────────────────────────────────────────────────
             SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");
         }
 
         private void SeedControles(ModelBuilder modelBuilder)
         {
-            // Chemin vers le fichier JSON (dans le dossier Data/SeedData)
             var basePath = AppContext.BaseDirectory;
             var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", ".."));
             var filePath = Path.Combine(projectPath, "Infrastructure", "SeedData", "controles.json");
 
             if (!File.Exists(filePath))
             {
-                // Fallback pour l'environnement de développement
                 filePath = Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json");
             }
 
@@ -68,8 +188,6 @@ namespace backend.Infrastructure.Data
                 try
                 {
                     var jsonString = File.ReadAllText(filePath);
-
-                    // Configuration de la désérialisation pour ignorer la casse
                     var options = new JsonSerializerOptions
                     {
                         PropertyNameCaseInsensitive = true,
@@ -80,15 +198,13 @@ namespace backend.Infrastructure.Data
 
                     if (controles != null)
                     {
-                        // Préparer les données avec des GUID fixes et déterministes
                         var seedData = new List<Controle>();
 
                         foreach (var c in controles)
                         {
-                            // S'assurer que tous les champs requis ont des valeurs
                             var controle = new Controle
                             {
-                                Id = GenerateGuidFromCode(c.Code), // GUID fixe basé sur le code
+                                Id = GenerateGuidFromCode(c.Code),
                                 Code = c.Code,
                                 Titre = c.Titre,
                                 Description = c.Description,
@@ -111,9 +227,8 @@ namespace backend.Infrastructure.Data
                 }
                 catch (Exception ex)
                 {
-                    // En développement, on peut voir l'erreur
                     Console.WriteLine($"Erreur lors du seeding JSON : {ex.Message}");
-                    throw; // En développement, on veut voir l'erreur
+                    throw;
                 }
             }
             else
@@ -122,9 +237,11 @@ namespace backend.Infrastructure.Data
             }
         }
 
-        // Méthode utilitaire pour générer un GUID fixe à partir du code (A.5.1 etc.)
         private static Guid GenerateGuidFromCode(string code)
         {
+            if (string.IsNullOrEmpty(code))
+                return Guid.NewGuid();
+
             using (var md5 = System.Security.Cryptography.MD5.Create())
             {
                 byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(code));

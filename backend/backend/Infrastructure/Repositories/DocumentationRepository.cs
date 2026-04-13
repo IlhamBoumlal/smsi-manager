@@ -52,6 +52,11 @@ namespace backend.Infrastructure.Repositories
             existing.FilePath = document.FilePath;
             existing.OriginalFileName = document.OriginalFileName;
             existing.FileSizeBytes = document.FileSizeBytes;
+            existing.SocieteId = document.SocieteId;
+            existing.CreatedByUserId = document.CreatedByUserId;
+            existing.LastModifiedByUserId = document.LastModifiedByUserId;
+            existing.ApprovedByUserId = document.ApprovedByUserId;
+            existing.ApprovedAt = document.ApprovedAt;
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

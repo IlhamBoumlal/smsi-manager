@@ -1,4 +1,4 @@
-﻿using backend.Domain.Interfaces;
+using backend.Domain.Interfaces;
 
 namespace backend.Infrastructure.Services
 {
@@ -43,10 +43,10 @@ namespace backend.Infrastructure.Services
             return $"/documents/{fileName}";
         }
 
-        public void DeleteDocumentFile(string? filePath)
+        public void DeleteDocumentFile(string? documentPath)
         {
-            if (string.IsNullOrEmpty(filePath)) return;
-            var oldPath = Path.Combine("wwwroot", filePath.TrimStart('/'));
+            if (string.IsNullOrEmpty(documentPath)) return;
+            var oldPath = Path.Combine("wwwroot", documentPath.TrimStart('/'));
             if (File.Exists(oldPath)) File.Delete(oldPath);
         }
     }

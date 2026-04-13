@@ -5,6 +5,6 @@ namespace backend.Domain.Interfaces
         Task<string?> SaveLogoAsync(IFormFile? logo);
         void DeleteLogoFile(string? logoPath);
         Task<string?> SaveDocumentAsync(IFormFile? file);
-        void DeleteDocumentFile(string? filePath);
+        void DeleteDocumentFile(string? documentPath);
     }
 }

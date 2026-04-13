@@ -7,6 +7,9 @@ namespace backend.Application.Documentation.Queries.GetAllDocumentation
         string? Search,
         string? Type,
         string? Status,
-        string? Category
+        string? Category,
+        string CurrentUserId,
+        int? CurrentSocieteId,
+        IReadOnlyCollection<string> CurrentRoles
     ) : IRequest<IEnumerable<DocumentationResponseDto>>;
 }

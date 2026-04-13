@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import axiosInstance from "../api/axiosInstance";
 import {
   AlertTriangle,
   Check,
@@ -11,6 +11,9 @@ import {
   ChevronDown,
   Clock3,
   FileText,
+  Building2,
+  Users,
+  Cpu,
   LayoutGrid,
   List,
   PencilLine,
@@ -19,17 +22,33 @@ import {
   Trash2,
   Upload,
   X,
-  CircleDot,
   RefreshCw,
+  Lock,
+  SlidersHorizontal,
+  Loader2,
+  CircleSlash,
+  GitBranchPlus,
 } from "lucide-react";
 
-const API = "http://localhost:5006/api/documentation";
+const API = "/api/documentation";
+
+const defaultPermissions = {
+  role: "EMPLOYE",
+  canConsult: false,
+  canCreate: false,
+  canEditOwn: false,
+  canEditAny: false,
+  canDelete: false,
+  canApprove: false,
+  canCreateVersion: false,
+  allowedCategories: [],
+};
 
 const statusCfg = {
-  approuve:        { label: "Approuvé",      color: "#0d9268", bg: "#d1fae5" },
+  approuve:        { label: "Approuv\u00e9",      color: "#0d9268", bg: "#d1fae5" },
   "en-validation": { label: "En validation", color: "#b45309", bg: "#fef3c7" },
   brouillon:       { label: "Brouillon",     color: "#475569", bg: "#f1f5f9" },
-  "a-revoir":      { label: "À revoir",      color: "#dc2626", bg: "#fee2e2" },
+  "a-revoir":      { label: "\u00c0 revoir",      color: "#dc2626", bg: "#fee2e2" },
 };
 
 const typeColor = {
@@ -48,11 +67,37 @@ const typeBadgeClass = {
   Rapport: "bg-red-100 text-red-600",
   Charte: "bg-slate-200 text-slate-600",
 };
+const categoryToneTokens = [
+  {
+    icon: Building2,
+    active: "border-indigo-600 bg-indigo-600 text-white shadow-[0_10px_24px_rgba(79,70,229,0.26)]",
+    inactive: "border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50",
+    badge: "border-indigo-200 bg-indigo-100 text-indigo-700",
+  },
+  {
+    icon: Users,
+    active: "border-emerald-600 bg-emerald-600 text-white shadow-[0_10px_24px_rgba(5,150,105,0.25)]",
+    inactive: "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50",
+    badge: "border-emerald-200 bg-emerald-100 text-emerald-700",
+  },
+  {
+    icon: Lock,
+    active: "border-amber-500 bg-amber-500 text-white shadow-[0_10px_24px_rgba(217,119,6,0.24)]",
+    inactive: "border-amber-200 bg-white text-amber-700 hover:bg-amber-50",
+    badge: "border-amber-200 bg-amber-100 text-amber-700",
+  },
+  {
+    icon: Cpu,
+    active: "border-violet-600 bg-violet-600 text-white shadow-[0_10px_24px_rgba(124,58,237,0.26)]",
+    inactive: "border-violet-200 bg-white text-violet-700 hover:bg-violet-50",
+    badge: "border-violet-200 bg-violet-100 text-violet-700",
+  },
+];
 const statusBadgeCfg = {
-  approuve:        { label: "Approuvé",      color: "#0d9268", bg: "#d1fae5", border: "#6ee7b7" },
+  approuve:        { label: "Approuv\u00e9",      color: "#0d9268", bg: "#d1fae5", border: "#6ee7b7" },
   "en-validation": { label: "En validation", color: "#b45309", bg: "#fef3c7", border: "#fcd34d" },
   brouillon:       { label: "Brouillon",     color: "#475569", bg: "#f1f5f9", border: "#cbd5e1" },
-  "a-revoir":      { label: "À revoir",      color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" },
+  "a-revoir":      { label: "\u00c0 revoir",      color: "#dc2626", bg: "#fee2e2", border: "#fca5a5" },
 };
 const StatusBadge = ({ status }) => {
   const cfg = statusBadgeCfg[status] || statusBadgeCfg.brouillon;
@@ -64,7 +109,7 @@ const StatusBadge = ({ status }) => {
   };
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold whitespace-nowrap"
+      className="inline-flex h-8 min-w-[118px] items-center justify-center gap-1.5 px-3 rounded-full text-[12px] font-semibold whitespace-nowrap"
       style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}
     >
       {icons[status] || icons.brouillon}
@@ -125,26 +170,85 @@ const formatDate = (value) => {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 };
 
-const normalizeDoc = (doc) => ({
-  id: doc.id,
-  name: doc.name,
-  type: doc.type,
-  category: doc.category,
-  status: doc.status,
-  version: doc.version,
-  classification: doc.classification,
-  author: doc.author,
-  approver: doc.approver || "-",
-  clause: doc.clause || "-",
-  controle: doc.controle || "-",
-  description: doc.description || "Aucune description.",
-  size: formatSize(doc.fileSizeBytes),
-  updatedAtLabel: formatDate(doc.updatedAt),
+const suggestNextVersion = (currentVersion) => {
+  const source = String(currentVersion || "").trim();
+  if (!source) return "1.1";
+  const parts = source.split(".").map((item) => item.trim()).filter(Boolean);
+  if (!parts.length) return "1.1";
+  const last = parts[parts.length - 1];
+  if (!/^\d+$/.test(last)) return `${source}.1`;
+  parts[parts.length - 1] = String(Number(last) + 1);
+  return parts.join(".");
+};
+
+const toSafeText = (value, fallback = "-") => {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text || fallback;
+};
+
+const normalizeDoc = (doc = {}) => {
+  const id = doc.id ?? doc.Id ?? "";
+  const name = toSafeText(doc.name ?? doc.Name, "Document sans titre");
+  const status = toSafeText(doc.status ?? doc.Status, "brouillon");
+  const normalizedStatus = statusCfg[status] ? status : "brouillon";
+
+  return {
+    id,
+    name,
+    type: toSafeText(doc.type ?? doc.Type, "Charte"),
+    category: toSafeText(doc.category ?? doc.Category, "Gouvernance"),
+    status: normalizedStatus,
+    version: toSafeText(doc.version ?? doc.Version, "1.0"),
+    classification: toSafeText(doc.classification ?? doc.Classification, "Interne"),
+    author: toSafeText(doc.author ?? doc.Author, "Non renseigne"),
+    approver: toSafeText(doc.approver ?? doc.Approver),
+    clause: toSafeText(doc.clause ?? doc.Clause),
+    controle: toSafeText(doc.controle ?? doc.Controle),
+    description: toSafeText(doc.description ?? doc.Description, "Aucune description."),
+    size: formatSize(doc.fileSizeBytes ?? doc.FileSizeBytes ?? doc.fileSize ?? doc.FileSize),
+    updatedAtLabel: formatDate(doc.updatedAt ?? doc.UpdatedAt),
+    canEdit: Boolean(doc.canEdit ?? doc.CanEdit),
+    canDelete: Boolean(doc.canDelete ?? doc.CanDelete),
+    canApprove: Boolean(doc.canApprove ?? doc.CanApprove),
+    canCreateVersion: Boolean(doc.canCreateVersion ?? doc.CanCreateVersion),
+    isOwnDocument: Boolean(doc.isOwnDocument ?? doc.IsOwnDocument),
+  };
+};
+
+const normalizePermissions = (payload) => ({
+  ...defaultPermissions,
+  ...payload,
+  allowedCategories: Array.isArray(payload?.allowedCategories) ? payload.allowedCategories : [],
 });
 
-/* ─────────────────────────────────────────────
-   Modal avec backdrop flou
-───────────────────────────────────────────── */
+const extractApiError = (err, fallback) => {
+  if (err?.response?.status === 403) return "Action non autorisee pour votre role.";
+  if (err?.response?.status === 404) return "Ressource introuvable.";
+  if (typeof err?.response?.data === "string" && err.response.data.trim()) return err.response.data;
+  return fallback;
+};
+
+function StatePanel({ icon, title, subtitle, tone = "default", action }) {
+  const toneClass = tone === "warning"
+    ? "bg-amber-50 border-amber-200 text-amber-800"
+    : tone === "error"
+      ? "bg-red-50 border-red-200 text-red-800"
+      : "bg-white border-slate-200 text-slate-800";
+
+  return (
+    <div className={`rounded-2xl border p-10 text-center shadow-sm ${toneClass}`}>
+      <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-white/80 border border-current/10 flex items-center justify-center">
+        {icon}
+      </div>
+      <h3 className="text-lg font-bold mb-1">{title}</h3>
+      <p className="text-sm opacity-80">{subtitle}</p>
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+}
+
+/* Modal avec backdrop flou */
 function Modal({ open, children, onClose, panelClassName = "" }) {
   if (!open) return null;
   return (
@@ -172,8 +276,10 @@ export default function Documentation() {
   const navigate = useNavigate();
   const importRef = useRef(null);
   const wizardFileRef = useRef(null);
+  const versionFileRef = useRef(null);
 
   const [docs, setDocs] = useState([]);
+  const [permissions, setPermissions] = useState(defaultPermissions);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -191,6 +297,7 @@ export default function Documentation() {
   const [showNew, setShowNew] = useState(false);
   const [newStep, setNewStep] = useState(0);
   const [editingDoc, setEditingDoc] = useState(null);
+  const [versioningDoc, setVersioningDoc] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -214,11 +321,6 @@ export default function Documentation() {
   const [downloadFormat, setDownloadFormat] = useState("");
   const downloadTimerRef = useRef(null);
 
-  const authHeaders = () => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   const showSuccess = (message) => {
     setSuccess(message);
     window.setTimeout(() => setSuccess(""), 2500);
@@ -237,11 +339,32 @@ export default function Documentation() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.get(API, { headers: authHeaders() });
-      setDocs((res.data || []).map(normalizeDoc));
+      const [docsResult, permissionsResult] = await Promise.allSettled([
+        axiosInstance.get(API),
+        axiosInstance.get(`${API}/permissions`),
+      ]);
+
+      if (permissionsResult.status === "fulfilled") {
+        setPermissions(normalizePermissions(permissionsResult.value.data));
+      } else if (permissionsResult.reason?.response?.status === 401) {
+        navigate("/login");
+        return;
+      } else {
+        setPermissions(defaultPermissions);
+      }
+
+      if (docsResult.status === "fulfilled") {
+        setDocs((docsResult.value.data || []).map(normalizeDoc));
+      } else if (docsResult.reason?.response?.status === 401) {
+        navigate("/login");
+        return;
+      } else {
+        setDocs([]);
+        setError(extractApiError(docsResult.reason, "Impossible de charger les documents."));
+      }
     } catch (err) {
-      if (err.response?.status === 401) return navigate("/login");
-      setError("Impossible de charger les documents.");
+      if (err?.response?.status === 401) return navigate("/login");
+      setError(extractApiError(err, "Impossible de charger les documents."));
     } finally {
       setLoading(false);
     }
@@ -268,30 +391,40 @@ export default function Documentation() {
   };
 
   const createDoc = async (payload) => {
-    const res = await axios.post(API, toFormData(payload), { headers: authHeaders() });
+    const res = await axiosInstance.post(API, toFormData(payload));
+    if (!res?.data) throw new Error("Reponse vide lors de la creation.");
     setDocs((prev) => [normalizeDoc(res.data), ...prev]);
     showSuccess("Document cree.");
   };
 
   const updateDoc = async (id, payload) => {
-    const res = await axios.put(`${API}/${id}`, toFormData(payload), { headers: authHeaders() });
+    const res = await axiosInstance.put(`${API}/${id}`, toFormData(payload));
+    if (!res?.data) throw new Error("Reponse vide lors de la mise a jour.");
     setDocs((prev) => prev.map((d) => (d.id === id ? normalizeDoc(res.data) : d)));
     showSuccess("Document mis a jour.");
   };
 
+  const createNewVersion = async (id, payload) => {
+    const res = await axiosInstance.post(`${API}/${id}/new-version`, toFormData(payload));
+    if (!res?.data) throw new Error("Reponse vide lors du versioning.");
+    setDocs((prev) => prev.map((d) => (d.id === id ? normalizeDoc(res.data) : d)));
+    showSuccess("Nouvelle version soumise. En attente de reapprobation RSSI. Version precedente remplacee.");
+  };
+
   const removeDoc = async (id) => {
-    await axios.delete(`${API}/${id}`, { headers: authHeaders() });
+    await axiosInstance.delete(`${API}/${id}`);
     setDocs((prev) => prev.filter((d) => d.id !== id));
     showSuccess("Document supprime.");
   };
 
   const download = async (doc, format) => {
-    const res = await axios.get(`${API}/${doc.id}/download`, { headers: authHeaders(), params: { format }, responseType: "blob" });
+    const res = await axiosInstance.get(`${API}/${doc.id}/download`, { params: { format }, responseType: "blob" });
     const blob = new Blob([res.data]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${doc.name.replace(/[\\/:*?"<>|]/g, "_")}.${format}`;
+    const safeName = toSafeText(doc?.name, "document").replace(/[\\/:*?"<>|]/g, "_");
+    a.download = `${safeName}.${format}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -334,13 +467,15 @@ export default function Documentation() {
       clearDownloadTimer();
       setDownloadState("error");
       setDownloadProgress(0);
-      setError(err.response?.data || "Telechargement impossible.");
+      setError(extractApiError(err, "Telechargement impossible."));
     }
   };
 
   const filtered = useMemo(() => docs.filter((d) => {
     const q = search.trim().toLowerCase();
-    const qMatch = !q || d.name.toLowerCase().includes(q) || d.author.toLowerCase().includes(q);
+    const safeName = String(d?.name || "").toLowerCase();
+    const safeAuthor = String(d?.author || "").toLowerCase();
+    const qMatch = !q || safeName.includes(q) || safeAuthor.includes(q);
     const typeMatch = !typeFilter || d.type === typeFilter;
     const statusMatch = !statusFilter || d.status === statusFilter;
     const categoryMatch = !categoryFilter || d.category === categoryFilter;
@@ -355,64 +490,96 @@ export default function Documentation() {
     aRevoir: docs.filter((d) => d.status === "a-revoir").length,
   };
   const statPercent = (value) => (stats.total > 0 ? Math.round((value * 100) / stats.total) : 0);
+  const globalConformity = statPercent(stats.approuves);
   const statCards = [
     {
-      label: "Total documents",
-      value: stats.total,
-      percent: stats.total > 0 ? 100 : 0,
-      valueClass: "text-blue-700",
-      iconBg: "#dce8ff",
-      iconColor: "#2f66dc",
-      barColor: "#2f66dc",
-      icon: <FileText size={20} />,
+      key: "global",
+      primary: true,
+      label: "Conformite globale",
+      value: `${globalConformity}%`,
+      subLabel: `${stats.total} document${stats.total > 1 ? "s" : ""}`,
+      progress: globalConformity,
     },
     {
-      label: "Approuves",
+      key: "approved",
+      label: "Documents approuves",
       value: stats.approuves,
-      percent: statPercent(stats.approuves),
-      valueClass: "text-emerald-700",
-      iconBg: "#cdeeda",
-      iconColor: "#18a34a",
-      barColor: "#22b85f",
-      icon: <CheckCircle2 size={20} />,
+      subLabel: `${Math.max(0, stats.total - stats.approuves)} non approuves`,
     },
     {
+      key: "validation",
       label: "En validation",
       value: stats.validation,
-      percent: statPercent(stats.validation),
-      valueClass: "text-amber-800",
-      iconBg: "#f4ecbe",
-      iconColor: "#e17d00",
-      barColor: "#f39a00",
-      icon: <Clock3 size={20} />,
+      subLabel: `${stats.brouillons} brouillon${stats.brouillons > 1 ? "s" : ""}`,
     },
     {
-      label: "Brouillons",
-      value: stats.brouillons,
-      percent: statPercent(stats.brouillons),
-      valueClass: "text-slate-600",
-      iconBg: "#eceef1",
-      iconColor: "#738194",
-      barColor: "#8da0b8",
-      icon: <PencilLine size={20} />,
-    },
-    {
+      key: "review",
       label: "A revoir",
       value: stats.aRevoir,
-      percent: statPercent(stats.aRevoir),
-      valueClass: "text-red-700",
-      iconBg: "#fbd8db",
-      iconColor: "#ef4444",
-      barColor: "#ef4444",
-      icon: <AlertTriangle size={20} />,
+      subLabel: `${stats.validation} en attente`,
     },
   ];
 
+  const statusFilterTabs = useMemo(() => ([
+    { value: "", label: "Tous", count: docs.length },
+    { value: "approuve", label: "Approuves", count: stats.approuves },
+    { value: "en-validation", label: "En validation", count: stats.validation },
+    { value: "brouillon", label: "Brouillons", count: stats.brouillons },
+    { value: "a-revoir", label: "A revoir", count: stats.aRevoir },
+  ]), [docs.length, stats.approuves, stats.validation, stats.brouillons, stats.aRevoir]);
+
+  const allowedCategoryOptions = useMemo(() => {
+    if (!permissions.allowedCategories?.length) return categories;
+    return categories.filter((category) =>
+      permissions.allowedCategories.some((allowed) =>
+        allowed.toLowerCase() === category.toLowerCase()
+      )
+    );
+  }, [permissions.allowedCategories]);
+
+  const statusOptions = useMemo(() => {
+    return Object.entries(statusCfg).filter(([status]) => permissions.canApprove || status !== "approuve");
+  }, [permissions.canApprove]);
+
+  const categoryTabs = useMemo(() => {
+    const fromDocs = Array.from(new Set(docs.map((doc) => doc.category).filter(Boolean)));
+    const base = fromDocs.length > 0 ? fromDocs : categories;
+    const byCategory = base.map((category, index) => {
+      const tone = categoryToneTokens[index % categoryToneTokens.length];
+      return {
+        value: category,
+        label: category,
+        count: docs.filter((doc) => doc.category === category).length,
+        ...tone,
+      };
+    });
+    return [
+      {
+        value: "",
+        label: "Tous les domaines",
+        count: docs.length,
+        icon: LayoutGrid,
+        active: "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]",
+        inactive: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+        badge: "border-slate-200 bg-slate-100 text-slate-600",
+      },
+      ...byCategory,
+    ];
+  }, [docs]);
+
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setCategoryFilter("");
+  };
+
   const resetForm = (seed = {}) => {
+    const defaultCategory = allowedCategoryOptions[0] || "Gouvernance";
     setForm({
       name: seed.name || "",
       type: seed.type || "Politique",
-      category: seed.category || "Gouvernance",
+      category: seed.category || defaultCategory,
       status: seed.status || "brouillon",
       version: seed.version || "1.0",
       classification: seed.classification || "Interne",
@@ -432,186 +599,410 @@ export default function Documentation() {
     setter((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
   };
 
-  const openCreate = () => { resetForm(); setNewStep(0); setShowNew(true); };
-  const openEdit = (doc) => { resetForm(doc); setEditingDoc(doc); };
+  const openCreate = () => {
+    if (!permissions.canCreate) {
+      setError("Vous n'avez pas l'autorisation de creer un document.");
+      return;
+    }
+    resetForm();
+    setNewStep(0);
+    setShowNew(true);
+  };
+  const openEdit = (doc) => {
+    if (!doc.canEdit) {
+      setError("Vous n'avez pas l'autorisation de modifier ce document.");
+      return;
+    }
+    resetForm(doc);
+    setEditingDoc(doc);
+  };
+  const openNewVersion = (doc) => {
+    if (!doc.canCreateVersion) {
+      setError("Vous n'avez pas l'autorisation de proposer une nouvelle version.");
+      return;
+    }
+    resetForm({
+      ...doc,
+      status: "en-validation",
+      version: suggestNextVersion(doc.version),
+    });
+    setVersioningDoc(doc);
+  };
   const closeCreate = () => { setShowNew(false); setNewStep(0); };
   const createSteps = ["Informations", "Liens ISO", "Fichier", "Confirmation"];
 
+  const approveDoc = async (doc) => {
+    if (!doc?.canApprove) return;
+
+    await updateDoc(doc.id, {
+      name: doc.name,
+      type: doc.type,
+      category: doc.category,
+      status: "approuve",
+      version: doc.version,
+      classification: doc.classification,
+      author: doc.author,
+      approver:
+        (user?.nomComplet || user?.NomComplet || user?.email || user?.Email || "").trim()
+        || doc.approver,
+      clause: doc.clause === "-" ? "" : doc.clause,
+      controle: doc.controle === "-" ? "" : doc.controle,
+      description: doc.description,
+      removeFile: false,
+      file: null,
+    });
+  };
+
+  const buildDocActions = (doc) => {
+    const actions = [
+      [<Eye size={16} />, () => setViewDoc(doc), "Consulter", "text-blue-600 hover:bg-blue-50"],
+      [<Download size={16} />, () => openDownloadModal(doc), "Telecharger", "text-emerald-600 hover:bg-emerald-50"],
+    ];
+
+    if (doc.canApprove && doc.status !== "approuve") {
+      actions.push([
+        <Check size={16} />,
+        async () => {
+          try {
+            await approveDoc(doc);
+          } catch (err) {
+            setError(extractApiError(err, "Approbation impossible."));
+          }
+        },
+        "Approuver",
+        "text-green-600 hover:bg-green-50",
+      ]);
+    }
+
+    if (doc.canCreateVersion) {
+      actions.push([
+        <GitBranchPlus size={16} />,
+        () => openNewVersion(doc),
+        "Nouvelle version",
+        "text-violet-700 hover:bg-violet-50",
+      ]);
+    }
+
+    if (doc.canEdit) {
+      actions.push([
+        <SquarePen size={16} />,
+        () => openEdit(doc),
+        "Modifier",
+        "text-amber-600 hover:bg-amber-50",
+      ]);
+    }
+
+    if (doc.canDelete) {
+      actions.push([
+        <Trash2 size={16} />,
+        () => {
+          setDeleteDoc(doc);
+          setDeleteConfirm("");
+        },
+        "Supprimer",
+        "text-red-600 hover:bg-red-50",
+      ]);
+    }
+
+    return actions;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold text-slate-800">Documentation SMSI</h1><p className="text-sm text-slate-500">Gestion des documents ISO 27001</p></div>
-        <div className="flex gap-2">
-          <input ref={importRef} className="hidden" type="file" accept=".pdf,.docx,.xlsx" onChange={async (e) => {
-            const file = e.target.files?.[0]; if (!file) return;
-            try { await createDoc({ name: file.name.replace(/\.[^/.]+$/, ""), type: "Procedure", category: "Technique", author: form.author || "Utilisateur", description: "Document importe.", file }); } catch (err) { setError(err.response?.data || "Import impossible."); }
-            e.target.value = "";
-          }} />
-          <button onClick={() => importRef.current?.click()} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold">Importer</button>
-          <button onClick={openCreate} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">Nouveau document</button>
-        </div>
-      </div>
-
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium">{error}</div>}
-      {success && <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm font-medium">{success}</div>}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-5">
-        {statCards.map((card) => (
-          <div key={card.label} className="bg-white border border-slate-200 rounded-2xl px-4 py-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-slate-600 font-medium">{card.label}</p>
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: card.iconBg, color: card.iconColor }}
-              >
-                {card.icon}
-              </div>
+    <div className="min-h-screen bg-[#f8f9fb] px-4 py-5 sm:px-6" style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}>
+      <div className="mx-auto max-w-[1200px]">
+        <div className="mb-7">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div>
+              <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Documentation SMSI</h1>
+              <p className="mt-1 text-[13.5px] text-slate-500">Pilotage documentaire ISO 27001 - suivi des versions, validation et conformite.</p>
             </div>
-            <p className={`text-4xl font-extrabold leading-none mb-2 ${card.valueClass}`}>{card.value}</p>
-            <div className="h-[5px] rounded-full bg-slate-200/70 overflow-hidden mb-2">
-              <div
-                className="h-[5px] rounded-full transition-all duration-500"
-                style={{ width: `${card.percent}%`, background: card.barColor }}
+            <div className="flex flex-wrap gap-2">
+              <input ref={importRef} className="hidden" type="file" accept=".pdf,.docx,.xlsx" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const importCategory = allowedCategoryOptions[0] || "Technique";
+                try {
+                  await createDoc({
+                    name: file.name.replace(/\.[^/.]+$/, ""),
+                    type: "Procedure",
+                    category: importCategory,
+                    author: form.author || user?.nomComplet || user?.NomComplet || "Utilisateur",
+                    description: "Document importe.",
+                    file,
+                  });
+                } catch (err) {
+                  setError(extractApiError(err, "Import impossible."));
+                }
+                e.target.value = "";
+              }} />
+              {permissions.canCreate && (
+                <>
+                  <button onClick={() => importRef.current?.click()} className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                    Importer
+                  </button>
+                  <button onClick={openCreate} className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-colors hover:bg-blue-700">
+                    Nouveau document
+                  </button>
+                </>
+              )}
+              {!permissions.canCreate && (
+                <button className="inline-flex h-11 cursor-default items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500">
+                  <Lock size={15} />
+                  Mode lecture seule
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">{error}</div>}
+        {success && <div className="mb-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium">{success}</div>}
+
+        {!permissions.canConsult && (
+          <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium inline-flex items-center gap-2">
+            <CircleSlash size={16} />
+            Votre compte n'est pas rattache a une entreprise. L'acces a la documentation est restreint.
+          </div>
+        )}
+
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {statCards.map((card, index) => (
+            <div
+              key={card.key}
+              className={`rounded-2xl border px-6 py-5 transition-all duration-300 ${
+                card.primary
+                  ? "border-blue-700 text-white hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(29,78,216,0.35)]"
+                  : "border-slate-200 bg-white shadow-sm hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(15,23,42,0.10)]"
+              }`}
+              style={{
+                animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${index * 70}ms both`,
+                ...(card.primary ? {
+                  background: "linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)",
+                  boxShadow: "0 8px 24px rgba(29,78,216,.35)",
+                } : {}),
+              }}
+            >
+              <p className={`text-[32px] font-extrabold leading-none ${card.primary ? "text-white" : "text-slate-900"}`}>{card.value}</p>
+              <p className={`mt-2 text-[12.5px] font-semibold ${card.primary ? "text-white/95" : "text-slate-700"}`}>{card.label}</p>
+              <p className={`mt-1 text-[11.5px] ${card.primary ? "text-white/75" : "text-slate-400"}`}>{card.subLabel}</p>
+              {card.primary ? (
+                <div className="mt-4 h-[5px] overflow-hidden rounded-full bg-white/25">
+                  <div className="h-[5px] rounded-full bg-white/90 transition-all duration-500" style={{ width: `${card.progress}%` }} />
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" style={{ animation: "fadeInUp .35s ease both" }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {categoryTabs.map((tab) => {
+              const active = categoryFilter === tab.value;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.value || "all-categories"}
+                  onClick={() => setCategoryFilter(tab.value)}
+                  className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-all duration-300 ${
+                    active ? tab.active : tab.inactive
+                  }`}
+                >
+                  <Icon size={16} />
+                  {tab.label}
+                  <span className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border px-1.5 text-[11px] font-bold ${
+                    active ? "border-white/20 bg-white/20 text-white" : tab.badge
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4">
+            <div className="relative">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-[14px] font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="Rechercher un document..."
               />
             </div>
-            <p className="text-sm text-slate-600 font-medium">{card.percent}% du total</p>
           </div>
-        ))}
-      </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
-        <div className="flex flex-col xl:flex-row gap-3 xl:items-center">
-          <div className="relative flex-1">
-            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-slate-300 rounded-2xl pl-12 pr-4 h-12 text-base text-slate-700 placeholder:text-slate-400"
-              placeholder="Rechercher un document ou un auteur..."
+          <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {statusFilterTabs.map((tab) => {
+                const active = statusFilter === tab.value;
+                return (
+                <button
+                  key={tab.value || "all-status"}
+                  onClick={() => setStatusFilter(tab.value)}
+                  className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold transition-all duration-300 ${
+                    active
+                      ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border px-1.5 text-[11px] font-bold ${
+                    active ? "border-white/20 bg-white/20 text-white" : "border-slate-200 bg-slate-100 text-slate-600"
+                  }`}>
+                    {tab.count}
+                  </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 min-w-[170px] appearance-none rounded-xl border border-slate-300 bg-white pl-4 pr-10 text-[13px] font-semibold text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                  <option value="">Tous les types</option>
+                  {types.map((t) => <option key={t}>{t}</option>)}
+                </select>
+                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              </div>
+
+              <div className="flex h-10 w-[92px] overflow-hidden rounded-xl border border-slate-300 bg-white">
+                <button onClick={() => setView("cards")} className={`flex w-1/2 items-center justify-center ${view === "cards" ? "bg-blue-600 text-white" : "text-slate-500"}`} title="Vue cartes">
+                  <LayoutGrid size={17} />
+                </button>
+                <button onClick={() => setView("table")} className={`flex w-1/2 items-center justify-center ${view === "table" ? "bg-blue-600 text-white" : "text-slate-500"}`} title="Vue tableau">
+                  <List size={17} />
+                </button>
+              </div>
+
+              <button onClick={clearFilters} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-50">
+                <SlidersHorizontal size={15} />
+                Reinitialiser
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 text-sm font-semibold text-slate-600">
+            {filtered.length} / {docs.length} documents affiches
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ animation: "fadeInUp .35s ease both" }}>
+            <StatePanel
+              icon={<Loader2 size={22} className="animate-spin text-blue-600" />}
+              title="Chargement des documents"
+              subtitle="Recuperation des documents et des permissions en cours..."
             />
           </div>
-
-          <div className="relative">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="appearance-none border border-slate-300 rounded-2xl h-12 pl-4 pr-10 text-base text-slate-800 min-w-[190px]"
-            >
-              <option value="">Tous les types</option>
-              {types.map((t) => <option key={t}>{t}</option>)}
-            </select>
-            <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+        ) : filtered.length === 0 ? (
+          <div style={{ animation: "fadeInUp .35s ease both" }}>
+            <StatePanel
+              icon={<FileText size={22} className="text-slate-500" />}
+              title="Aucun document a afficher"
+              subtitle="Aucun document ne correspond aux filtres actifs ou a vos permissions."
+              action={
+                <button onClick={clearFilters} className="h-10 px-4 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
+                  Reinitialiser les filtres
+                </button>
+              }
+            />
           </div>
-
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none border border-slate-300 rounded-2xl h-12 pl-4 pr-10 text-base text-slate-800 min-w-[190px]"
-            >
-              <option value="">Tous les statuts</option>
-              {Object.entries(statusCfg).map(([v, cfg]) => <option key={v} value={v}>{cfg.label}</option>)}
-            </select>
-            <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-          </div>
-
-          <div className="border border-slate-300 rounded-2xl overflow-hidden flex h-12 w-[92px]">
-            <button
-              onClick={() => setView("cards")}
-              className={`w-1/2 flex items-center justify-center ${view === "cards" ? "bg-blue-600 text-white" : "bg-white text-slate-500"}`}
-              title="Vue cartes"
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button
-              onClick={() => setView("table")}
-              className={`w-1/2 flex items-center justify-center ${view === "table" ? "bg-blue-600 text-white" : "bg-white text-slate-500"}`}
-              title="Vue tableau"
-            >
-              <List size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
-          <div className="flex flex-wrap gap-2">
-            {["", ...categories].map((c) => (
-              <button
-                key={c || "all"}
-                onClick={() => setCategoryFilter(c)}
-                className={`px-4 h-9 rounded-full text-sm font-semibold border transition-colors ${
-                  categoryFilter === c
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-700 border-slate-300"
-                }`}
+        ) : view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((doc, index) => {
+              const typeChip = typeBadgeClass[doc.type] || "bg-slate-200 text-slate-600";
+              return <div
+                key={doc.id}
+                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-[0_20px_44px_rgba(15,23,42,0.12)]"
+                style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${index * 60}ms both` }}
               >
-                {c || "Toutes"}
-              </button>
-            ))}
+                <div style={{ height: 5, background: typeColor[doc.type] || "#6b7a93" }} />
+                <div className="px-4 py-4 flex-1">
+                  <div className="flex justify-between gap-3 mb-3">
+                    <h3 className="font-bold text-slate-800 text-[18px] leading-[1.2] line-clamp-2">{doc.name}</h3>
+                    <StatusBadge status={doc.status} />
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <span className={`h-7 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center ${typeChip}`}>{doc.type}</span>
+                    <span className="h-7 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center bg-slate-100 text-slate-600 border border-slate-200">{doc.category}</span>
+                    {doc.isOwnDocument && <span className="h-7 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center bg-indigo-50 text-indigo-700 border border-indigo-200">Vous etes proprietaire</span>}
+                  </div>
+                  <p className="text-[14px] text-slate-500 mb-3 leading-6 line-clamp-2">{doc.description}</p>
+                  {doc.status === "en-validation" && (
+                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800">
+                      En attente de reapprobation RSSI
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] text-slate-500">
+                    <div>Version : <b className="text-slate-700">v{doc.version}</b></div>
+                    <div>Taille : <b className="text-slate-700">{doc.size}</b></div>
+                    <div>Clause : <b className="text-slate-700">{doc.clause}</b></div>
+                    <div>Controle : <b className="text-slate-700">{doc.controle}</b></div>
+                    <div>Auteur : <b className="text-slate-700">{doc.author}</b></div>
+                    <div>Approbateur : <b className="text-slate-700">{doc.approver}</b></div>
+                  </div>
+                </div>
+                <div className="flex h-[52px] items-center justify-between border-t border-slate-200 bg-slate-50/80 px-4">
+                  <span className="text-[12px] text-slate-400 font-semibold">Maj. {doc.updatedAtLabel}</span>
+                  <div className="flex gap-1.5">
+                    {buildDocActions(doc).map(([icon, action, label, colorClass], i) => (
+                      <button key={i} onClick={action} title={label} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${colorClass}`}>
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>;
+            })}
           </div>
-          <div className="text-lg text-slate-600 font-medium">
-            {filtered.length} / {docs.length} documents
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ animation: "fadeInUp .35s ease both" }}>
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50">
+                <tr>
+                  {["Document", "Type", "Version", "Statut", "Auteur", "Clause", "Taille", "Actions"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((doc) => (
+                  <tr key={doc.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-800">{doc.name}</div>
+                      <div className="text-xs text-slate-400">{doc.category}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{doc.type}</td>
+                    <td className="px-4 py-3 text-slate-700">v{doc.version}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={doc.status} />
+                      {doc.status === "en-validation" && (
+                        <p className="mt-1 text-[11px] font-semibold text-amber-700">Reapprobation RSSI requise</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{doc.author}</td>
+                    <td className="px-4 py-3 text-slate-700">{doc.clause}</td>
+                    <td className="px-4 py-3 text-slate-700">{doc.size}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        {buildDocActions(doc).map(([icon, action, label, colorClass], i) => (
+                          <button key={i} onClick={action} title={label} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${colorClass}`}>
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
       </div>
-      {loading ? <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">Chargement...</div> : filtered.length === 0 ? <div className="bg-white border border-slate-200 rounded-xl p-10 text-center text-slate-500">Aucun document.</div> : view === "cards" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[58vh] overflow-auto pr-1">
-          {filtered.map((doc) => {
-            const typeChip = typeBadgeClass[doc.type] || "bg-slate-200 text-slate-600";
-            return <div key={doc.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col shadow-sm">
-              <div style={{ height: 5, background: typeColor[doc.type] || "#6b7a93" }} />
-              <div className="px-4 py-4 flex-1">
-                <div className="flex justify-between gap-3 mb-3">
-                  <h3 className="font-bold text-slate-800 text-[18px] leading-[1.2]">{doc.name}</h3>
-                  <StatusBadge status={doc.status} />
-                </div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span className={`h-7 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center ${typeChip}`}>{doc.type}</span>
-                  <span className="h-7 px-2.5 rounded-full text-[12px] font-semibold inline-flex items-center bg-slate-200 text-slate-600">{doc.category}</span>
-                </div>
-                <p className="text-[14px] text-slate-500 mb-3 leading-6 line-clamp-2">{doc.description}</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px] text-slate-500">
-                  <div>Version : <b className="text-slate-700">v{doc.version}</b></div>
-                  <div>Taille : <b className="text-slate-700">{doc.size}</b></div>
-                  <div>Clause : <b className="text-slate-700">{doc.clause}</b></div>
-                  <div>Controle : <b className="text-slate-700">{doc.controle}</b></div>
-                  <div>Auteur : <b className="text-slate-700">{doc.author}</b></div>
-                  <div>Approbateur : <b className="text-slate-700">{doc.approver}</b></div>
-                </div>
-              </div>
-              <div className="px-4 h-[52px] border-t border-slate-200 bg-slate-50 flex justify-between items-center">
-                <span className="text-[13px] text-slate-400 font-semibold">Maj. {doc.updatedAtLabel}</span>
-                <div className="flex gap-1.5">{[
-                  [<Eye size={16} />, () => setViewDoc(doc), "Consulter", "text-blue-600 hover:bg-blue-50"],
-                  [<Download size={16} />, () => openDownloadModal(doc), "Telecharger", "text-emerald-600 hover:bg-emerald-50"],
-                  [<SquarePen size={16} />, () => openEdit(doc), "Modifier", "text-amber-600 hover:bg-amber-50"],
-                  [<Trash2 size={16} />, () => { setDeleteDoc(doc); setDeleteConfirm(""); }, "Supprimer", "text-red-600 hover:bg-red-50"],
-                ].map(([icon, action, label, colorClass], i) => <button key={i} onClick={action} title={label} className={`w-7 h-7 rounded-lg flex items-center justify-center ${colorClass}`}>{icon}</button>)}</div>
-              </div>
-            </div>;
-          })}
-        </div>
-      ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-auto max-h-[58vh]">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-slate-50"><tr>{["Document", "Type", "Version", "Statut", "Auteur", "Clause", "Taille", "Actions"].map((h) => <th key={h} className="px-3 py-2 text-left text-xs text-slate-500 uppercase">{h}</th>)}</tr></thead>
-            <tbody>{filtered.map((doc) => { const st = statusCfg[doc.status] || statusCfg.brouillon; return <tr key={doc.id} className="border-t border-slate-100"><td className="px-3 py-2"><div className="font-semibold text-slate-800">{doc.name}</div><div className="text-xs text-slate-400">{doc.category}</div></td><td className="px-3 py-2">{doc.type}</td><td className="px-3 py-2">v{doc.version}</td><td className="px-3 py-2"><StatusBadge status={doc.status} /></td><td className="px-3 py-2">{doc.author}</td><td className="px-3 py-2">{doc.clause}</td><td className="px-3 py-2">{doc.size}</td><td className="px-3 py-2"><div className="flex gap-1">{[
-              [<Eye size={16} />, () => setViewDoc(doc), "Consulter", "text-blue-600 hover:bg-blue-50"],
-              [<Download size={16} />, () => openDownloadModal(doc), "Telecharger", "text-emerald-600 hover:bg-emerald-50"],
-              [<SquarePen size={16} />, () => openEdit(doc), "Modifier", "text-amber-600 hover:bg-amber-50"],
-              [<Trash2 size={16} />, () => { setDeleteDoc(doc); setDeleteConfirm(""); }, "Supprimer", "text-red-600 hover:bg-red-50"],
-            ].map(([icon, action, label, colorClass], i) => <button key={i} onClick={action} title={label} className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClass}`}>{icon}</button>)}</div></td></tr>; })}</tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── MODAL APERÇU ── */}
       <Modal open={Boolean(viewDoc)} onClose={() => setViewDoc(null)} panelClassName="max-w-[680px] rounded-[20px]">
         {viewDoc && (
           <>
             <div className="px-6 pt-6 pb-2 max-h-[80vh] overflow-auto">
-
-              {/* Ligne 1 : icône + titre + badge statut */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
                   <FileText size={20} className="text-slate-400 flex-shrink-0" />
@@ -619,15 +1010,16 @@ export default function Documentation() {
                 </div>
                 <StatusBadge status={viewDoc.status} />
               </div>
-
-              {/* Ligne 2 : tags type + catégorie + version */}
               <div className="flex items-center gap-2 mb-4">
                 <span className={`h-7 px-3 rounded-full text-[12px] font-semibold inline-flex items-center ${typeBadgeClass[viewDoc.type] || "bg-slate-100 text-slate-600"}`}>{viewDoc.type}</span>
                 <span className="h-7 px-3 rounded-full text-[12px] font-semibold inline-flex items-center bg-slate-100 text-slate-600">{viewDoc.category}</span>
                 <span className="ml-auto h-7 px-3 rounded-full text-[12px] font-semibold inline-flex items-center bg-slate-100 text-slate-500">v{viewDoc.version}</span>
               </div>
-
-              {/* Grille méta — fond blanc avec bordure légère */}
+              {viewDoc.status === "en-validation" && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800">
+                  En attente de reapprobation RSSI
+                </div>
+              )}
               <div className="border border-slate-200 rounded-xl p-4 grid grid-cols-2 gap-x-6 gap-y-3 mb-4">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Auteur</p>
@@ -642,11 +1034,11 @@ export default function Documentation() {
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.clause}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Contrôle Annexe A</p>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Controle Annexe A</p>
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.controle}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Dernière maj.</p>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Derniere maj.</p>
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.updatedAtLabel}</p>
                 </div>
                 <div>
@@ -654,8 +1046,6 @@ export default function Documentation() {
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.size}</p>
                 </div>
               </div>
-
-              {/* Tags clause + contrôle */}
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {parseSelectedValues(viewDoc.clause).slice(0, 6).map((clause) => (
                   <span key={clause} className="h-7 px-3 rounded-lg bg-blue-100 text-blue-700 text-[12px] font-semibold inline-flex items-center">Clause {clause}</span>
@@ -664,9 +1054,7 @@ export default function Documentation() {
                   <span key={control} className="h-7 px-3 rounded-lg bg-blue-100 text-blue-700 text-[12px] font-semibold inline-flex items-center">{control}</span>
                 ))}
               </div>
-
-              {/* Aperçu du contenu */}
-              <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-3">Aperçu du contenu</p>
+              <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-3">Apercu du contenu</p>
               <div className="space-y-4 pb-2">
                 {buildPreviewSections(viewDoc).map((section, index) => (
                   <div key={section.title} className="flex gap-3">
@@ -684,18 +1072,16 @@ export default function Documentation() {
             <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between">
               <button onClick={() => setViewDoc(null)} className="h-10 px-5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-[14px] hover:bg-slate-50 transition-colors">Fermer</button>
               <button
-                onClick={async () => { try { await download(viewDoc, "pdf"); } catch (err) { setError(err.response?.data || "Telechargement impossible."); } }}
+                onClick={async () => { try { await download(viewDoc, "pdf"); } catch (err) { setError(extractApiError(err, "Telechargement impossible.")); } }}
                 className="h-10 px-5 rounded-xl bg-blue-600 text-white font-semibold text-[14px] inline-flex items-center gap-2 hover:bg-blue-700 transition-colors"
               >
                 <Download size={15} />
-                Télécharger PDF
+                Telecharger PDF
               </button>
             </div>
           </>
         )}
       </Modal>
-
-      {/* ── MODAL TÉLÉCHARGER ── */}
       <Modal open={Boolean(downloadDoc)} onClose={closeDownloadModal} panelClassName="max-w-[500px] rounded-[20px]">
         {downloadDoc && (
           <>
@@ -710,7 +1096,7 @@ export default function Documentation() {
                 <FileText size={20} className="text-slate-400 flex-shrink-0" />
                 <div>
                   <p className="text-[15px] font-semibold text-slate-800">{downloadDoc.name}</p>
-                  <p className="text-sm text-slate-400">v{downloadDoc.version} · {downloadDoc.size}</p>
+                  <p className="text-sm text-slate-400">v{downloadDoc.version} - {downloadDoc.size}</p>
                 </div>
               </div>
 
@@ -762,7 +1148,7 @@ export default function Documentation() {
                         <p className="text-sm text-slate-400">{item.description}</p>
                       </div>
                     </div>
-                    <span className="text-slate-300 text-lg">→</span>
+                    <span className="text-slate-300 text-lg"></span>
                   </button>
                 ))}
               </div>
@@ -789,12 +1175,9 @@ export default function Documentation() {
           </>
         )}
       </Modal>
-
-      {/* ── MODAL MODIFIER ── */}
       <Modal open={Boolean(editingDoc)} onClose={() => setEditingDoc(null)} panelClassName="max-w-[620px] rounded-[20px]">
         {editingDoc && (
           <>
-            {/* En-tête */}
             <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
@@ -811,12 +1194,10 @@ export default function Documentation() {
             </div>
 
             <div className="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-5">
-
-              {/* Section 1 — Identité */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 inline-block" />
-                  Identité du document
+                  Identite du document
                   <span className="flex-1 h-px bg-slate-100 inline-block" />
                 </p>
                 <div className="space-y-3">
@@ -826,7 +1207,7 @@ export default function Documentation() {
                     </label>
                     <input
                       className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all placeholder:text-slate-300"
-                      placeholder="Ex : Politique de sécurité de l'information…"
+                      placeholder="Ex : Politique de securite de l'information"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                     />
@@ -846,14 +1227,14 @@ export default function Documentation() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Catégorie</label>
+                      <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Categorie</label>
                       <div className="relative">
                         <select
                           className="w-full h-10 appearance-none border border-slate-200 rounded-lg pl-3.5 pr-9 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
                           value={form.category}
                           onChange={(e) => setForm({ ...form, category: e.target.value })}
                         >
-                          {categories.map((c) => <option key={c}>{c}</option>)}
+                          {allowedCategoryOptions.map((c) => <option key={c}>{c}</option>)}
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       </div>
@@ -868,7 +1249,7 @@ export default function Documentation() {
                           value={form.status}
                           onChange={(e) => setForm({ ...form, status: e.target.value })}
                         >
-                          {Object.entries(statusCfg).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                          {statusOptions.map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         {/* Pastille couleur statut */}
@@ -890,8 +1271,6 @@ export default function Documentation() {
                   </div>
                 </div>
               </div>
-
-              {/* Section 2 — Responsables */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 inline-block" />
@@ -919,12 +1298,10 @@ export default function Documentation() {
                   </div>
                 </div>
               </div>
-
-              {/* Section 3 — Références ISO */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 inline-block" />
-                  Références ISO 27001
+                  References ISO 27001
                   <span className="flex-1 h-px bg-slate-100 inline-block" />
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -938,7 +1315,7 @@ export default function Documentation() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Contrôle Annexe A</label>
+                    <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Controle Annexe A</label>
                     <input
                       className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all placeholder:text-slate-300 font-mono"
                       placeholder="ex : A.5.1, A.8.3"
@@ -947,7 +1324,6 @@ export default function Documentation() {
                     />
                   </div>
                 </div>
-                {/* Aperçu des tags si valeurs renseignées */}
                 {(form.clause || form.controle) && (
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {parseSelectedValues(form.clause).map((c) => (
@@ -959,8 +1335,6 @@ export default function Documentation() {
                   </div>
                 )}
               </div>
-
-              {/* Section 4 — Description */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 inline-block" />
@@ -969,11 +1343,11 @@ export default function Documentation() {
                 </p>
                 <textarea
                   className="w-full min-h-[96px] border border-slate-200 rounded-lg px-3.5 py-2.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all resize-none placeholder:text-slate-300 leading-relaxed"
-                  placeholder="Décrivez brièvement l'objet et le périmètre de ce document…"
+                  placeholder="Decrivez brievement l'objet et le perimetre de ce document..."
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
-                <p className="text-[11px] text-slate-300 text-right mt-1">{form.description.length} caractères</p>
+                <p className="text-[11px] text-slate-300 text-right mt-1">{form.description.length} caracteres</p>
               </div>
             </div>
 
@@ -987,7 +1361,7 @@ export default function Documentation() {
               </button>
               <button
                 disabled={!form.name.trim()}
-                onClick={async () => { try { await updateDoc(editingDoc.id, form); setEditingDoc(null); } catch (err) { setError(err.response?.data || "Mise a jour impossible."); } }}
+                onClick={async () => { try { await updateDoc(editingDoc.id, form); setEditingDoc(null); } catch (err) { setError(extractApiError(err, "Mise a jour impossible.")); } }}
                 className="h-10 px-5 rounded-xl bg-blue-600 text-white font-semibold text-[13px] inline-flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Check size={15} />
@@ -997,8 +1371,192 @@ export default function Documentation() {
           </>
         )}
       </Modal>
+      <Modal open={Boolean(versioningDoc)} onClose={() => setVersioningDoc(null)} panelClassName="max-w-[640px] rounded-[20px]">
+        {versioningDoc && (
+          <>
+            <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700">
+                  <GitBranchPlus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-[18px] font-bold text-slate-900 leading-tight">Publier une nouvelle version</h3>
+                  <p className="text-[12px] text-slate-500 mt-0.5 truncate max-w-[340px]">{versioningDoc.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setVersioningDoc(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
 
-      {/* ── MODAL SUPPRIMER ── */}
+            <div className="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12px] font-semibold text-amber-800">
+                En publiant cette version, le document repasse en validation et exige une reapprobation RSSI.
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Titre du document</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Version</label>
+                  <input
+                    className="w-full h-10 border border-violet-300 rounded-lg px-3.5 text-[14px] text-violet-800 bg-violet-50 focus:outline-none focus:border-violet-500"
+                    value={form.version}
+                    onChange={(e) => setForm({ ...form, version: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Type</label>
+                  <div className="relative">
+                    <select
+                      className="w-full h-10 appearance-none border border-slate-200 rounded-lg pl-3.5 pr-9 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    >
+                      {types.map((t) => <option key={t}>{t}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Categorie</label>
+                  <div className="relative">
+                    <select
+                      className="w-full h-10 appearance-none border border-slate-200 rounded-lg pl-3.5 pr-9 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    >
+                      {allowedCategoryOptions.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Auteur</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                    value={form.author}
+                    onChange={(e) => setForm({ ...form, author: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Approbateur</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                    value={form.approver}
+                    onChange={(e) => setForm({ ...form, approver: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Clause ISO</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                    value={form.clause}
+                    onChange={(e) => setForm({ ...form, clause: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Controle Annexe A</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                    value={form.controle}
+                    onChange={(e) => setForm({ ...form, controle: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Description</label>
+                <textarea
+                  className="w-full min-h-[90px] border border-slate-200 rounded-lg px-3.5 py-2.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white resize-none"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[12px] font-semibold text-slate-600 mb-2">Fichier documentaire</p>
+                <input
+                  ref={versionFileRef}
+                  className="hidden"
+                  type="file"
+                  accept=".pdf,.docx,.xlsx"
+                  onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null, removeFile: false })}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => versionFileRef.current?.click()}
+                    className="h-9 px-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-[13px] font-semibold hover:bg-slate-50"
+                  >
+                    Remplacer le fichier
+                  </button>
+                  {form.file ? (
+                    <span className="text-[12px] font-semibold text-blue-700">{form.file.name}</span>
+                  ) : (
+                    <span className="text-[12px] text-slate-500">Aucun nouveau fichier selectionne. Le fichier actuel sera conserve.</span>
+                  )}
+                </div>
+                <label className="mt-3 inline-flex items-center gap-2 text-[12px] font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.removeFile)}
+                    onChange={(e) => setForm({ ...form, removeFile: e.target.checked, file: e.target.checked ? null : form.file })}
+                  />
+                  Supprimer le fichier attache sur cette nouvelle version
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-[12px] font-semibold text-blue-800">
+                Statut cible apres publication: En validation (reapprobation RSSI obligatoire).
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-slate-50/60 rounded-b-[20px]">
+              <button
+                onClick={() => setVersioningDoc(null)}
+                className="h-10 px-5 rounded-xl border border-slate-300 bg-white text-slate-600 font-semibold text-[13px] hover:bg-slate-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={!form.name.trim() || !form.author.trim() || !form.version.trim()}
+                onClick={async () => {
+                  try {
+                    await createNewVersion(versioningDoc.id, {
+                      ...form,
+                      status: "en-validation",
+                    });
+                    setVersioningDoc(null);
+                  } catch (err) {
+                    setError(extractApiError(err, "Publication de nouvelle version impossible."));
+                  }
+                }}
+                className="h-10 px-5 rounded-xl bg-violet-600 text-white font-semibold text-[13px] inline-flex items-center gap-2 hover:bg-violet-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <GitBranchPlus size={15} />
+                Publier la nouvelle version
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+
       <Modal open={Boolean(deleteDoc)} onClose={() => setDeleteDoc(null)} panelClassName="max-w-[500px] rounded-[20px]">
         {deleteDoc && (
           <>
@@ -1012,7 +1570,7 @@ export default function Documentation() {
               {/* Doc card */}
               <div className="border border-slate-200 rounded-xl p-3.5 mb-4">
                 <p className="text-[15px] font-semibold text-slate-800">{deleteDoc.name}</p>
-                <p className="text-[13px] text-slate-400">v{deleteDoc.version} · {deleteDoc.type} · {deleteDoc.size}</p>
+                <p className="text-[13px] text-slate-400">v{deleteDoc.version} - {deleteDoc.type} - {deleteDoc.size}</p>
               </div>
 
               {/* Warning list */}
@@ -1044,7 +1602,7 @@ export default function Documentation() {
               <button onClick={() => setDeleteDoc(null)} className="h-10 px-5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-[14px]">Annuler</button>
               <button
                 disabled={deleteConfirm.trim() !== deleteDoc.name}
-                onClick={async () => { try { await removeDoc(deleteDoc.id); setDeleteDoc(null); } catch (err) { setError(err.response?.data || "Suppression impossible."); } }}
+                onClick={async () => { try { await removeDoc(deleteDoc.id); setDeleteDoc(null); } catch (err) { setError(extractApiError(err, "Suppression impossible.")); } }}
                 className="h-10 px-5 rounded-xl font-semibold text-[14px] inline-flex items-center gap-2 transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700 disabled:hover:bg-slate-200"
               >
                 <Trash2 size={15} />
@@ -1054,8 +1612,6 @@ export default function Documentation() {
           </>
         )}
       </Modal>
-
-      {/* ── MODAL NOUVEAU DOCUMENT ── */}
       <Modal open={showNew} onClose={closeCreate} panelClassName="max-w-[620px] rounded-[20px]">
         <div className="px-6 pt-5">
           <div className="flex items-center justify-between mb-4">
@@ -1109,7 +1665,7 @@ export default function Documentation() {
                   <div>
                     <label className="block text-[15px] font-semibold text-slate-700 mb-1.5">Categorie</label>
                     <select className="w-full h-11 border border-slate-300 rounded-xl px-4 text-[15px] focus:outline-none focus:border-blue-500" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                      {categories.map((c) => <option key={c}>{c}</option>)}
+                      {allowedCategoryOptions.map((c) => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1253,7 +1809,7 @@ export default function Documentation() {
                   });
                   closeCreate();
                 } catch (err) {
-                  setError(err.response?.data || "Creation impossible.");
+                  setError(extractApiError(err, "Creation impossible."));
                 }
               }}
               className="h-10 px-7 rounded-xl bg-blue-600 text-white font-semibold text-[15px] shadow"
@@ -1263,6 +1819,20 @@ export default function Documentation() {
           )}
         </div>
       </Modal>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
+
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
+

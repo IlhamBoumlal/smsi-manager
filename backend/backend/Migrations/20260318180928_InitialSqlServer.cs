@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -13,6 +13,7 @@ namespace backend.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            return;
             migrationBuilder.CreateTable(
                 name: "Actifs",
                 columns: table => new
@@ -408,6 +409,7 @@ namespace backend.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            return;
             migrationBuilder.DropTable(
                 name: "Actifs");
 

@@ -5,10 +5,12 @@ using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
 using backend.Application.Societes.Queries.GetAllSocietes;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class SocieteController : ControllerBase

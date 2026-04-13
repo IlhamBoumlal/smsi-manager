@@ -17,6 +17,11 @@ namespace backend.Application.DTOs.Documentation
         string? OriginalFileName,
         long? FileSizeBytes,
         DateTime CreatedAt,
-        DateTime UpdatedAt
+        DateTime UpdatedAt,
+        bool CanEdit,
+        bool CanDelete,
+        bool CanApprove,
+        bool CanCreateVersion,
+        bool IsOwnDocument
     );
 }

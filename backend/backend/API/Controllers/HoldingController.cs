@@ -6,10 +6,12 @@ using backend.Application.Holdings.Commands.UpdateHolding;
 using backend.Application.Holdings.Queries.GetAllHoldings;
 using backend.Application.Services;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class HoldingController : ControllerBase

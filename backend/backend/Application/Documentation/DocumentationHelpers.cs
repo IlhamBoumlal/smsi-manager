@@ -28,7 +28,13 @@ namespace backend.Application.Documentation
             return AllowedExtensions.Contains(extension) && file.Length <= MaxFileSizeBytes;
         }
 
-        internal static DocumentationResponseDto ToDto(DocumentationDocument d) =>
+        internal static DocumentationResponseDto ToDto(
+            DocumentationDocument d,
+            bool canEdit = false,
+            bool canDelete = false,
+            bool canApprove = false,
+            bool canCreateVersion = false,
+            bool isOwnDocument = false) =>
             new(
                 d.Id,
                 d.Name,
@@ -46,7 +52,12 @@ namespace backend.Application.Documentation
                 d.OriginalFileName,
                 d.FileSizeBytes,
                 d.CreatedAt,
-                d.UpdatedAt
+                d.UpdatedAt,
+                canEdit,
+                canDelete,
+                canApprove,
+                canCreateVersion,
+                isOwnDocument
             );
     }
 }
