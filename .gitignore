@@ -17,4 +17,19 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-backend/backend/appsettings.jsonbackend/backend/appsettings.json
+# Local config
+backend/backend/appsettings.json
+frontend/.env
+.env
+.env.*
+
+# .NET local cache / SDK / packages
+.dotnet/
+.dotnet_home/
+.nuget/
+packages/
+
+# Optional
+dist/
+build/
+coverage/
