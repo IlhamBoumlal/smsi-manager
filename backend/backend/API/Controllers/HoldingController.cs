@@ -6,10 +6,18 @@ using backend.Application.Holdings.Commands.UpdateHolding;
 using backend.Application.Holdings.Queries.GetAllHoldings;
 using backend.Application.Services;
 using MediatR;
+<<<<<<< HEAD
+using Microsoft.AspNetCore.Authorization;
+=======
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
+    [Authorize(Roles = "Admin")]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class HoldingController : ControllerBase
@@ -42,4 +50,8 @@ namespace backend.API.Controllers
             return success ? Ok("Holding supprimée avec succès.") : BadRequest(error);
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> meriem

@@ -5,10 +5,18 @@ using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
 using backend.Application.Societes.Queries.GetAllSocietes;
 using MediatR;
+<<<<<<< HEAD
+using Microsoft.AspNetCore.Authorization;
+=======
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
+    [Authorize(Roles = "Admin")]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class SocieteController : ControllerBase
@@ -44,4 +52,8 @@ namespace backend.API.Controllers
             return success ? Ok("Société supprimée avec succès.") : BadRequest(error);
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> meriem

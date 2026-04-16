@@ -1,8 +1,16 @@
+<<<<<<< HEAD
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using Application.DTOs.Clause;
+using backend.Infrastructure.Services;
+=======
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Application.DTOs.Clause;
 using Infrastructure.Services;
+>>>>>>> meriem
 
 namespace API.Controllers;
 

@@ -3,9 +3,13 @@ using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
 using Domain.Entities;
+<<<<<<< HEAD
+namespace backend.Infrastructure.Services
+=======
 using backend.Infrastructure.Services;
 
 namespace Infrastructure.Services
+>>>>>>> meriem
 {
     public class ClauseService : IClauseService
     {
@@ -19,8 +23,11 @@ namespace Infrastructure.Services
         public ClauseService(AppDbContext db, IWebHostEnvironment env)
         { _db = db; _env = env; }
 
+<<<<<<< HEAD
+=======
         public ClauseService(AppDbContext db) => _db = db;
 
+>>>>>>> meriem
         // ── MAPPERS ───────────────────────────────────────────────────────────
 
         private static IsoClauseDto MapClause(IsoClause c) => new()
