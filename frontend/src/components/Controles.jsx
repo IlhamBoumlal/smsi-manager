@@ -5,7 +5,7 @@ import {
   MinusCircle, AlertTriangle, Ban, X, Save, ClipboardList,
   Building2, Users, Lock, Cpu, ShieldCheck, Upload, FileText,
   ChevronDown, History, ChevronRight, ChevronUp, Clock, User,
-  ArrowRight, Eye
+  ArrowRight, Eye, Paperclip, Download
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -78,7 +78,6 @@ const STATUTS = [
   { key: 'NCMajeure', label: 'NC Majeure',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: <Ban          size={16} /> },
 ];
 
-// Labels lisibles pour les champs de l'historique
 const CHAMP_LABELS = {
   Applicable:              'Applicabilité',
   Statut:                  'Statut',
@@ -135,11 +134,139 @@ function humanizeChamps(champsStr) {
     .join(' · ');
 }
 
+// ✅ Fonction de parsing des preuves avec log
+function parsePreuves(preuves) {
+  console.log('[parsePreuves] Input:', preuves, typeof preuves);
+  if (!preuves) {
+    console.log('[parsePreuves] Aucune preuve, retour []');
+    return [];
+  }
+  if (Array.isArray(preuves)) {
+    console.log('[parsePreuves] Déjà un tableau, longueur:', preuves.length);
+    return preuves;
+  }
+  if (typeof preuves === 'string') {
+    try {
+      const parsed = JSON.parse(preuves);
+      const arr = Array.isArray(parsed) ? parsed : [];
+      console.log('[parsePreuves] String JSON parsée, longueur:', arr.length);
+      return arr;
+    } catch (e) {
+      console.error('[parsePreuves] Erreur parsing JSON', e);
+      return [];
+    }
+  }
+  console.log('[parsePreuves] Type non géré, retour []');
+  return [];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// NORMALISATION DES DONNÉES
+// OPEN PREUVE — ouvre dans un onglet avec prévisualisation + téléchargement
+// ─────────────────────────────────────────────────────────────────────────────
+
+function openPreuve(doc) {
+  if (!doc || !doc.data) {
+    console.warn("Document invalide", doc);
+    return;
+  }
+  const ext = doc.name.split('.').pop().toLowerCase();
+  const map = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+  const mime = map[ext] || 'application/octet-stream';
+  const bytes = atob(doc.data);
+  const buffer = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
+  const blob = new Blob([buffer], { type: mime });
+  const url = URL.createObjectURL(blob);
+
+  const isImage = ['png','jpg','jpeg','gif','webp'].includes(ext);
+  const isPdf   = ext === 'pdf';
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${doc.name}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #F1F5F9; min-height: 100vh; }
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: #0F172A; color: #fff; padding: 0 24px;
+      height: 54px; display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar-icon { width: 32px; height: 32px; background: #1D4ED8; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .topbar-name { font-size: 14px; font-weight: 600; color: #F8FAFC; max-width: 500px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-ext { font-size: 11px; color: #94A3B8; background: #1E293B;
+      padding: 2px 8px; border-radius: 99px; font-weight: 600; text-transform: uppercase; }
+    .btn-dl {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 18px; background: #1D4ED8; color: #fff;
+      border: none; border-radius: 10px; font-size: 13px; font-weight: 700;
+      cursor: pointer; text-decoration: none; transition: background 0.2s;
+    }
+    .btn-dl:hover { background: #1E40AF; }
+    .content { padding-top: 70px; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; }
+    iframe { width: 100%; height: calc(100vh - 54px); border: none; display: block; }
+    .img-wrap { padding: 24px; display: flex; align-items: flex-start; justify-content: center; min-height: calc(100vh - 54px); }
+    .img-wrap img { max-width: 100%; max-height: calc(100vh - 120px); border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2); background: #fff; }
+    .other-wrap { padding: 60px 24px; text-align: center; color: #64748B; }
+    .other-wrap .icon { font-size: 56px; margin-bottom: 16px; }
+    .other-wrap p { font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-icon">${isImage ? '🖼' : isPdf ? '📄' : '📎'}</div>
+      <span class="topbar-name">${doc.name}</span>
+      <span class="topbar-ext">${ext}</span>
+    </div>
+    <a class="btn-dl" href="${url}" download="${doc.name}">
+      ⬇ Télécharger
+    </a>
+  </div>
+  ${isPdf
+    ? `<iframe src="${url}#toolbar=1&navpanes=0" title="${doc.name}"></iframe>`
+    : isImage
+      ? `<div class="img-wrap"><img src="${url}" alt="${doc.name}" /></div>`
+      : `<div class="content"><div class="other-wrap">
+           <div class="icon">📎</div>
+           <p>Prévisualisation non disponible pour ce type de fichier.</p>
+           <br/>
+           <a class="btn-dl" href="${url}" download="${doc.name}" style="display:inline-flex">⬇ Télécharger ${doc.name}</a>
+         </div></div>`
+  }
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, data: reader.result.split(',')[1] });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMALISATION (avec logs)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function normalize(c) {
+  console.log('[normalize] Entrée brute:', c);
+
   let applicableValue = null;
   if (c.applicable !== undefined)  applicableValue = c.applicable;
   else if (c.Applicable !== undefined) applicableValue = c.Applicable;
@@ -163,7 +290,11 @@ function normalize(c) {
     try { raisonsApplicabilite = JSON.parse(raw); } catch { raisonsApplicabilite = []; }
   }
 
-  return {
+  // Parse des preuves
+  let rawPreuves = c.preuves || c.Preuves || null;
+  let preuvesArray = parsePreuves(rawPreuves);
+
+  const normalized = {
     id: c.id || c.Id,
     code: c.code || c.Code,
     titre: c.titre || c.Titre,
@@ -182,7 +313,7 @@ function normalize(c) {
     remarque: c.remarque || c.Remarque || null,
     planCorrectif: c.planCorrectif || c.PlanCorrectif || null,
     responsablePlan: c.responsablePlan || c.ResponsablePlan || null,
-    preuves: c.preuves || c.Preuves || c.verification || c.Verification || null,
+    preuves: preuvesArray,
     dateEcheance: formatDate(c.dateEcheance || c.DateEcheance),
     statutPlan: c.statutPlan || c.StatutPlan || null,
     dateMiseAJour: formatDate(c.dateMiseAJour || c.DateMiseAJour),
@@ -191,10 +322,12 @@ function normalize(c) {
     impact: c.impact || c.Impact || null,
     ncDescription: c.ncDescription || c.NcDescription || null,
   };
+  console.log('[normalize] Sortie normalisée:', { id: normalized.id, titre: normalized.titre, preuves: normalized.preuves, justification: normalized.justificationConformite, remarque: normalized.remarque });
+  return normalized;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS (DocumentChip, DocumentsSection, etc.) inchangés
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RaisonsApplicabilite({ value = [], onChange }) {
@@ -287,6 +420,60 @@ function StatutBadge({ statut, applicable }) {
   );
 }
 
+function DocumentChip({ doc, onRemove, showRemove = false }) {
+ 
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      background: '#EFF6FF', border: '1.5px solid #BFDBFE',
+      borderRadius: 8, padding: '6px 10px',
+      transition: 'all 0.15s',
+    }}>
+      <span
+        onClick={() => openPreuve(doc)}
+        title={`Ouvrir et télécharger : ${doc.name}`}
+        style={{
+          fontSize: 12, color: '#1D4ED8', cursor: 'pointer',
+          fontWeight: 600, maxWidth: 200,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textDecoration: 'underline', textDecorationStyle: 'dotted',
+        }}
+      >
+        {doc.name}
+      </span>
+      {showRemove && (
+        <X
+          size={13}
+          color="#DC2626"
+          style={{ cursor: 'pointer', flexShrink: 0, marginLeft: 2 }}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          title="Supprimer ce document"
+        />
+      )}
+    </div>
+  );
+}
+
+function DocumentsSection({ preuves }) {
+  if (!preuves || preuves.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 14, padding: '10px 14px', background: '#F8FAFF', borderRadius: 10, border: '1px solid #DBEAFE' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+        <Paperclip size={13} color="#1D4ED8" />
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Documents justificatifs ({preuves.length})
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {preuves.map((doc, idx) => (
+          <DocumentChip key={idx} doc={doc} showRemove={false} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function KpiStrip({ stats }) {
   const kpis = [
     { label: "Conformité globale",  value: `${Math.round(stats.averageConformity)}%`, sub: `${stats.totalControles} contrôles`, bg: "linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)", light: false },
@@ -347,10 +534,6 @@ function FilterBar({ active, onChange, counts }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PANNEAU HISTORIQUE
-// ─────────────────────────────────────────────────────────────────────────────
-
 function HistoriquePanel({ controleId, onClose }) {
   const [historique, setHistorique] = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -374,7 +557,6 @@ function HistoriquePanel({ controleId, onClose }) {
         display: 'flex', flexDirection: 'column', boxShadow: '-10px 0 50px rgba(0,0,0,0.2)',
         fontFamily: T.font,
       }}>
-        {/* Header */}
         <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '24px 28px', color: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -390,7 +572,6 @@ function HistoriquePanel({ controleId, onClose }) {
           </div>
         </div>
 
-        {/* Contenu */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           {loading && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
@@ -398,7 +579,6 @@ function HistoriquePanel({ controleId, onClose }) {
               <div style={{ fontSize: 14, color: T.gray500, fontWeight: 600 }}>Chargement de l'historique...</div>
             </div>
           )}
-
           {!loading && historique.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 14 }}>📋</div>
@@ -406,12 +586,9 @@ function HistoriquePanel({ controleId, onClose }) {
               <div style={{ fontSize: 12.5, color: T.gray400, marginTop: 6 }}>L'historique sera créé lors de la première évaluation.</div>
             </div>
           )}
-
           {!loading && historique.length > 0 && (
             <div style={{ position: 'relative' }}>
-              {/* Ligne de timeline */}
               <div style={{ position: 'absolute', left: 17, top: 0, bottom: 0, width: 2, background: T.gray200, borderRadius: 99 }} />
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {historique.map((h, i) => {
                   const isOpen  = expanded === h.id;
@@ -419,10 +596,8 @@ function HistoriquePanel({ controleId, onClose }) {
                   const apres   = parseJsonSafe(h.apresJson);
                   const champs  = h.champsModifies ? h.champsModifies.split(', ').filter(Boolean) : [];
                   const isFirst = i === 0;
-
                   return (
                     <div key={h.id} style={{ position: 'relative', paddingLeft: 46, paddingBottom: 20 }}>
-                      {/* Dot */}
                       <div style={{
                         position: 'absolute', left: 10, top: 4,
                         width: 16, height: 16, borderRadius: '50%',
@@ -431,18 +606,12 @@ function HistoriquePanel({ controleId, onClose }) {
                         zIndex: 1,
                         boxShadow: isFirst ? '0 0 0 4px rgba(29,78,216,0.15)' : 'none',
                       }} />
-
-                      {/* Carte */}
                       <div style={{
                         background: isFirst ? '#EFF6FF' : '#fff',
                         borderRadius: 12, border: `1.5px solid ${isFirst ? '#BFDBFE' : T.gray200}`,
                         overflow: 'hidden', transition: 'all 0.2s',
                       }}>
-                        {/* En-tête de la carte */}
-                        <div
-                          onClick={() => toggleExpand(h.id)}
-                          style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}
-                        >
+                        <div onClick={() => toggleExpand(h.id)} style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                               <Clock size={13} color={isFirst ? '#1D4ED8' : T.gray400} />
@@ -450,40 +619,26 @@ function HistoriquePanel({ controleId, onClose }) {
                                 {formatDateTime(h.dateModification)}
                               </span>
                               {isFirst && (
-                                <span style={{ fontSize: 10, fontWeight: 700, background: '#1D4ED8', color: '#fff', padding: '1px 7px', borderRadius: 99 }}>
-                                  DERNIER
-                                </span>
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#1D4ED8', color: '#fff', padding: '1px 7px', borderRadius: 99 }}>DERNIER</span>
                               )}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <User size={12} color={T.gray400} />
-                              <span style={{ fontSize: 12, color: T.gray600 || '#4b5563' }}>
-                                {h.modificateurNom || 'Système'}
-                              </span>
+                              <span style={{ fontSize: 12, color: T.gray600 || '#4b5563' }}>{h.modificateurNom || 'Système'}</span>
                             </div>
                             {champs.length > 0 && (
                               <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                 {champs.slice(0, 4).map(c => (
-                                  <span key={c} style={{
-                                    fontSize: 10.5, fontWeight: 600, padding: '2px 8px',
-                                    borderRadius: 99, background: '#F3F4F6', color: T.gray700,
-                                    border: '1px solid #E5E7EB',
-                                  }}>
+                                  <span key={c} style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: '#F3F4F6', color: T.gray700, border: '1px solid #E5E7EB' }}>
                                     {CHAMP_LABELS[c] || c}
                                   </span>
                                 ))}
-                                {champs.length > 4 && (
-                                  <span style={{ fontSize: 10.5, color: T.gray400 }}>+{champs.length - 4}</span>
-                                )}
+                                {champs.length > 4 && <span style={{ fontSize: 10.5, color: T.gray400 }}>+{champs.length - 4}</span>}
                               </div>
                             )}
                           </div>
-                          <div style={{ flexShrink: 0, color: T.gray400 }}>
-                            {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          </div>
+                          <div style={{ flexShrink: 0, color: T.gray400 }}>{isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</div>
                         </div>
-
-                        {/* Détail du diff */}
                         {isOpen && avant && apres && (
                           <div style={{ borderTop: `1px solid ${T.gray200}`, padding: '14px 16px', background: '#FAFAFA', display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {champs.map(champ => {
@@ -497,17 +652,11 @@ function HistoriquePanel({ controleId, onClose }) {
                               };
                               return (
                                 <div key={champ} style={{ fontSize: 12, background: '#fff', borderRadius: 8, border: `1px solid ${T.gray200}`, padding: '10px 12px' }}>
-                                  <div style={{ fontWeight: 700, color: T.gray700, marginBottom: 8, fontSize: 11.5 }}>
-                                    {CHAMP_LABELS[champ] || champ}
-                                  </div>
+                                  <div style={{ fontWeight: 700, color: T.gray700, marginBottom: 8, fontSize: 11.5 }}>{CHAMP_LABELS[champ] || champ}</div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#FEF2F2', color: '#991B1B', fontSize: 11.5, border: '1px solid #FECACA', wordBreak: 'break-word' }}>
-                                      {toStr(vAvant)}
-                                    </div>
+                                    <div style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#FEF2F2', color: '#991B1B', fontSize: 11.5, border: '1px solid #FECACA', wordBreak: 'break-word' }}>{toStr(vAvant)}</div>
                                     <ArrowRight size={14} color={T.gray400} style={{ flexShrink: 0 }} />
-                                    <div style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#F0FDF4', color: '#166534', fontSize: 11.5, border: '1px solid #BBF7D0', wordBreak: 'break-word' }}>
-                                      {toStr(vApres)}
-                                    </div>
+                                    <div style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#F0FDF4', color: '#166534', fontSize: 11.5, border: '1px solid #BBF7D0', wordBreak: 'break-word' }}>{toStr(vApres)}</div>
                                   </div>
                                 </div>
                               );
@@ -522,8 +671,6 @@ function HistoriquePanel({ controleId, onClose }) {
             </div>
           )}
         </div>
-
-        {/* Footer */}
         <div style={{ padding: '14px 24px', borderTop: `1px solid ${T.gray200}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: T.gray400 }}>{historique.length} entrée{historique.length > 1 ? 's' : ''} dans l'historique</span>
           <button onClick={onClose} style={{ ...btnSecondary, flex: 'none', padding: '9px 18px' }}>Fermer</button>
@@ -544,7 +691,7 @@ export default function Controles() {
   const [activeTab, setActiveTab]           = useState('all');
   const [evaluationCtrl, setEvaluationCtrl] = useState(null);
   const [filterDomain, setFilterDomain]     = useState('all');
-  const [historiqueCtrl, setHistoriqueCtrl] = useState(null); // ← NOUVEAU
+  const [historiqueCtrl, setHistoriqueCtrl] = useState(null);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -558,7 +705,9 @@ export default function Controles() {
     setLoading(true);
     axios.get(API)
       .then(r => {
+        console.log('[API] Réponse brute:', r.data);
         const data = r.data.map(normalize);
+        console.log('[API] Après normalisation:', data);
         setControles(data.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' })));
       })
       .catch(console.error)
@@ -571,6 +720,21 @@ export default function Controles() {
 
   const handleSaveEvaluation = async (updated) => {
     const token = localStorage.getItem('token');
+    
+    // 🔥 Correction cruciale : éviter le double stringify des preuves
+    let preuvesToSend = updated.preuves;
+    if (Array.isArray(updated.preuves)) {
+      preuvesToSend = JSON.stringify(updated.preuves);
+      console.log('[Sauvegarde] Preuves tableau -> stringifié:', preuvesToSend);
+    } else if (typeof updated.preuves === 'string') {
+      // Déjà une chaîne JSON, on la garde telle quelle
+      preuvesToSend = updated.preuves;
+      console.log('[Sauvegarde] Preuves déjà string, conservation:', preuvesToSend);
+    } else {
+      preuvesToSend = "[]";
+      console.log('[Sauvegarde] Preuves null/undefined -> []');
+    }
+
     try {
       const command = {
         Id: updated.id,
@@ -584,43 +748,49 @@ export default function Controles() {
         RaisonExclusion: updated.raisonExclusion || null,
         JustificationConformite: updated.justificationConformite || null,
         Remarque: updated.remarque || null,
-        Preuves: updated.preuves || null,
+        Preuves: preuvesToSend,
         Priorite: updated.priorite || null,
         StatutPlan: updated.statutPlan || null,
         ResponsablePlan: updated.responsablePlan || null,
         DateEcheance: updated.dateEcheance || null,
         SocieteId: updated.societeId || updated.SocieteId || null,
+        NcDescription: updated.NcDescription || null,
+        Impact: updated.Impact || null,
+        ActionImmediate: updated.ActionImmediate || null,
+        ResponsableImm: updated.ResponsableImm || null,
+        DelaiActionImm: updated.DelaiActionImm || null,
+        CausesRacines: updated.CausesRacines || null,
+        MethodeAnalyse: updated.MethodeAnalyse || null,
+        PlanCorrectif: updated.PlanCorrectif || null,
+        Indicateurs: updated.Indicateurs || null,
+        DateVerification: updated.DateVerification || null,
       };
+
+      console.log('[Sauvegarde] Commande envoyée:', command);
 
       const response = await axios.put(`${API}/${updated.id}`, command, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
 
       if (response.status === 200 || response.status === 204) {
-        updateLocalControle(normalize(response.data || updated));
+        const savedData = normalize(response.data || updated);
+        console.log('[Sauvegarde] Réponse normalisée:', savedData);
+        updateLocalControle(savedData);
         setEvaluationCtrl(null);
       }
     } catch (err) {
       console.error("Erreur détaillée:", err.response?.data);
-      if (err.response?.data?.errors) {
-        const msg = Object.values(err.response.data.errors).flat().join('\n');
-        alert(`Erreur de validation :\n${msg}`);
-      } else {
-        alert(`Erreur : ${err.response?.data?.title || 'Requête invalide'}`);
-      }
+      alert("Erreur lors de la sauvegarde.");
     }
   };
 
-  // Stats
   const totalControles    = controles.length;
   const conformeCount     = controles.filter(c => c.statut === 'Conforme').length;
   const nonConformeCount  = controles.filter(c => c.statut === 'NCMineure' || c.statut === 'NCMajeure').length;
   const ncMineureCount    = controles.filter(c => c.statut === 'NCMineure').length;
   const ncMajeureCount    = controles.filter(c => c.statut === 'NCMajeure').length;
   const nonEvalueCount    = controles.filter(c => c.statut === 'NonEvalue').length;
-  const averageConformity = totalControles > 0
-    ? Math.round((conformeCount / ((totalControles - nonEvalueCount) || 1)) * 100) : 0;
-
+  const averageConformity = totalControles > 0 ? Math.round((conformeCount / ((totalControles - nonEvalueCount) || 1)) * 100) : 0;
   const stats = { totalControles, averageConformity, conformeCount, nonConformeCount, ncMineureCount, ncMajeureCount, nonEvalueCount, delayedActions: 0, inProgressActions: 0 };
 
   const filtered = controles.filter(c => {
@@ -636,10 +806,18 @@ export default function Controles() {
   const counts      = { all: controles.length, nc: nonConformeCount, ok: conformeCount, ne: nonEvalueCount };
   const domainStats = Object.keys(DOMAIN_THEMES).map(domain => ({ domain, ...DOMAIN_THEMES[domain], total: controles.filter(c => c.domaine === domain).length }));
 
+  const getBarColor = (ctrl) => {
+    if (!ctrl.applicable) return 'linear-gradient(90deg,#9CA3AF,#D1D5DB)';
+    if (ctrl.statut === 'Conforme')  return 'linear-gradient(90deg,#10B981,#34D399)';
+    if (ctrl.statut === 'Remarque')  return 'linear-gradient(90deg,#2563EB,#3B82F6)';
+    if (ctrl.statut === 'NCMineure') return 'linear-gradient(90deg,#F59E0B,#FCD34D)';
+    if (ctrl.statut === 'NCMajeure') return 'linear-gradient(90deg,#EF4444,#F87171)';
+    return 'linear-gradient(90deg,#E5E7EB,#D1D5DB)';
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 36px 60px' }}>
-
         <div style={{ marginBottom: 28 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: '0 0 6px', fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
             Contrôles ISO 27001 — Annexe A
@@ -649,7 +827,6 @@ export default function Controles() {
 
         <KpiStrip stats={stats} />
 
-        {/* Filtre domaine */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           <button onClick={() => setFilterDomain('all')} style={{
             display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 99,
@@ -677,7 +854,6 @@ export default function Controles() {
           ))}
         </div>
 
-        {/* Recherche */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.gray400 }} />
@@ -695,7 +871,6 @@ export default function Controles() {
           <FilterBar active={activeTab} onChange={setActiveTab} counts={counts} />
         </div>
 
-        {/* Liste des contrôles */}
         <div style={{ display: 'grid', gap: 16 }}>
           {loading && (
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
@@ -720,9 +895,10 @@ export default function Controles() {
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)'; }}
             >
-              <div style={{ height: 4, background: !ctrl.applicable ? 'linear-gradient(90deg,#9CA3AF,#D1D5DB)' : ctrl.statut === 'Conforme' ? 'linear-gradient(90deg,#10B981,#34D399)' : ctrl.statut === 'Remarque' ? 'linear-gradient(90deg,#2563EB,#3B82F6)' : ctrl.statut === 'NonEvalue' ? 'linear-gradient(90deg,#E5E7EB,#D1D5DB)' : 'linear-gradient(90deg,#EF4444,#F87171)' }} />
+              <div style={{ height: 4, background: getBarColor(ctrl) }} />
+
               <div style={{ padding: '20px 22px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: DOMAIN_THEMES[ctrl.domaine]?.headerBg || T.gradBlue, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(30,58,138,.3)' }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: "'Sora', sans-serif" }}>{ctrl.code}</span>
@@ -737,28 +913,54 @@ export default function Controles() {
                   <StatutBadge statut={ctrl.statut} applicable={ctrl.applicable} />
                 </div>
 
-                <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 1.5 }}>{ctrl.description}</p>
+                <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 14, lineHeight: 1.5 }}>{ctrl.description}</p>
+
+                {/* Justification de conformité */}
+                {ctrl.statut === 'Conforme' && ctrl.justificationConformite && (
+                  <div style={{ marginBottom: 12, padding: '12px 14px', background: '#F0FDF4', borderRadius: 10, borderLeft: '4px solid #10B981' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                      <CheckCircle2 size={14} color="#10B981" />
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Justification de conformité</span>
+                    </div>
+                    <p style={{ fontSize: 12.5, color: '#374151', margin: 0, lineHeight: 1.6 }}>{ctrl.justificationConformite}</p>
+                  </div>
+                )}
+
+                {/* Remarque */}
+                {ctrl.statut === 'Remarque' && ctrl.remarque && (
+                  <div style={{ marginBottom: 12, padding: '12px 14px', background: '#EFF6FF', borderRadius: 10, borderLeft: '4px solid #2563EB' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                      <AlertCircle size={14} color="#2563EB" />
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Remarque</span>
+                    </div>
+                    <p style={{ fontSize: 12.5, color: '#374151', margin: 0, lineHeight: 1.6 }}>{ctrl.remarque}</p>
+                  </div>
+                )}
+
+                {/* Raison d'exclusion */}
+                {ctrl.applicable === false && ctrl.raisonExclusion && (
+                  <div style={{ marginBottom: 12, padding: '12px 14px', background: '#FEF2F2', borderRadius: 10, borderLeft: '4px solid #EF4444' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                      <Ban size={14} color="#DC2626" />
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Raison d'exclusion</span>
+                    </div>
+                    <p style={{ fontSize: 12.5, color: '#374151', margin: 0, lineHeight: 1.6 }}>{ctrl.raisonExclusion}</p>
+                  </div>
+                )}
+
+                {/* Documents justificatifs */}
+                <DocumentsSection preuves={ctrl.preuves} />
 
                 {ctrl.dateMiseAJour && (
-                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, fontSize: 12, color: '#9CA3AF', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, fontSize: 12, color: '#9CA3AF', marginBottom: 12 }}>
                     <Clock size={12} />
                     <span>Modifié le {ctrl.dateMiseAJour}</span>
                     {ctrl.dernierModificateurNom && <><span>·</span><span>par {ctrl.dernierModificateurNom}</span></>}
                   </div>
                 )}
 
-                {ctrl.statut === 'Conforme' && ctrl.justificationConformite && (
-                  <div style={{ marginBottom: 16, padding: 12, background: '#F0FDF4', borderRadius: 10, borderLeft: '4px solid #10B981' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <CheckCircle2 size={14} color="#10B981" />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>Justification de conformité</span>
-                    </div>
-                    <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>{ctrl.justificationConformite}</p>
-                  </div>
-                )}
-
                 {(ctrl.statut === 'NCMineure' || ctrl.statut === 'NCMajeure') && ctrl.steps && (
-                  <div style={{ marginBottom: 16, padding: 12, background: '#FEF2F2', borderRadius: 10, borderLeft: '4px solid #EF4444' }}>
+                  <div style={{ marginBottom: 14, padding: '10px 14px', background: '#FEF2F2', borderRadius: 10, borderLeft: '4px solid #EF4444' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <ClipboardList size={14} color="#EF4444" />
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#EF4444' }}>Plan d'action en cours</span>
@@ -767,8 +969,7 @@ export default function Controles() {
                   </div>
                 )}
 
-                {/* Boutons */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                   <button
                     onClick={() => setEvaluationCtrl(ctrl)}
                     style={{
@@ -785,8 +986,6 @@ export default function Controles() {
                       : <><ShieldCheck size={15} /> Évaluer le contrôle</>
                     }
                   </button>
-
-                  {/* Bouton Historique — visible si déjà évalué */}
                   {ctrl.dateMiseAJour && (
                     <button
                       onClick={() => setHistoriqueCtrl(ctrl)}
@@ -811,7 +1010,6 @@ export default function Controles() {
         </div>
       </main>
 
-      {/* Panneau évaluation */}
       {evaluationCtrl && (
         <EvaluationPanel
           ctrl={evaluationCtrl}
@@ -821,8 +1019,6 @@ export default function Controles() {
           onViewHistorique={() => { setEvaluationCtrl(null); setHistoriqueCtrl(evaluationCtrl); }}
         />
       )}
-
-      {/* Panneau historique */}
       {historiqueCtrl && (
         <HistoriquePanel
           controleId={historiqueCtrl.id}
@@ -842,10 +1038,11 @@ export default function Controles() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PANNEAU D'ÉVALUATION
+// PANNEAU D'ÉVALUATION (corrigé avec logs et gestion des preuves)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
+
   const [form, setForm] = useState(() => ({
     ...ctrl,
     societeId: ctrl.societeId || ctrl.SocieteId || null,
@@ -863,7 +1060,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     PlanCorrectif: ctrl.planCorrectif || ctrl.PlanCorrectif || '',
     ResponsablePlan: ctrl.responsablePlan || ctrl.ResponsablePlan || '',
     DateEcheance: ctrl.dateEcheance || ctrl.DateEcheance || '',
-    Preuves: ctrl.preuves || ctrl.Preuves || '',
+    preuves: Array.isArray(ctrl.preuves) ? ctrl.preuves : parsePreuves(ctrl.preuves),
     Indicateurs: ctrl.indicateurs || ctrl.Indicateurs || '',
     DateVerification: ctrl.dateVerification || ctrl.DateVerification || '',
     CommentaireCloture: ctrl.commentaireCloture || ctrl.CommentaireCloture || '',
@@ -872,14 +1069,50 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     StatutPlan: ctrl.statutPlan || ctrl.StatutPlan || 'EnCours',
   }));
 
-  const [filesStep4, setFilesStep4]         = useState([]);
+  const [localDocs, setLocalDocs] = useState(() => {
+    const p = ctrl.preuves;
+    if (!p) return [];
+    if (Array.isArray(p)) return p;
+    if (typeof p === 'string') {
+      try { return JSON.parse(p); } catch { return []; }
+    }
+    return [];
+  });
+
+  // Synchronisation si ctrl change (ex: re-ouverture du panneau)
+  useEffect(() => {
+    console.log('[EvaluationPanel] ctrl.preuves reçu:', ctrl.preuves);
+    const p = ctrl.preuves;
+    if (!p) setLocalDocs([]);
+    else if (Array.isArray(p)) setLocalDocs(p);
+    else if (typeof p === 'string') {
+      try { setLocalDocs(JSON.parse(p)); } catch { setLocalDocs([]); }
+    } else setLocalDocs([]);
+  }, [ctrl.preuves]);
+
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-  const [saving, setSaving]                 = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const isApplicable     = form.applicable === true;
   const isNotApplicable  = form.applicable === false;
   const isStatusSelected = form.statut && form.statut !== 'NonEvalue';
   const isNC             = form.statut === 'NCMineure' || form.statut === 'NCMajeure';
+
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const base64Docs = await Promise.all(files.map(readFileAsBase64));
+    const nextDocs = [...localDocs, ...base64Docs];
+    setLocalDocs(nextDocs);
+    setForm(f => ({ ...f, preuves: nextDocs }));
+    e.target.value = '';
+  };
+
+  const removeDoc = (index) => {
+    const nextDocs = localDocs.filter((_, i) => i !== index);
+    setLocalDocs(nextDocs);
+    setForm(f => ({ ...f, preuves: nextDocs }));
+  };
 
   const hasPlanAction = () => {
     if (!form.steps) return false;
@@ -894,18 +1127,28 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     (isApplicable && isStatusSelected);
 
   const handleApplicableChange = (val) => {
-    setFilesStep4([]);
     if (val === 'oui') {
       setForm(f => ({ ...f, applicable: true, raisonExclusion: '', statut: f.statut !== 'NonEvalue' ? f.statut : 'NonEvalue' }));
     } else if (val === 'non') {
-      setForm(f => ({ ...f, applicable: false, raisonsApplicabilite: [], statut: 'NonEvalue', justificationConformite: null, remarque: null, NcDescription: null, Impact: null, ActionImmediate: null, ResponsableImm: null, DelaiActionImm: null, CausesRacines: null, MethodeAnalyse: null, PlanCorrectif: null, ResponsablePlan: null, DateEcheance: null, Preuves: null, Indicateurs: null, DateVerification: null, CommentaireCloture: null, CloturePar: null, DateCloture: null, StatutPlan: null, steps: null }));
+      setForm(f => ({
+        ...f,
+        applicable: false,
+        raisonsApplicabilite: [],
+        statut: 'NonEvalue',
+        justificationConformite: null,
+        remarque: null,
+        NcDescription: null,
+        Impact: null,
+        preuves: [],
+        steps: null
+      }));
+      setLocalDocs([]);
     } else {
       setForm(f => ({ ...f, applicable: null }));
     }
   };
 
   const handleStatutChange = (val) => {
-    setFilesStep4([]);
     setForm(f => ({ ...f, statut: val || 'NonEvalue' }));
   };
 
@@ -915,12 +1158,52 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     setSaving(false);
   };
 
+  const DocumentUploadBlock = ({ borderColor = T.gray200, bgColor = '#f9fafb', accentColor = '#1D4ED8', label = 'Ajouter des documents' }) => (
+    <>
+      {localDocs.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: T.gray500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+            Documents joints ({localDocs.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {localDocs.map((doc, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#fff', borderRadius: 9, border: `1.5px solid ${borderColor}` }}>
+                
+                <span
+                  onClick={() => openPreuve(doc)}
+                  title={`Ouvrir : ${doc.name}`}
+                  style={{ flex: 1, fontSize: 12.5, color: accentColor, cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', textDecorationStyle: 'dotted', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {doc.name}
+                </span>
+                <button
+                  onClick={() => removeDoc(i)}
+                  title="Supprimer ce document"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', borderRadius: 4, transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  <X size={14} color="#DC2626" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <label style={{ ...uploadAreaStyle, borderColor, background: bgColor, cursor: 'pointer' }}>
+        <Upload size={15} color={accentColor} />
+        <span style={{ color: accentColor, fontWeight: 600, fontSize: 12.5 }}>{label}</span>
+        <input type="file" multiple hidden onChange={handleFileUpload} accept="*/*" />
+      </label>
+    </>
+  );
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} />
       <div style={{ position: 'relative', width: 620, background: '#fff', height: '100vh', display: 'flex', flexDirection: 'column', boxShadow: '-10px 0 50px rgba(0,0,0,0.2)', fontFamily: T.font }}>
-        
-        {/* Header */}
+
         <div style={{ background: theme?.headerBg || T.gradBlue, padding: '24px 28px', color: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -929,10 +1212,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {ctrl.dateMiseAJour && (
-                <button
-                  onClick={onViewHistorique}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.12)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.font }}
-                >
+                <button onClick={onViewHistorique} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.12)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.font }}>
                   <History size={14} /> Historique
                 </button>
               )}
@@ -941,9 +1221,8 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
           </div>
         </div>
 
-        {/* Corps */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 30, display: 'flex', flexDirection: 'column', gap: 30 }}>
-          
+        <div style={{ flex: 1, overflowY: 'auto', padding: 30, display: 'flex', flexDirection: 'column', gap: 28 }}>
+
           <Section num="1" title="Applicabilité du contrôle">
             <StyledSelect
               value={form.applicable === true ? 'oui' : form.applicable === false ? 'non' : ''}
@@ -990,43 +1269,43 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
           )}
 
           {isStatusSelected && isApplicable && (
-            <div style={{ animation: 'fadeInUp 0.3s ease' }}>
+            <div style={{ animation: 'fadeInUp 0.3s ease', display: 'flex', flexDirection: 'column', gap: 24 }}>
               {form.statut === 'Conforme' && (
                 <Section num="4" title="Justification de conformité" accentBg="#f0fdf4" accentBorder="#bbf7d0" accentColor="#059669">
-                  <textarea rows={4} style={inputStyle} placeholder="Démontrez comment le contrôle est respecté..." value={form.justificationConformite || ''} onChange={e => setForm(f => ({ ...f, justificationConformite: e.target.value }))} />
-                  <label style={{ ...uploadAreaStyle, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
-                    <Upload size={16} color="#059669" />
-                    <span style={{ color: '#059669' }}>Joindre des preuves (PDF, Word, Excel, images...)</span>
-                    <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => { if (e.target.files?.length) { setFilesStep4(prev => [...prev, ...Array.from(e.target.files).map(f => ({ name: f.name }))]); e.target.value = ''; } }} />
-                  </label>
-                  {filesStep4.map((f, i) => (
-                    <div key={i} style={{ ...fileChipStyle, background: '#DCFCE7', color: '#15803D', justifyContent: 'space-between' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={13} /> {f.name}</span>
-                      <X size={13} style={{ cursor: 'pointer' }} onClick={() => setFilesStep4(prev => prev.filter((_, j) => j !== i))} />
-                    </div>
-                  ))}
+                  <textarea
+                    rows={4} style={inputStyle}
+                    placeholder="Démontrez comment le contrôle est respecté..."
+                    value={form.justificationConformite || ''}
+                    onChange={e => setForm(f => ({ ...f, justificationConformite: e.target.value }))}
+                  />
+                  <DocumentUploadBlock
+                    borderColor="#bbf7d0"
+                    bgColor="#f0fdf4"
+                    accentColor="#059669"
+                    label="Ajouter des preuves de conformité"
+                  />
                 </Section>
               )}
 
               {form.statut === 'Remarque' && (
                 <Section num="4" title="Détail de la remarque" accentBg="#eff6ff" accentBorder="#bfdbfe" accentColor="#2563eb">
-                  <textarea rows={4} style={inputStyle} placeholder="Saisissez l'observation..." value={form.remarque || ''} onChange={e => setForm(f => ({ ...f, remarque: e.target.value }))} />
-                  <label style={{ ...uploadAreaStyle, borderColor: '#bfdbfe', background: '#eff6ff' }}>
-                    <Upload size={16} color="#2563eb" />
-                    <span style={{ color: '#2563eb' }}>Joindre des documents...</span>
-                    <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => { if (e.target.files?.length) { setFilesStep4(prev => [...prev, ...Array.from(e.target.files).map(f => ({ name: f.name }))]); e.target.value = ''; } }} />
-                  </label>
-                  {filesStep4.map((f, i) => (
-                    <div key={i} style={{ ...fileChipStyle, background: '#DBEAFE', color: '#1D4ED8', justifyContent: 'space-between' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><FileText size={13} /> {f.name}</span>
-                      <X size={13} style={{ cursor: 'pointer' }} onClick={() => setFilesStep4(prev => prev.filter((_, j) => j !== i))} />
-                    </div>
-                  ))}
+                  <textarea
+                    rows={4} style={inputStyle}
+                    placeholder="Saisissez l'observation..."
+                    value={form.remarque || ''}
+                    onChange={e => setForm(f => ({ ...f, remarque: e.target.value }))}
+                  />
+                  <DocumentUploadBlock
+                    borderColor="#bfdbfe"
+                    bgColor="#eff6ff"
+                    accentColor="#2563eb"
+                    label="Ajouter des documents de remarque"
+                  />
                 </Section>
               )}
 
               {isNC && (
-                <div style={{ animation: 'fadeInUp 0.3s ease', marginTop: 20 }}>
+                <div style={{ animation: 'fadeInUp 0.3s ease' }}>
                   <div style={{ textAlign: 'center', padding: 24, background: '#fef2f2', borderRadius: 12, border: '1px dashed #ef4444' }}>
                     <p style={{ fontSize: 13, color: '#991b1b', marginBottom: 15, fontWeight: 700, fontFamily: T.font }}>
                       {hasPlanAction() ? "Un plan d'action est déjà configuré pour cette NC." : "Un plan d'action est recommandé pour ce statut de Non-Conformité."}
@@ -1052,7 +1331,6 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding: '20px 28px', borderTop: `1px solid ${T.gray200}`, display: 'flex', gap: 12 }}>
           <button onClick={onClose} style={btnSecondary}>Annuler</button>
           <button
@@ -1068,10 +1346,6 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION
-// ─────────────────────────────────────────────────────────────────────────────
-
 function Section({ num, title, children, animate, accentBg, accentBorder, accentColor }) {
   return (
     <section style={{ animation: animate ? 'fadeInUp 0.3s ease' : 'none', padding: accentBg ? 18 : 0, background: accentBg || 'transparent', borderRadius: accentBg ? 14 : 0, border: accentBg ? `1.5px solid ${accentBorder}` : 'none' }}>
@@ -1084,10 +1358,6 @@ function Section({ num, title, children, animate, accentBg, accentBorder, accent
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STYLES PARTAGÉS
-// ─────────────────────────────────────────────────────────────────────────────
-
 const inputStyle = {
   width: '100%', padding: '11px 13px', borderRadius: 10,
   border: `1px solid ${T.gray200}`, fontSize: 13, outline: 'none',
@@ -1099,13 +1369,7 @@ const uploadAreaStyle = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
   padding: 14, border: `2px dashed ${T.gray200}`, borderRadius: 12,
   color: T.gray500, fontSize: 12, cursor: 'pointer', background: '#f9fafb',
-  marginTop: 10, fontFamily: T.font,
-};
-
-const fileChipStyle = {
-  marginTop: 7, fontSize: 12, background: '#EFF6FF', color: '#1D4ED8',
-  padding: '7px 12px', borderRadius: 8, display: 'flex', alignItems: 'center',
-  gap: 7, fontWeight: 600, fontFamily: T.font,
+  marginTop: 10, fontFamily: T.font, transition: 'all 0.2s',
 };
 
 const btnPrimary = {

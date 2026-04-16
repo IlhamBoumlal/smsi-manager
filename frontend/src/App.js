@@ -15,6 +15,7 @@ import Progression from './components/Progression';
 import ClauseDashboard from './components/ClausesDashboard';
 import ClauseDetail from './components/ClauseDetail';
 import CartographieProcessus from './components/CartographieProcessus';
+import GestionIncidents from './components/GestionIncidents';
 
 export default function App() {
   return (
@@ -46,6 +47,9 @@ export default function App() {
         <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />
         <Route path="/admin/societes"     element={<PrivateAdminRoute><GestionSocietes /></PrivateAdminRoute>} />
         <Route path="/admin/holdings"     element={<PrivateAdminRoute><GestionHoldings /></PrivateAdminRoute>} />
+        {/* gestion des incidents */}
+        <Route path="/incidents" element={<GestionIncidents />} />
+
       </Route>
     </Routes>
   );

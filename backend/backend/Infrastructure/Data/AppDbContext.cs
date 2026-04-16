@@ -26,6 +26,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
     public DbSet<Profil> Profils { get; set; }
     public DbSet<ControleHistorique> ControleHistoriques { get; set; }
+    public DbSet<Incident> Incidents { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

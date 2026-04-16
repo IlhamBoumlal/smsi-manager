@@ -8,12 +8,41 @@ using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.Net.Mail;
+using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
+using backend.API.Hubs;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuration SMTP
+
+// Juste avant la création du SmtpClient
+var smtpUser = builder.Configuration["EmailSettings:SmtpUser"];
+var smtpPass = builder.Configuration["EmailSettings:SmtpPass"];
+Console.WriteLine($"🔍 SMTP User: {smtpUser}");
+Console.WriteLine($"🔍 SMTP Pass length: {smtpPass?.Length} chars");
+Console.WriteLine($"🔍 SMTP Pass: [{smtpPass}]");
+
+var smtpClient = new SmtpClient
+{
+    Host = builder.Configuration["EmailSettings:SmtpServer"],
+    Port = int.Parse(builder.Configuration["EmailSettings:SmtpPort"]!),
+    EnableSsl = true,
+    UseDefaultCredentials = false,
+    Credentials = new NetworkCredential(smtpUser, smtpPass)
+};
+// Enregistrement FluentEmail
+builder.Services
+    .AddFluentEmail(builder.Configuration["EmailSettings:FromEmail"],
+                    builder.Configuration["EmailSettings:FromName"])
+    .AddSmtpSender(smtpClient);
+
+// Enregistrement SignalR
+builder.Services.AddSignalR();
 
 // ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
 /*builder.Services.AddDbContext<AppDbContext>(options =>
@@ -62,7 +91,7 @@ builder.Services.AddAuthentication(opt =>
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("AllowReact", p =>
-        p.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        p.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:3001")
          .AllowAnyMethod()
          .AllowAnyHeader()
          .AllowCredentials());
@@ -81,8 +110,12 @@ builder.Services.AddControllers()
     });
 
 // ─── MEDIATR ──────────────────────────────────────────────────────────────────
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+builder.Services.AddMediatR(cfg => {
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    cfg.RegisterServicesFromAssembly(
+        typeof(backend.Application.Incidents.Commands.CreateIncident.CreateIncidentHandler).Assembly
+    );
+});
 
 // ─── REPOSITORIES ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -97,27 +130,22 @@ builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClauseService, ClauseService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
-
-// ─── PIPELINE ─────────────────────────────────────────────────────────────────
-app.UseStaticFiles();
-app.UseRouting();
-app.UseCors("AllowReact");
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-
-app.Run();
-
 // ─── SEED ADMIN ───────────────────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    await SeedAdminAsync(scope.ServiceProvider);
+    await SeedTraitantAsync(scope.ServiceProvider);
+}
 static async Task SeedAdminAsync(IServiceProvider services)
 {
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-    const string adminEmail = "admin@alexsys.com";
+    const string adminEmail = "boumlalilham@gmail.com";//admin@alexsys.com
     const string adminPassword = "Admin@123456!";
     const string adminRole = "Admin";
 
@@ -133,7 +161,7 @@ static async Task SeedAdminAsync(IServiceProvider services)
         {
             UserName = adminEmail,
             Email = adminEmail,
-            NomComplet = "Administrateur",
+            NomComplet = "Admin",
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -143,3 +171,65 @@ static async Task SeedAdminAsync(IServiceProvider services)
             await userManager.AddToRoleAsync(admin, adminRole);
     }
 }
+static async Task SeedTraitantAsync(IServiceProvider services)
+{
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+    const string traitantEmail = "traitant@gmail.com";
+    const string traitantPassword = "User@123456!";
+    const string userRole = "User";
+
+    // Créer le rôle User s'il n'existe pas
+    if (!await roleManager.RoleExistsAsync(userRole))
+    {
+        await roleManager.CreateAsync(new IdentityRole(userRole));
+        Console.WriteLine("✅ Rôle 'User' créé");
+    }
+
+    // Créer l'utilisateur traitant s'il n'existe pas
+    var existingTraitant = await userManager.FindByEmailAsync(traitantEmail);
+    if (existingTraitant is null)
+    {
+        var traitant = new ApplicationUser
+        {
+            UserName = traitantEmail,
+            Email = traitantEmail,
+            NomComplet = "Traitant Test",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(traitant, traitantPassword);
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(traitant, userRole);
+            Console.WriteLine($"✅ Utilisateur traitant créé: {traitantEmail} / {traitantPassword}");
+        }
+        else
+        {
+            Console.WriteLine("❌ Erreur création utilisateur traitant:");
+            foreach (var error in result.Errors)
+            {
+                Console.WriteLine($"   - {error.Description}");
+            }
+        }
+    }
+    else
+    {
+        Console.WriteLine($"ℹ️ L'utilisateur traitant existe déjà: {traitantEmail}");
+    }
+}
+// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+app.UseStaticFiles();
+    app.UseRouting();
+    app.UseCors("AllowReact");
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapControllers();
+    app.MapHub<NotificationHub>("/notificationHub");
+
+
+    app.Run();
+
+

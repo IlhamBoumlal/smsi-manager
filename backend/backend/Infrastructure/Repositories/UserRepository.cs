@@ -59,5 +59,10 @@ namespace backend.Infrastructure.Repositories
         public Task<IdentityResult> DeleteAsync(ApplicationUser user)
             => _userManager.DeleteAsync(user);
 
+        public async Task<List<ApplicationUser>> GetUsersByRoleAsync(string role)
+        {
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role);
+            return usersInRole.ToList();
+        }
     }
 }

@@ -59,6 +59,7 @@ public class UpdateControleCommandHandler
                     case Statut.Conforme:
                         entite.JustificationConformite = request.JustificationConformite;
                         entite.Remarque = null;
+                        entite.Preuves = request.Preuves;
                         ResetPlanAction(entite);
                         break;
 

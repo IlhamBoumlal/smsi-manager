@@ -20,6 +20,7 @@ const mainAxes = [
 const moreAxes = [
   { id: "audits", label: "Audits", path: "/audits", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", icon: <Database size={20} /> },
+  { id: "incidents", label: "Gestion Incidents", path: "/incidents", icon: <Network size={20} /> },
 ];
 
 const adminMenuItems = [
@@ -29,7 +30,7 @@ const adminMenuItems = [
   { label: "Holdings",       Icon: Building2,  path: "/admin/holdings"     },
 ];
 
-const ADMIN_EMAIL = "admin@alexsys.com";
+const ADMIN_EMAIL = "ilham.boumlal@usmba.ac.ma";
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
