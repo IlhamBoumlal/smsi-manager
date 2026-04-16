@@ -15,10 +15,7 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public AuthController(IMediator mediator) => _mediator = mediator;
 
-<<<<<<< HEAD
         [Authorize(Roles = "Admin")]
-=======
->>>>>>> meriem
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
@@ -47,8 +44,4 @@ namespace backend.API.Controllers
             societeId = User.FindFirst("SocieteId")?.Value
         });
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> meriem

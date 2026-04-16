@@ -64,5 +64,7 @@ namespace Domain.Entities
         // Navigation
         public IsoClause? Clause { get; set; }
         public IsoClause? SubClause { get; set; }
+        // In your ActionPlan entity class, add:
+        public ICollection<PlanStep> PlanSteps { get; set; } = new List<PlanStep>();
     }
 }

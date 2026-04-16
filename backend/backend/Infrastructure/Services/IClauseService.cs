@@ -1,11 +1,7 @@
 using Application.DTOs.Clause;
 using Microsoft.AspNetCore.Http;
 
-<<<<<<< HEAD
-namespace backend.Infrastructure.Services
-=======
 namespace Infrastructure.Services
->>>>>>> meriem
 {
     public interface IClauseService
     {
