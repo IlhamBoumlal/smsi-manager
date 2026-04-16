@@ -1,13 +1,10 @@
 ﻿using backend.Application.Controles.Commands.UpdateControle;
 using backend.Application.Controles.Queries.GetAllControles;
 using backend.Application.Controles.Queries.GetControleById;
-using backend.Domain.Entities;
-using backend.Infrastructure.Data;
 using MediatR;
 //<<<<<<< HEAD
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.API.Controllers
 {

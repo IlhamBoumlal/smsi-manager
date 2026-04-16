@@ -4,7 +4,7 @@ using System.Security.Claims;
 using Application.DTOs.Clause;
 using Infrastructure.Services;
 
-namespace API.Controllers;
+namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
