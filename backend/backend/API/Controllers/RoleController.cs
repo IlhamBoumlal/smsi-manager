@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 using backend.Application.Roles.Queries.GetAllRoles;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+=======
+﻿using backend.Application.Roles.Queries.GetAllRoles;
+using MediatR;
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
     [Authorize]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class RoleController : ControllerBase

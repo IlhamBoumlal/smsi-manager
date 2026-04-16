@@ -4,13 +4,19 @@ using backend.Application.Controles.Queries.GetControleById;
 using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using MediatR;
+<<<<<<< HEAD
 using Microsoft.AspNetCore.Authorization;
+=======
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
     [Authorize]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class ControlesController : ControllerBase
@@ -36,4 +42,8 @@ namespace backend.API.Controllers
             return success ? Ok(data) : BadRequest(error);
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> meriem

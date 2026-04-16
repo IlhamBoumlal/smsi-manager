@@ -4,12 +4,18 @@ using backend.Application.Actifs.Commands.UpdateActif;
 using backend.Application.Actifs.Queries.GetActifById;
 using backend.Application.Actifs.Queries.GetAllActifs;
 using MediatR;
+<<<<<<< HEAD
 using Microsoft.AspNetCore.Authorization;
+=======
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
     [Authorize]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class ActifsController : ControllerBase
@@ -49,4 +55,8 @@ namespace backend.API.Controllers
             return deleted ? NoContent() : NotFound();
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> meriem

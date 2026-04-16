@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faLandmark, faCrown, faBullseye, faCog, faWrench, faChartBar, faArrowsRotate,
   faChevronLeft, faChevronDown, faChevronRight,
   faPen, faTrash, faPlus, faCircleCheck, faListCheck,
-  faMagnifyingGlass, faFloppyDisk, faTriangleExclamation,
+  faMagnifyingGlass, faShieldHalved, faFloppyDisk, faTriangleExclamation,
   faCircleInfo, faPaperclip, faUser, faCalendar, faHashtag,
   faCheckCircle, faCircleXmark, faCircleMinus,
   faArrowLeft, faSpinner, faLightbulb, faClipboardList,
@@ -217,7 +218,7 @@ async function flushPendingFiles(planId, form, setForm) {
    HYBRID LIST FIELD
 ════════════════════════════════════════════════════════════ */
 function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, accentColor, label, labelStyle }) {
-  const items = useMemo(() => (Array.isArray(itemsProp) ? itemsProp : []), [itemsProp]);
+  const items = Array.isArray(itemsProp) ? itemsProp : [];
 
   // On utilise un ref pour avoir accès à la liste courante dans les callbacks
   // async sans dépendre d'une closure périmée.
@@ -1216,6 +1217,8 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
   const [proofsLoaded, setPL]         = useState(false);
   // Fichiers ajoutés PENDANT l'évaluation (avant save) quand statut = conforme
   const [pendingProofFiles, setPendingProofFiles] = useState([]);
+  const [uploadingProof,    setUploadingProof]    = useState(false);
+  const [uploadProofPct,    setUploadProofPct]    = useState(0);
   const proofFileRef = useRef(null);
 
   useEffect(()=>{ if(conformity) setForm({status:conformity.status,score:conformity.score||0,lastAudit:conformity.lastAudit||"",nextAudit:conformity.nextAudit||"",comments:conformity.comments||""}); },[conformity]);
@@ -1495,6 +1498,7 @@ function LoadingSkeleton() {
 ════════════════════════════════════════════════════════════ */
 export default function ClauseDetail() {
   const { id }           = useParams();
+  const { logout }       = useAuth();
   const navigate         = useNavigate();
 
   const [clause,             setClause]            = useState(null);

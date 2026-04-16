@@ -1,28 +1,52 @@
+<<<<<<< HEAD
 using backend.Application.Auth.Commands.Login;
 using backend.Application.Services;
 using backend.Domain.Entities;
+=======
+﻿using backend.Application.Services;
+>>>>>>> meriem
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
 using Domain.Interfaces;
 using Infrastructure.Repositories;
+<<<<<<< HEAD
 using MediatR;
+=======
+using Infrastructure.Services;
+>>>>>>> meriem
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+<<<<<<< HEAD
 using System.Reflection;
+=======
+>>>>>>> meriem
 using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+<<<<<<< HEAD
 // ─── DATABASE ────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ─── IDENTITY ────────────────────────────────────────────────────────────────
+=======
+// ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+/*builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
+    ));*/
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// ─── IDENTITY ─────────────────────────────────────────────────────────────────
+>>>>>>> meriem
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 {
     opt.Password.RequiredLength = 8;
@@ -35,7 +59,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
+<<<<<<< HEAD
 // ─── AUTH / JWT ─────────────────────────────────────────────────────────────
+=======
+// ─── JWT ──────────────────────────────────────────────────────────────────────
+>>>>>>> meriem
 builder.Services.AddAuthentication(opt =>
 {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -56,11 +84,16 @@ builder.Services.AddAuthentication(opt =>
     };
 });
 
+<<<<<<< HEAD
 // ─── CORS ───────────────────────────────────────────────────────────────────
+=======
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+>>>>>>> meriem
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("AllowReact", p =>
         p.WithOrigins("http://localhost:3000", "http://localhost:5173")
+<<<<<<< HEAD
          .AllowAnyHeader()
          .AllowAnyMethod()
          .AllowCredentials());
@@ -86,12 +119,34 @@ builder.Services.AddMediatR(cfg =>
 });
 
 // ─── REPOSITORIES ────────────────────────────────────────────────────────────
+=======
+         .AllowAnyMethod()
+         .AllowAnyHeader()
+         .AllowCredentials());
+});
+
+// ─── CONTROLLERS ──────────────────────────────────────────────────────────────
+builder.Services.AddControllers()
+    .AddJsonOptions(opt =>
+    {
+        opt.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
+
+// ─── MEDIATR ──────────────────────────────────────────────────────────────────
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// ─── REPOSITORIES ─────────────────────────────────────────────────────────────
+>>>>>>> meriem
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocieteRepository, SocieteRepository>();
 builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IActifRepository, ActifRepository>();
 builder.Services.AddScoped<IControleRepository, ControleRepository>();
+<<<<<<< HEAD
 builder.Services.AddScoped<IDocumentationRepository, DocumentationRepository>();
 builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 builder.Services.AddScoped<IRiskStudyRepository, RiskStudyRepository>();
@@ -108,10 +163,35 @@ using (var scope = app.Services.CreateScope())
 {
     await DbInitializer.InitializeAsync(scope.ServiceProvider);
 
+=======
+
+builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
+builder.Services.AddScoped<IFormationRepository, FormationRepository>();
+
+// Service email FluentEmail + Gmail SMTP
+builder.Services.AddScoped<IEmailService, FormationEmailService>();
+builder.Services.AddHostedService<RappelHostedService>();
+// ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+builder.Services.AddScoped<IClauseService, ClauseService>();
+builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
+// ─────────────────────────────────────────────────────────────────────────────
+var app = builder.Build();
+
+// ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    await DbInitializer.InitializeAsync(scope.ServiceProvider);
+    await SeedAdminAsync(scope.ServiceProvider);
+    
+    // Seed ISO 27001 Clauses
+>>>>>>> meriem
     var clauseService = scope.ServiceProvider.GetRequiredService<IClauseService>();
     await clauseService.SeedClausesAsync();
 }
 
+<<<<<<< HEAD
 // ─── PIPELINE ────────────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
@@ -119,10 +199,51 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+=======
+// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+>>>>>>> meriem
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+<<<<<<< HEAD
 app.Run();
+=======
+
+app.Run();
+
+// ─── SEED ADMIN ───────────────────────────────────────────────────────────────
+static async Task SeedAdminAsync(IServiceProvider services)
+{
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+    const string adminEmail = "admin@alexsys.com";
+    const string adminPassword = "Admin@123456!";
+    const string adminRole = "Admin";
+
+    // Créer le rôle Admin s'il n'existe pas
+    if (!await roleManager.RoleExistsAsync(adminRole))
+        await roleManager.CreateAsync(new IdentityRole(adminRole));
+
+    // Créer l'utilisateur Admin s'il n'existe pas
+    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+    if (existingAdmin is null)
+    {
+        var admin = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            NomComplet = "Administrateur",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(admin, adminPassword);
+        if (result.Succeeded)
+            await userManager.AddToRoleAsync(admin, adminRole);
+    }
+}
+>>>>>>> meriem

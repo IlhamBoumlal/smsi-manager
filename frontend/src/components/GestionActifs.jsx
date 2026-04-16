@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, X, Database, Shield, Lock, ChevronDown, Layers, CheckCircle } from 'lucide-react';
+
 import axiosInstance from '../api/axiosInstance';
 
-const API = '/api';
+const API = 'http://localhost:5006/api';
 
 // ─── ENUMS ────────────────────────────────────────────────────────────────────
 const TypeActif = { Support: 'Support', Primaire: 'Primaire' };
@@ -67,6 +68,9 @@ export default function GestionActifs() {
       const [actifsRes, rolesRes] = await Promise.all([
         axiosInstance.get(`${API}/actifs`),
         axiosInstance.get(`${API}/role`),   
+
+        axios.get(`${API}/actifs`),
+        axios.get(`${API}/role`),   
       ]);
       setActifs(actifsRes.data);
       setRoles(rolesRes.data);          
@@ -123,6 +127,7 @@ export default function GestionActifs() {
       } else {
         // POST /api/actif
         await axiosInstance.post(`${API}/actifs`, payload);
+        await axios.put(`${API}/actifs/${editing.id}`, payload);
       }
 
       await fetchAll();
@@ -142,6 +147,7 @@ export default function GestionActifs() {
     if (!window.confirm('Supprimer cet actif ?')) return;
     try {
       await axiosInstance.delete(`${API}/actifs/${id}`);
+      await axios.delete(`${API}/actifs/${id}`);
       await fetchAll();
     } catch (err) {
       alert('Erreur lors de la suppression');

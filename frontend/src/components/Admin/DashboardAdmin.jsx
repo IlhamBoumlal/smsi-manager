@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Users, UserCheck, UserX, Building2, Factory, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
-import axiosInstance from '../../api/axiosInstance';
+import axios from 'axios';
 
-const API = '/api';
+const API = 'http://localhost:5006/api';
 
 // Composant DashboardAdmin : Tableau de bord administrateur avec statistiques animées
 // Affiche des métriques sur utilisateurs, sociétés, holdings avec graphiques et animations
@@ -121,9 +121,9 @@ export default function DashboardAdmin() {
     const fetchAll = async () => {
       try {
         const [usersRes, societesRes, holdingsRes] = await Promise.all([
-          axiosInstance.get(`${API}/user`),
-          axiosInstance.get(`${API}/societe`),
-          axiosInstance.get(`${API}/holding`),
+          axios.get(`${API}/user`),
+          axios.get(`${API}/societe`),
+          axios.get(`${API}/holding`),
         ]);
         const users = usersRes.data;
         const now = new Date();

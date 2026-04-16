@@ -17,6 +17,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 # Local config
 backend/backend/appsettings.json
 frontend/.env
@@ -33,3 +34,6 @@ packages/
 dist/
 build/
 coverage/
+=======
+backend/backend/appsettings.jsonbackend/backend/appsettings.json
+>>>>>>> meriem

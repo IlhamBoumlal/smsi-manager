@@ -11,6 +11,8 @@ import {
   Factory,
   Building2,
   Shield,
+  ClipboardCheck,
+  Network,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { resolveAssetUrl } from "../api/url";
@@ -20,19 +22,21 @@ const mainAxes = [
   { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord" },
   { id: "pdca", label: "PDCA", path: "/pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses" },
-  { id: "controles", label: "Controles", path: "/controles" },
+  { id: "controles", label: "Contrôles", path: "/controles" },
   { id: "documentation", label: "Documentation", path: "/documentation" },
+  { id: "risques", label: "Risques", path: "/risques" },
 ];
 
 const moreAxes = [
+  { id: "audits", label: "Audits", path: "/audits", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", icon: <Database size={20} /> },
-  { id: "gestion-risque", label: "Gestion de risque", path: "/risques", icon: <Shield size={20} /> },
+  { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", icon: <Network size={20} /> },
 ];
 
 const adminMenuItems = [
   { label: "Statistiques", Icon: BarChart3, path: "/admin/stats" },
   { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs" },
-  { label: "Societes", Icon: Factory, path: "/admin/societes" },
+  { label: "Sociétés", Icon: Factory, path: "/admin/societes" },
   { label: "Holdings", Icon: Building2, path: "/admin/holdings" },
 ];
 
@@ -47,9 +51,12 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const location = useLocation();
   const { user, logoutUser } = useAuth();
 
+  // Détecte automatiquement l'axe actif depuis l'URL courante
   const allAxes = [...mainAxes, ...moreAxes];
   const activeAxe =
-    activeAxeProp ?? allAxes.find((a) => a.path === location.pathname)?.id ?? "tableau-bord";
+    activeAxeProp ??
+    allAxes.find((a) => a.path === location.pathname)?.id ??
+    "tableau-bord";
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
   const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
@@ -97,6 +104,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+        {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
           onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
@@ -112,6 +120,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </div>
         </div>
 
+        {/* NAVIGATION */}
         <nav className="flex items-center gap-2 flex-1 justify-center">
           {mainAxes.map((axe) => (
             <NavButton
@@ -121,7 +130,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
               onClick={() => handleAxeChange(axe)}
             />
           ))}
-
           <div ref={dropdownRef} className="relative">
             <NavButton
               label="Plus"
@@ -152,6 +160,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </div>
         </nav>
 
+        {/* PROFIL */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
@@ -217,7 +226,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                       <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                         <LogOut size={18} className="text-red-500" />
                       </span>
-                      Deconnexion
+                      Déconnexion
                     </button>
                   </div>
                 </div>

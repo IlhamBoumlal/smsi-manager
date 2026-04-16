@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 using backend.Domain.Interfaces;
+=======
+﻿using backend.Domain.Interfaces;
+>>>>>>> meriem
 
 namespace backend.Infrastructure.Services
 {
@@ -26,6 +30,7 @@ namespace backend.Infrastructure.Services
             var oldPath = Path.Combine("wwwroot", logoPath.TrimStart('/'));
             if (File.Exists(oldPath)) File.Delete(oldPath);
         }
+<<<<<<< HEAD
 
         public async Task<string?> SaveDocumentAsync(IFormFile? file)
         {
@@ -49,5 +54,7 @@ namespace backend.Infrastructure.Services
             var oldPath = Path.Combine("wwwroot", documentPath.TrimStart('/'));
             if (File.Exists(oldPath)) File.Delete(oldPath);
         }
+=======
+>>>>>>> meriem
     }
 }

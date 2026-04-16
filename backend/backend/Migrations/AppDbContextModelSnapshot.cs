@@ -102,6 +102,42 @@ namespace backend.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.ActionCorrective", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("NonConformiteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Responsible")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NonConformiteId");
+
+                    b.ToTable("ActionsCorrectives");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ActionPlan", b =>
                 {
                     b.Property<int>("Id")
@@ -273,6 +309,111 @@ namespace backend.Migrations
                     b.ToTable("ActionPlans");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Audit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Approver")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Auditor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Date")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Objectives")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Org")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Rssi")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Audits");
+                });
+
+            modelBuilder.Entity("Domain.Entities.AuditControlStatus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AuditId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ControlId")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Statut")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuditId");
+
+                    b.ToTable("AuditControlStatuses");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.Property<int>("Id")
@@ -353,6 +494,56 @@ namespace backend.Migrations
                     b.ToTable("ConformityStatuses");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Document", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("FichierData")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("FichierNom")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("FichierType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Nom")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProcessusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Statut")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessusId");
+
+                    b.ToTable("Documents");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
                 {
                     b.Property<int>("Id")
@@ -441,6 +632,69 @@ namespace backend.Migrations
                     b.ToTable("IsoClauses");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.NonConformite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Actor")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("AuditId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuditName")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ControlId")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("CorrectiveAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Responsible")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuditId");
+
+                    b.ToTable("NonConformites");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaCycle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -567,6 +821,40 @@ namespace backend.Migrations
                     b.ToTable("PlanSteps");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Processus", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Categorie")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Nom")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Responsable")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Processus");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.Section", b =>
                 {
                     b.Property<Guid>("Id")
@@ -593,6 +881,55 @@ namespace backend.Migrations
                     b.ToTable("Sections");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.SimulationAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AnswersJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Author")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CommentsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalAnswered")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalNon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalOui")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SimulationAudits");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -2216,12 +2553,17 @@ namespace backend.Migrations
                         });
                 });
 
+<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.DocumentationDocument", b =>
+=======
+            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
+>>>>>>> meriem
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+<<<<<<< HEAD
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -2289,11 +2631,130 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Version")
+=======
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateDebut")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Departement")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Duree")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Formateur")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FormateurType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LmsLink")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("NotifInvit")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotifRappel")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Objectif")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SocieteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Formations");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FormationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormationId");
+
+                    b.ToTable("FormationDocuments");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.FormationNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FormationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+>>>>>>> meriem
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
+<<<<<<< HEAD
                     b.HasIndex("ApprovedByUserId");
 
                     b.HasIndex("CreatedByUserId");
@@ -2307,6 +2768,50 @@ namespace backend.Migrations
                     b.HasIndex("SocieteId", "Status");
 
                     b.ToTable("DocumentationDocuments", (string)null);
+=======
+                    b.HasIndex("FormationId");
+
+                    b.ToTable("FormationNotifications");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.FormationParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AvatarColor")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Department")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FormationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Initials")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormationId");
+
+                    b.ToTable("FormationParticipants");
+>>>>>>> meriem
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>
@@ -2326,6 +2831,7 @@ namespace backend.Migrations
                     b.ToTable("Holdings");
                 });
 
+<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2388,6 +2894,8 @@ namespace backend.Migrations
                     b.ToTable("RiskStudies", (string)null);
                 });
 
+=======
+>>>>>>> meriem
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
                 {
                     b.Property<int>("Id")
@@ -2422,6 +2930,20 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.ActionCorrective", b =>
+                {
+                    b.HasOne("Domain.Entities.NonConformite", "NonConformite")
+                        .WithMany("CorrectiveActions")
+                        .HasForeignKey("NonConformiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NonConformite");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ActionPlan", b =>
                 {
                     b.HasOne("Domain.Entities.IsoClause", "Clause")
@@ -2440,6 +2962,20 @@ namespace backend.Migrations
                     b.Navigation("SubClause");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.AuditControlStatus", b =>
+                {
+                    b.HasOne("Domain.Entities.Audit", "Audit")
+                        .WithMany("ControlStatuses")
+                        .HasForeignKey("AuditId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Audit");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.HasOne("Domain.Entities.IsoClause", "Clause")
@@ -2462,6 +2998,18 @@ namespace backend.Migrations
                     b.Navigation("Clause");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Document", b =>
+                {
+                    b.HasOne("Domain.Entities.Processus", null)
+                        .WithMany("Documents")
+                        .HasForeignKey("ProcessusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
                 {
                     b.HasOne("Domain.Entities.ActionPlan", "ActionPlan")
@@ -2488,6 +3036,19 @@ namespace backend.Migrations
                     b.Navigation("Parent");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.NonConformite", b =>
+                {
+                    b.HasOne("Domain.Entities.Audit", "Audit")
+                        .WithMany("NonConformites")
+                        .HasForeignKey("AuditId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Audit");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaItem", b =>
                 {
                     b.HasOne("Domain.Entities.Section", "Section")
@@ -2592,6 +3153,7 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.DocumentationDocument", b =>
                 {
                     b.HasOne("ApplicationUser", "ApprovedByUser")
@@ -2645,6 +3207,39 @@ namespace backend.Migrations
                     b.Navigation("LastModifiedByUser");
 
                     b.Navigation("Societe");
+=======
+            modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
+                        .WithMany("FormationDocuments")
+                        .HasForeignKey("FormationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Formation");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.FormationNotification", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
+                        .WithMany("Notifications")
+                        .HasForeignKey("FormationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Formation");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.FormationParticipant", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
+                        .WithMany("Participants")
+                        .HasForeignKey("FormationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Formation");
+>>>>>>> meriem
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
@@ -2656,6 +3251,16 @@ namespace backend.Migrations
                     b.Navigation("Holding");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Audit", b =>
+                {
+                    b.Navigation("ControlStatuses");
+
+                    b.Navigation("NonConformites");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.Navigation("Files");
@@ -2670,6 +3275,14 @@ namespace backend.Migrations
                     b.Navigation("SubClauses");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.NonConformite", b =>
+                {
+                    b.Navigation("CorrectiveActions");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaCycle", b =>
                 {
                     b.Navigation("Phases");
@@ -2680,11 +3293,31 @@ namespace backend.Migrations
                     b.Navigation("Sections");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("Domain.Entities.Processus", b =>
+                {
+                    b.Navigation("Documents");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.Section", b =>
                 {
                     b.Navigation("Items");
                 });
 
+<<<<<<< HEAD
+=======
+            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
+                {
+                    b.Navigation("FormationDocuments");
+
+                    b.Navigation("Notifications");
+
+                    b.Navigation("Participants");
+                });
+
+>>>>>>> meriem
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>
                 {
                     b.Navigation("Societes");

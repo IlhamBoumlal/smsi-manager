@@ -7,12 +7,18 @@ using backend.Application.Users.Commands.DeleteUser;
 using backend.Application.Users.Commands.UpdateUser;
 using backend.Application.Users.Queries.GetAllUsers;
 using MediatR;
+<<<<<<< HEAD
 using Microsoft.AspNetCore.Authorization;
+=======
+>>>>>>> meriem
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+<<<<<<< HEAD
     [Authorize(Roles = "Admin")]
+=======
+>>>>>>> meriem
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
@@ -62,4 +68,8 @@ namespace backend.API.Controllers
             return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> meriem

@@ -11,8 +11,6 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.13.6",
-    "html2pdf.js": "^0.14.0",
-    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.575.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -24,7 +22,6 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build:ci": "node -e \"process.env.CI='true'; require('react-scripts/scripts/build');\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
