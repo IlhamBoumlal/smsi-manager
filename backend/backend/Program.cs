@@ -90,6 +90,11 @@ builder.Services.AddScoped<IActifRepository, ActifRepository>();
 builder.Services.AddScoped<IControleRepository, ControleRepository>();
 
 builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
+builder.Services.AddScoped<IFormationRepository, FormationRepository>();
+
+// Service email FluentEmail + Gmail SMTP
+builder.Services.AddScoped<IEmailService, FormationEmailService>();
+builder.Services.AddHostedService<RappelHostedService>();
 // ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();

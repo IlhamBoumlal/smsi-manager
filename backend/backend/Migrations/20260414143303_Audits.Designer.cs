@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260414143303_Audits")]
+    partial class Audits
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2535,177 +2538,6 @@ namespace backend.Migrations
                         });
                 });
 
-            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DateDebut")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Departement")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Duree")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Formateur")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("FormateurType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("LmsLink")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Mode")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("NotifInvit")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("NotifRappel")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Objectif")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Reference")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid?>("SocieteId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Formations");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<long>("FileSizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("FormationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FormationId");
-
-                    b.ToTable("FormationDocuments");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.FormationNotification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("FormationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RecipientCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FormationId");
-
-                    b.ToTable("FormationNotifications");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.FormationParticipant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AvatarColor")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Department")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("FormationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Initials")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FormationId");
-
-                    b.ToTable("FormationParticipants");
-                });
-
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>
                 {
                     b.Property<int>("Id")
@@ -2968,39 +2800,6 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
-            modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
-                {
-                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
-                        .WithMany("FormationDocuments")
-                        .HasForeignKey("FormationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Formation");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.FormationNotification", b =>
-                {
-                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
-                        .WithMany("Notifications")
-                        .HasForeignKey("FormationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Formation");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.FormationParticipant", b =>
-                {
-                    b.HasOne("backend.Domain.Entities.Formation", "Formation")
-                        .WithMany("Participants")
-                        .HasForeignKey("FormationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Formation");
-                });
-
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Holding", "Holding")
@@ -3054,15 +2853,6 @@ namespace backend.Migrations
             modelBuilder.Entity("Domain.Entities.Section", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
-                {
-                    b.Navigation("FormationDocuments");
-
-                    b.Navigation("Notifications");
-
-                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>

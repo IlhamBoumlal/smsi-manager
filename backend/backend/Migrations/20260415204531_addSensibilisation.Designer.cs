@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260415204531_addSensibilisation")]
+    partial class addSensibilisation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2584,8 +2587,7 @@ namespace backend.Migrations
 
                     b.Property<string>("Reference")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -2599,8 +2601,7 @@ namespace backend.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -2971,7 +2972,7 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Formation", "Formation")
-                        .WithMany("FormationDocuments")
+                        .WithMany("Documents")
                         .HasForeignKey("FormationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -3058,7 +3059,7 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
                 {
-                    b.Navigation("FormationDocuments");
+                    b.Navigation("Documents");
 
                     b.Navigation("Notifications");
 

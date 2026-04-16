@@ -1,4 +1,5 @@
 ﻿using backend.Domain.Entities;
+using backend.Infrastructure.Repositories;
 using Domain.Entities;
 using Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -28,6 +29,16 @@ namespace backend.Infrastructure.Data
         public DbSet<FileAttachment>   FileAttachments   => Set<FileAttachment>();
         public DbSet<Processus> Processus => Set<Processus>();
         public DbSet<Document> Documents => Set<Document>();
+        public DbSet<Audit> Audits { get; set; }
+        public DbSet<AuditControlStatus>  AuditControlStatuses { get; set; }
+        public DbSet<NonConformite>       NonConformites       { get; set; }
+        public DbSet<ActionCorrective>    ActionsCorrectives   { get; set; }
+        public DbSet<SimulationAudit>     SimulationAudits     { get; set; }
+        // Ajouter dans AppDbContext.cs :
+        public DbSet<Formation> Formations { get; set; }
+        public DbSet<FormationParticipant> FormationParticipants { get; set; }
+        public DbSet<FormationDocument> FormationDocuments { get; set; }
+        public DbSet<FormationNotification> FormationNotifications { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -134,8 +145,109 @@ namespace backend.Infrastructure.Data
                 e.Property(d => d.FichierType).HasMaxLength(100);
                 e.Property(d => d.FichierData);  // varbinary(max) en SQL Server
             });
-            // ── Seeding ────────────────────────────────────────────────────────
-            SeedControles(modelBuilder);
+            // ── Audit ──────────────────────────────────────────────────────────
+            modelBuilder.Entity<Audit>(e =>
+            {
+                e.HasKey(a => a.Id);
+                e.Property(a => a.Title).IsRequired().HasMaxLength(300);
+                e.Property(a => a.Type).IsRequired().HasMaxLength(50);
+                e.Property(a => a.Status).IsRequired().HasMaxLength(50);
+                e.Property(a => a.Auditor).IsRequired().HasMaxLength(200);
+                e.Property(a => a.Org).IsRequired().HasMaxLength(200);
+                e.Property(a => a.Rssi).HasMaxLength(200);
+                e.Property(a => a.Approver).HasMaxLength(200);
+                e.Property(a => a.Scope).HasMaxLength(500);
+                e.Property(a => a.Objectives).HasMaxLength(2000);
+                e.Property(a => a.Author).HasMaxLength(200);
+                e.Property(a => a.Date).HasMaxLength(10);
+                e.HasMany(a => a.ControlStatuses)
+                 .WithOne(s => s.Audit)
+                 .HasForeignKey(s => s.AuditId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(a => a.NonConformites)
+                 .WithOne(n => n.Audit)
+                 .HasForeignKey(n => n.AuditId)
+                 .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ── AuditControlStatus ────────────────────────────────────────────
+            modelBuilder.Entity<AuditControlStatus>(e =>
+            {
+                e.HasKey(s => s.Id);
+                e.Property(s => s.ControlId).IsRequired().HasMaxLength(10);
+                e.Property(s => s.Statut).IsRequired().HasMaxLength(5);   // C | NC | NA
+                e.Property(s => s.Comment).HasMaxLength(1000);
+            });
+
+            // ── NonConformite ─────────────────────────────────────────────────
+            modelBuilder.Entity<NonConformite>(e =>
+            {
+                e.HasKey(n => n.Id);
+                e.Property(n => n.Title).IsRequired().HasMaxLength(300);
+                e.Property(n => n.ControlId).IsRequired().HasMaxLength(10);
+                e.Property(n => n.Status).IsRequired().HasMaxLength(50);
+                e.Property(n => n.Actor).HasMaxLength(200);
+                e.Property(n => n.Responsible).HasMaxLength(200);
+                e.Property(n => n.AuditName).HasMaxLength(300);
+                e.Property(n => n.Description).HasMaxLength(2000);
+                e.Property(n => n.CorrectiveAction).HasMaxLength(2000);
+
+
+                e.HasMany(n => n.CorrectiveActions)
+                 .WithOne(a => a.NonConformite)
+                 .HasForeignKey(a => a.NonConformiteId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── ActionCorrective ──────────────────────────────────────────────
+            modelBuilder.Entity<ActionCorrective>(e =>
+            {
+                e.HasKey(a => a.Id);
+                e.Property(a => a.Description).IsRequired().HasMaxLength(1000);
+                e.Property(a => a.Responsible).HasMaxLength(200);
+                e.Property(a => a.Status).IsRequired().HasMaxLength(50);
+            });
+
+            // ── SimulationAudit ───────────────────────────────────────────────
+            modelBuilder.Entity<SimulationAudit>(e =>
+            {
+                e.HasKey(s => s.Id);
+                e.Property(s => s.Name).IsRequired().HasMaxLength(300);
+                e.Property(s => s.Author).HasMaxLength(200);
+                // Answers et Comments stockés en JSON (texte brut)
+                e.Property(s => s.AnswersJson).IsRequired().HasColumnType("nvarchar(max)");
+                e.Property(s => s.CommentsJson).IsRequired().HasColumnType("nvarchar(max)");
+            });
+
+            modelBuilder.Entity<Formation>(e =>
+            {
+                e.HasKey(f => f.Id);
+                e.Property(f => f.Reference).IsRequired().HasMaxLength(20);
+                e.Property(f => f.Title).IsRequired().HasMaxLength(200);
+
+                e.HasMany(f => f.Participants)
+                 .WithOne(p => p.Formation)
+                 .HasForeignKey(p => p.FormationId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(f => f.FormationDocuments)
+                 .WithOne(d => d.Formation)
+                 .HasForeignKey(d => d.FormationId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasMany(f => f.Notifications)
+                 .WithOne(n => n.Formation)
+                 .HasForeignKey(n => n.FormationId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FormationParticipant>().HasKey(p => p.Id);
+            modelBuilder.Entity<FormationDocument>().HasKey(d => d.Id);
+            modelBuilder.Entity<FormationNotification>().HasKey(n => n.Id);
+        
+        // ── Seeding ────────────────────────────────────────────────────────
+        SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");
         }
 

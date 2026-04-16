@@ -14,7 +14,8 @@ import Progression from './components/Progression';
 import ClauseDashboard from './components/ClausesDashboard';
 import ClauseDetail from './components/ClauseDetail';
 import CartographieProcessus from './components/CartographieProcessus';
-
+import Audits from './components/Audits';
+import Sensibilisation from './components/sensibilisation';
 export default function App() {
   return (
     <Routes>
@@ -36,7 +37,8 @@ export default function App() {
         <Route path="/clauses" element={<ClauseDashboard />} />
          {/* Route avec query string */}
       <Route path="/Clausedetail" element={<ClauseDetail />} />
-      
+      <Route path="/audits" element={<Audits />} />
+      <Route path="/sensibilisation" element={<Sensibilisation />} />
       {/* Vous pouvez garder les deux formats */}
       <Route path="/clauses/:id" element={<ClauseDetail />} />
         {/* Pages admin séparées, protégées */}
