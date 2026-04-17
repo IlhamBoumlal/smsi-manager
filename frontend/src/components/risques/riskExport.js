@@ -1,4 +1,4 @@
-import { G_LABELS, MITRE_TACTICS, V_LABELS, riskLevel } from "./riskModel";
+import { G_LABELS, MITRE_TACTICS, V_LABELS, riskEntryStatusLabel, riskLevel } from "./riskModel";
 
 const safe = (value) =>
   String(value ?? "")
@@ -706,12 +706,14 @@ function buildWorkshopSectionsForPdf(study, workshopNum) {
       {
         title: "Registre des Risques",
         type: "table",
-        headers: ["Scenario", "Gravite", "Vraisemblance", "Niveau", "Traitement"],
+        headers: ["Scenario", "Gravite", "Vraisemblance", "Niveau", "Statut", "Responsable", "Traitement"],
         rows: (w5.riskEntries || []).map((r) => [
           opScenarioMap.get(r.operationalScenarioId) || "-",
           `G${r.gravity || "-"} - ${G_LABELS[r.gravity] || "-"}`,
           `V${r.likelihood || "-"} - ${V_LABELS[r.likelihood] || "-"}`,
           riskLabelFromScore(r.gravity, r.likelihood),
+          riskEntryStatusLabel(r.status),
+          r.ownerName || r.ownerUserId || "-",
           r.treatment || "-",
         ]),
       },
@@ -1195,12 +1197,14 @@ function buildWorkshop5(study) {
   const riskMap = Object.fromEntries((w.riskEntries || []).map((entry) => [entry.id, entry]));
 
   const register = table(
-    ["Scenario", "Gravite", "Vraisemblance", "Niveau", "Traitement"],
+    ["Scenario", "Gravite", "Vraisemblance", "Niveau", "Statut", "Responsable", "Traitement"],
     (w.riskEntries || []).map((entry) => [
       safe(opScenarioMap[entry.operationalScenarioId] || "-"),
       badgeGravity(entry.gravity),
       badgeLikelihood(entry.likelihood),
       badgeRisk(entry.gravity, entry.likelihood),
+      `<span class="badge b-status-progress">${safe(riskEntryStatusLabel(entry.status))}</span>`,
+      safe(entry.ownerName || entry.ownerUserId || "-"),
       `<span class="badge b-blue">${safe(entry.treatment || "-")}</span>`,
     ]),
   );

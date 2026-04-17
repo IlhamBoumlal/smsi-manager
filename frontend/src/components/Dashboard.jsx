@@ -14,7 +14,8 @@ import {
 import axiosInstance from '../api/axiosInstance';
 import { getDashboard, getGlobalStats } from '../api/clauses';
 import { getCycle, getCycles } from '../api/pdca';
-import { getCurrentRiskStorageKey, getEffectiveWorkshopStatus, getStudyProgress, loadInitialStudies } from './risques/riskModel';
+import { getRiskStudies } from '../api/risques';
+import { getEffectiveWorkshopStatus, getStudyProgress } from './risques/riskModel';
 
 const PHS = { plan: 'PLAN', do: 'DO', check: 'CHECK', act: 'ACT' };
 const CAT_LABELS = { mgmt: 'Management', real: 'Realisation', supp: 'Support' };
@@ -222,7 +223,7 @@ export default function Dashboard() {
       setError('');
       const warn = [];
       try {
-        const [c1, c2, c3, c4, c5, c6] = await Promise.allSettled([getDashboard(), getGlobalStats(), axiosInstance.get('/api/controles'), axiosInstance.get('/api/documentation'), axiosInstance.get('/api/actifs'), pdcaLoad()]);
+        const [c1, c2, c3, c4, c5, c6, c7] = await Promise.allSettled([getDashboard(), getGlobalStats(), axiosInstance.get('/api/controles'), axiosInstance.get('/api/documentation'), axiosInstance.get('/api/actifs'), pdcaLoad(), getRiskStudies()]);
         if (!on) return;
         c1.status === 'fulfilled' ? setClauses(Array.isArray(c1.value) ? c1.value : []) : warn.push('Clauses indisponibles');
         c2.status === 'fulfilled' ? setStats((s) => ({ ...s, ...(c2.value || {}) })) : warn.push('Stats clauses indisponibles');
@@ -230,6 +231,7 @@ export default function Dashboard() {
         c4.status === 'fulfilled' ? setDocs(Array.isArray(c4.value?.data) ? c4.value.data : []) : warn.push('Documentation indisponible');
         c5.status === 'fulfilled' ? setActifs(Array.isArray(c5.value?.data) ? c5.value.data : []) : warn.push('Actifs indisponibles');
         c6.status === 'fulfilled' ? setPdca(c6.value) : warn.push('PDCA indisponible');
+        c7.status === 'fulfilled' ? setRiskStudies(Array.isArray(c7.value) ? c7.value : []) : warn.push('Risques indisponibles');
         try { const raw = localStorage.getItem('smq_v7'); setCarto(raw ? JSON.parse(raw) : []); } catch { warn.push('Cartographie locale illisible'); setCarto([]); }
       } catch (e) {
         if (on) setError(e?.message || 'Erreur chargement dashboard');
@@ -238,31 +240,6 @@ export default function Dashboard() {
       }
     })();
     return () => { on = false; };
-  }, []);
-
-  useEffect(() => {
-    const refreshRiskStudies = () => {
-      try {
-        const storageKey = getCurrentRiskStorageKey();
-        setRiskStudies(loadInitialStudies(storageKey));
-      } catch {
-        setRiskStudies([]);
-      }
-    };
-
-    refreshRiskStudies();
-    const onFocus = () => refreshRiskStudies();
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') refreshRiskStudies();
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
   }, []);
 
   const controls = useMemo(() => {

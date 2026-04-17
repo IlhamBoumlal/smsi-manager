@@ -6,6 +6,7 @@ using backend.Application.Risques.Commands.DuplicateRiskStudy;
 using backend.Application.Risques.Commands.UpdateRiskStudy;
 using backend.Application.Risques.Queries.GetAllRiskStudies;
 using backend.Application.Risques.Queries.GetRiskStudyById;
+using backend.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +19,12 @@ namespace backend.API.Controllers
     public class RisquesController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly IUserRepository _userRepository;
 
-        public RisquesController(IMediator mediator)
+        public RisquesController(IMediator mediator, IUserRepository userRepository)
         {
             _mediator = mediator;
+            _userRepository = userRepository;
         }
 
         private string CurrentUserId =>
@@ -43,6 +46,23 @@ namespace backend.API.Controllers
         {
             var studies = await _mediator.Send(new GetAllRiskStudiesQuery(search, CurrentUserId, CurrentSocieteId));
             return Ok(studies);
+        }
+
+        [HttpGet("owners")]
+        public async Task<IActionResult> GetOwners()
+        {
+            if (string.IsNullOrWhiteSpace(CurrentUserId) || !CurrentSocieteId.HasValue)
+                return Forbid();
+
+            var users = await _userRepository.GetActiveBySocieteAsync(CurrentSocieteId.Value);
+            var data = users
+                .Select(u => new RiskOwnerDto(
+                    u.Id,
+                    u.NomComplet ?? string.Empty,
+                    u.Email ?? string.Empty))
+                .ToList();
+
+            return Ok(data);
         }
 
         [HttpGet("{id:guid}")]

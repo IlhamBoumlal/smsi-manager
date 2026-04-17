@@ -27,6 +27,12 @@ namespace backend.Infrastructure.Repositories
         public Task<List<ApplicationUser>> GetAllWithSocieteAsync()
             => _userManager.Users.Include(u => u.Societe).ToListAsync();
 
+        public Task<List<ApplicationUser>> GetActiveBySocieteAsync(int societeId)
+            => _userManager.Users
+                .Where(u => u.SocieteId == societeId && u.IsActive)
+                .OrderBy(u => u.NomComplet)
+                .ToListAsync();
+
         public Task<IdentityResult> CreateAsync(ApplicationUser user, string password)
             => _userManager.CreateAsync(user, password);
 

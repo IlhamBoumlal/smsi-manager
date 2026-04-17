@@ -137,6 +137,17 @@ export const V_LABELS = { 1: "Minimal", 2: "Significatif", 3: "Fort", 4: "Maxima
 
 export const MEASURE_CATEGORIES = ["Gouvernance", "Protection", "Defense", "Resilience", "Conformite"];
 
+export const RISK_ENTRY_STATUS_OPTIONS = [
+  { value: "ouvert", label: "Ouvert" },
+  { value: "en_traitement", label: "En traitement" },
+  { value: "traite", label: "Traite" },
+  { value: "accepte", label: "Accepte" },
+];
+
+const RISK_ENTRY_STATUS_LABELS = Object.fromEntries(
+  RISK_ENTRY_STATUS_OPTIONS.map((item) => [item.value, item.label]),
+);
+
 export const MITRE_TACTICS = MITRE_ENTERPRISE_TACTICS;
 
 export const ANSSI_BASE = {
@@ -274,7 +285,17 @@ export function createDemoStudies() {
   base.workshop4.operationalModes = [{ id: opModeId, strategicScenarioId: strategicId, name: "Phishing puis mouvement lateral", description: "Acces illegitime", technics: ["T1566", "T1078"] }];
   base.workshop4.operationalScenarios = [{ id: opScenarioId, strategicScenarioId: strategicId, operationalModeIds: [opModeId], supportingAssetIds: [], likelihood: 3, name: "Ransomware AWS", description: "Chiffrement donnees" }];
 
-  base.workshop5.riskEntries = [{ id: riskEntryId, operationalScenarioId: opScenarioId, gravity: 4, likelihood: 3, treatment: "Reduction", notes: "Priorite haute" }];
+  base.workshop5.riskEntries = [{
+    id: riskEntryId,
+    operationalScenarioId: opScenarioId,
+    gravity: 4,
+    likelihood: 3,
+    treatment: "Reduction",
+    status: "en_traitement",
+    ownerUserId: "",
+    ownerName: "",
+    notes: "Priorite haute",
+  }];
   base.workshop5.measures = [{ id: uid(), category: "Protection", name: "MFA global", description: "MFA sur comptes privilegies", priority: "Critique", status: "Fait" }];
   base.workshop5.residualRisks = [{ id: uid(), riskEntryId, residualGravity: 3, residualLikelihood: 2, justification: "Mesures en place" }];
   base.workshop5.soa = [{ id: uid(), reference: "A.5.1", objective: "Politique de securite", applicable: "oui", justification: "Applicable au perimetre", implementationStatus: "implemente", linkedMeasureIds: [] }];
@@ -344,6 +365,21 @@ function normalizeRiskTreatment(value) {
   return String(value || "").trim();
 }
 
+export function normalizeRiskEntryStatus(value) {
+  const token = normalizeTextToken(value).replace(/\s+/g, "_");
+  if (!token) return "ouvert";
+  if (token === "ouvert" || token === "open") return "ouvert";
+  if (token === "en_traitement" || token === "in_progress" || token === "inprogress" || token === "ongoing") return "en_traitement";
+  if (token === "traite" || token === "treated" || token === "closed") return "traite";
+  if (token === "accepte" || token === "accepted") return "accepte";
+  return "ouvert";
+}
+
+export function riskEntryStatusLabel(value) {
+  const status = normalizeRiskEntryStatus(value);
+  return RISK_ENTRY_STATUS_LABELS[status] || "Ouvert";
+}
+
 function sanitizeStudyIntegrity(study) {
   const next = study;
 
@@ -409,6 +445,9 @@ function sanitizeStudyIntegrity(study) {
     .map((item) => ({
       ...item,
       treatment: normalizeRiskTreatment(item?.treatment),
+      status: normalizeRiskEntryStatus(item?.status),
+      ownerUserId: hasText(item?.ownerUserId) ? String(item.ownerUserId).trim() : "",
+      ownerName: hasText(item?.ownerName) ? String(item.ownerName).trim() : "",
     }));
 
   const riskEntryIds = new Set(next.workshop5.riskEntries.map((item) => item.id));
