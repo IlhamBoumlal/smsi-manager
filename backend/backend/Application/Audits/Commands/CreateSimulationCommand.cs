@@ -1,6 +1,6 @@
 ﻿using Application.DTOs;
 using backend.Infrastructure.Data;
-using Domain.Entities;
+using backend.Domain.Entities;
 using System.Text.Json;
 
 namespace backend.Application.Audits.Commands

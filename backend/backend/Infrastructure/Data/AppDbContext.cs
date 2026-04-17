@@ -1,11 +1,5 @@
-<<<<<<< HEAD
 using backend.Domain.Entities;
-=======
-﻿using backend.Domain.Entities;
-using backend.Infrastructure.Repositories;
->>>>>>> meriem
-using Domain.Entities;
-using Domain.Enumerations;
+using backend.Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -21,11 +15,8 @@ namespace backend.Infrastructure.Data
         public DbSet<Societe> Societes { get; set; }
         public DbSet<Controle> Controles { get; set; }
         public DbSet<Actif> Actifs { get; set; }
-<<<<<<< HEAD
         public DbSet<DocumentationDocument> DocumentationDocuments { get; set; }
         public DbSet<RiskStudy> RiskStudies { get; set; }
-=======
->>>>>>> meriem
         public DbSet<IsoClause> IsoClauses { get; set; }
         public DbSet<ConformityStatus> ConformityStatuses { get; set; }
         public DbSet<ActionPlan> ActionPlans { get; set; }
@@ -35,25 +26,24 @@ namespace backend.Infrastructure.Data
         public DbSet<PlanStep> PlanSteps { get; set; }
         public DbSet<Section> Sections { get; set; }
         public DbSet<ConformityProof> ConformityProofs => Set<ConformityProof>();
-        public DbSet<FileAttachment>   FileAttachments   => Set<FileAttachment>();
-<<<<<<< HEAD
-=======
+        public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
         public DbSet<Processus> Processus => Set<Processus>();
         public DbSet<Document> Documents => Set<Document>();
         public DbSet<Audit> Audits { get; set; }
-        public DbSet<AuditControlStatus>  AuditControlStatuses { get; set; }
-        public DbSet<NonConformite>       NonConformites       { get; set; }
-        public DbSet<ActionCorrective>    ActionsCorrectives   { get; set; }
-        public DbSet<SimulationAudit>     SimulationAudits     { get; set; }
-        // Ajouter dans AppDbContext.cs :
+        public DbSet<AuditControlStatus> AuditControlStatuses { get; set; }
+        public DbSet<NonConformite> NonConformites { get; set; }
+        public DbSet<ActionCorrective> ActionsCorrectives { get; set; }
+        public DbSet<SimulationAudit> SimulationAudits { get; set; }
         public DbSet<Formation> Formations { get; set; }
         public DbSet<FormationParticipant> FormationParticipants { get; set; }
         public DbSet<FormationDocument> FormationDocuments { get; set; }
         public DbSet<FormationNotification> FormationNotifications { get; set; }
->>>>>>> meriem
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // ── ConformityProof ────────────────────────────────────────────────
             modelBuilder.Entity<ConformityProof>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -64,13 +54,10 @@ namespace backend.Infrastructure.Data
                 e.HasIndex(p => new { p.IsoClauseId, p.UserId });
             });
 
+            // ── FileAttachment ─────────────────────────────────────────────────
             modelBuilder.Entity<FileAttachment>(e =>
             {
                 e.HasKey(f => f.Id);
-
-                // Contenu binaire — pas de limite de taille côté EF
-                // SQL Server crée automatiquement varbinary(max) pour byte[]
-                // PostgreSQL crée bytea
                 e.Property(f => f.Content).IsRequired();
 
                 e.HasOne(f => f.ConformityProof)
@@ -89,13 +76,14 @@ namespace backend.Infrastructure.Data
                 e.HasIndex(f => f.ActionPlanId);
                 e.HasIndex(f => f.UserId);
             });
+
             // ── ApplicationUser → Société ──────────────────────────────────────
             modelBuilder.Entity<ApplicationUser>()
                 .HasOne(u => u.Societe)
                 .WithMany()
                 .HasForeignKey(u => u.SocieteId);
 
-<<<<<<< HEAD
+            // ── DocumentationDocument ──────────────────────────────────────────
             modelBuilder.Entity<DocumentationDocument>(entity =>
             {
                 entity.ToTable("DocumentationDocuments");
@@ -124,6 +112,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
+            // ── RiskStudy ──────────────────────────────────────────────────────
             modelBuilder.Entity<RiskStudy>(entity =>
             {
                 entity.ToTable("RiskStudies");
@@ -152,8 +141,6 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-=======
->>>>>>> meriem
             // ── Controle : enum → string + index ──────────────────────────────
             modelBuilder.Entity<Controle>()
                 .Property(c => c.Domaine)
@@ -171,32 +158,23 @@ namespace backend.Infrastructure.Data
                 .HasIndex(c => c.Number);
 
             // ── ActionPlan : deux FK vers IsoClause ───────────────────────────
-            //
-            // EF Core ne peut pas deviner automatiquement quelle propriété de
-            // navigation correspond à quelle clé étrangère quand une entité
-            // possède plusieurs relations vers la même table. On les configure
-            // explicitement ici.
-            //
-            // Relation 1 : ActionPlan.IsoClauseId → IsoClause (clause parente)
+            modelBuilder.Entity<ActionPlan>()
+     .HasKey(ap => ap.Id);  // Id is now int
+
             modelBuilder.Entity<ActionPlan>()
                 .HasOne(ap => ap.Clause)
                 .WithMany(c => c.ActionPlans)
                 .HasForeignKey(ap => ap.IsoClauseId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Relation 2 : ActionPlan.SubClauseId → IsoClause (sous-clause ciblée)
-            // Pas de collection inverse sur IsoClause pour cette relation.
             modelBuilder.Entity<ActionPlan>()
                 .HasOne(ap => ap.SubClause)
                 .WithMany()
                 .HasForeignKey(ap => ap.SubClauseId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
-<<<<<<< HEAD
 
-            // ── Seeding ────────────────────────────────────────────────────────
-            SeedControles(modelBuilder);
-=======
+            // ── Processus ──────────────────────────────────────────────────────
             modelBuilder.Entity<Processus>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -210,6 +188,7 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // ── Document ───────────────────────────────────────────────────────
             modelBuilder.Entity<Document>(e =>
             {
                 e.HasKey(d => d.Id);
@@ -219,8 +198,9 @@ namespace backend.Infrastructure.Data
                 e.Property(d => d.Statut).HasMaxLength(30);
                 e.Property(d => d.FichierNom).HasMaxLength(260);
                 e.Property(d => d.FichierType).HasMaxLength(100);
-                e.Property(d => d.FichierData);  // varbinary(max) en SQL Server
+                e.Property(d => d.FichierData);
             });
+
             // ── Audit ──────────────────────────────────────────────────────────
             modelBuilder.Entity<Audit>(e =>
             {
@@ -236,6 +216,7 @@ namespace backend.Infrastructure.Data
                 e.Property(a => a.Objectives).HasMaxLength(2000);
                 e.Property(a => a.Author).HasMaxLength(200);
                 e.Property(a => a.Date).HasMaxLength(10);
+
                 e.HasMany(a => a.ControlStatuses)
                  .WithOne(s => s.Audit)
                  .HasForeignKey(s => s.AuditId)
@@ -252,7 +233,7 @@ namespace backend.Infrastructure.Data
             {
                 e.HasKey(s => s.Id);
                 e.Property(s => s.ControlId).IsRequired().HasMaxLength(10);
-                e.Property(s => s.Statut).IsRequired().HasMaxLength(5);   // C | NC | NA
+                e.Property(s => s.Statut).IsRequired().HasMaxLength(5);
                 e.Property(s => s.Comment).HasMaxLength(1000);
             });
 
@@ -268,7 +249,6 @@ namespace backend.Infrastructure.Data
                 e.Property(n => n.AuditName).HasMaxLength(300);
                 e.Property(n => n.Description).HasMaxLength(2000);
                 e.Property(n => n.CorrectiveAction).HasMaxLength(2000);
-
 
                 e.HasMany(n => n.CorrectiveActions)
                  .WithOne(a => a.NonConformite)
@@ -291,11 +271,11 @@ namespace backend.Infrastructure.Data
                 e.HasKey(s => s.Id);
                 e.Property(s => s.Name).IsRequired().HasMaxLength(300);
                 e.Property(s => s.Author).HasMaxLength(200);
-                // Answers et Comments stockés en JSON (texte brut)
                 e.Property(s => s.AnswersJson).IsRequired().HasColumnType("nvarchar(max)");
                 e.Property(s => s.CommentsJson).IsRequired().HasColumnType("nvarchar(max)");
             });
 
+            // ── Formation ─────────────────────────────────────────────────────
             modelBuilder.Entity<Formation>(e =>
             {
                 e.HasKey(f => f.Id);
@@ -317,14 +297,52 @@ namespace backend.Infrastructure.Data
                  .HasForeignKey(n => n.FormationId)
                  .OnDelete(DeleteBehavior.Cascade);
             });
+            // Add this to your OnModelCreating method, preferably near the ActionPlan configuration:
+
+            // ── PlanStep ──────────────────────────────────────────────────────
+            modelBuilder.Entity<PlanStep>(e =>
+            {
+                e.HasKey(p => p.Id);
+
+                e.Property(p => p.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                e.Property(p => p.Description)
+                    .HasMaxLength(1000);
+
+                e.Property(p => p.Status)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasDefaultValue("todo");
+
+                e.Property(p => p.Echeance)
+                    .IsRequired();
+
+                e.Property(p => p.CreatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                e.Property(p => p.UpdatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                e.HasOne(p => p.ActionPlan)
+                    .WithMany(ap => ap.PlanSteps) // Make sure ActionPlan has a PlanSteps collection
+                    .HasForeignKey(p => p.ActionPlanId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(p => p.ActionPlanId);
+                e.HasIndex(p => p.Status);
+                e.HasIndex(p => p.Echeance);
+            });
 
             modelBuilder.Entity<FormationParticipant>().HasKey(p => p.Id);
             modelBuilder.Entity<FormationDocument>().HasKey(d => d.Id);
             modelBuilder.Entity<FormationNotification>().HasKey(n => n.Id);
-        
-        // ── Seeding ────────────────────────────────────────────────────────
-        SeedControles(modelBuilder);
->>>>>>> meriem
+
+            // ── Seeding (UN SEUL appel) ────────────────────────────────────────
+            SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");
         }
 
@@ -405,8 +423,4 @@ namespace backend.Infrastructure.Data
             }
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> meriem

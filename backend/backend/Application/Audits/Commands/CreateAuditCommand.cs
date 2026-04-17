@@ -1,6 +1,6 @@
 ﻿using Application.DTOs;
 using backend.Infrastructure.Data;
-using Domain.Entities;
+using backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 

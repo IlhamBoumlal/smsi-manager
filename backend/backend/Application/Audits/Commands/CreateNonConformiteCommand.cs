@@ -1,6 +1,6 @@
 ﻿using Application.DTOs;
 using backend.Infrastructure.Data;
-using Domain.Entities;
+using backend.Domain.Entities;
 
 namespace backend.Application.Audits.Commands
 {

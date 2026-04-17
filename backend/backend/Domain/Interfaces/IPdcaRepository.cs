@@ -1,6 +1,6 @@
-using Domain.Entities;
+using backend.Domain.Entities;
 
-namespace Domain.Interfaces;
+namespace backend.Domain.Interfaces;
 
 public interface IPdcaRepository
 {

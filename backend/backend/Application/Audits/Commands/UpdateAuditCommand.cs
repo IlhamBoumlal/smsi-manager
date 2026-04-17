@@ -1,7 +1,7 @@
 ﻿using Application.Audits.Commands;
 using Application.DTOs;
 using backend.Infrastructure.Data;
-using Domain.Entities;
+using backend.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 public class UpdateAuditCommand

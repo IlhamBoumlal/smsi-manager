@@ -102,8 +102,6 @@ namespace backend.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.ActionCorrective", b =>
                 {
                     b.Property<Guid>("Id")
@@ -137,7 +135,6 @@ namespace backend.Migrations
                     b.ToTable("ActionsCorrectives");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ActionPlan", b =>
                 {
                     b.Property<int>("Id")
@@ -309,8 +306,6 @@ namespace backend.Migrations
                     b.ToTable("ActionPlans");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.Audit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -413,7 +408,6 @@ namespace backend.Migrations
                     b.ToTable("AuditControlStatuses");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.Property<int>("Id")
@@ -494,8 +488,6 @@ namespace backend.Migrations
                     b.ToTable("ConformityStatuses");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -543,7 +535,6 @@ namespace backend.Migrations
                     b.ToTable("Documents");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
                 {
                     b.Property<int>("Id")
@@ -632,8 +623,6 @@ namespace backend.Migrations
                     b.ToTable("IsoClauses");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.NonConformite", b =>
                 {
                     b.Property<Guid>("Id")
@@ -694,7 +683,6 @@ namespace backend.Migrations
                     b.ToTable("NonConformites");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaCycle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -784,45 +772,55 @@ namespace backend.Migrations
 
             modelBuilder.Entity("Domain.Entities.PlanStep", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("int");
 
-                    b.Property<Guid>("ActionPlanId")
-                        .HasColumnType("uniqueidentifier");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ActionPlanId1")
+                    b.Property<int>("ActionPlanId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime>("Echeance")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("todo");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActionPlanId1");
+                    b.HasIndex("ActionPlanId");
+
+                    b.HasIndex("Echeance");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("PlanSteps");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.Processus", b =>
                 {
                     b.Property<Guid>("Id")
@@ -854,7 +852,6 @@ namespace backend.Migrations
                     b.ToTable("Processus");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.Section", b =>
                 {
                     b.Property<Guid>("Id")
@@ -881,8 +878,6 @@ namespace backend.Migrations
                     b.ToTable("Sections");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.SimulationAudit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -929,7 +924,6 @@ namespace backend.Migrations
                     b.ToTable("SimulationAudits");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -2553,17 +2547,12 @@ namespace backend.Migrations
                         });
                 });
 
-<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.DocumentationDocument", b =>
-=======
-            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
->>>>>>> meriem
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-<<<<<<< HEAD
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -2631,7 +2620,32 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Version")
-=======
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("LastModifiedByUserId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("SocieteId", "Category");
+
+                    b.HasIndex("SocieteId", "Status");
+
+                    b.ToTable("DocumentationDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -2748,27 +2762,11 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Title")
->>>>>>> meriem
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-<<<<<<< HEAD
-                    b.HasIndex("ApprovedByUserId");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("LastModifiedByUserId");
-
-                    b.HasIndex("UpdatedAt");
-
-                    b.HasIndex("SocieteId", "Category");
-
-                    b.HasIndex("SocieteId", "Status");
-
-                    b.ToTable("DocumentationDocuments", (string)null);
-=======
                     b.HasIndex("FormationId");
 
                     b.ToTable("FormationNotifications");
@@ -2811,7 +2809,6 @@ namespace backend.Migrations
                     b.HasIndex("FormationId");
 
                     b.ToTable("FormationParticipants");
->>>>>>> meriem
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>
@@ -2831,7 +2828,6 @@ namespace backend.Migrations
                     b.ToTable("Holdings");
                 });
 
-<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2894,8 +2890,6 @@ namespace backend.Migrations
                     b.ToTable("RiskStudies", (string)null);
                 });
 
-=======
->>>>>>> meriem
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
                 {
                     b.Property<int>("Id")
@@ -2930,8 +2924,6 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.ActionCorrective", b =>
                 {
                     b.HasOne("Domain.Entities.NonConformite", "NonConformite")
@@ -2943,7 +2935,6 @@ namespace backend.Migrations
                     b.Navigation("NonConformite");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ActionPlan", b =>
                 {
                     b.HasOne("Domain.Entities.IsoClause", "Clause")
@@ -2962,8 +2953,6 @@ namespace backend.Migrations
                     b.Navigation("SubClause");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.AuditControlStatus", b =>
                 {
                     b.HasOne("Domain.Entities.Audit", "Audit")
@@ -2975,7 +2964,6 @@ namespace backend.Migrations
                     b.Navigation("Audit");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.HasOne("Domain.Entities.IsoClause", "Clause")
@@ -2998,8 +2986,6 @@ namespace backend.Migrations
                     b.Navigation("Clause");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.Document", b =>
                 {
                     b.HasOne("Domain.Entities.Processus", null)
@@ -3009,7 +2995,6 @@ namespace backend.Migrations
                         .IsRequired();
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.FileAttachment", b =>
                 {
                     b.HasOne("Domain.Entities.ActionPlan", "ActionPlan")
@@ -3036,8 +3021,6 @@ namespace backend.Migrations
                     b.Navigation("Parent");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.NonConformite", b =>
                 {
                     b.HasOne("Domain.Entities.Audit", "Audit")
@@ -3048,7 +3031,6 @@ namespace backend.Migrations
                     b.Navigation("Audit");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaItem", b =>
                 {
                     b.HasOne("Domain.Entities.Section", "Section")
@@ -3074,8 +3056,8 @@ namespace backend.Migrations
             modelBuilder.Entity("Domain.Entities.PlanStep", b =>
                 {
                     b.HasOne("Domain.Entities.ActionPlan", "ActionPlan")
-                        .WithMany()
-                        .HasForeignKey("ActionPlanId1")
+                        .WithMany("PlanSteps")
+                        .HasForeignKey("ActionPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -3153,7 +3135,6 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
-<<<<<<< HEAD
             modelBuilder.Entity("backend.Domain.Entities.DocumentationDocument", b =>
                 {
                     b.HasOne("ApplicationUser", "ApprovedByUser")
@@ -3185,29 +3166,6 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
-            modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
-                {
-                    b.HasOne("ApplicationUser", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("ApplicationUser", "LastModifiedByUser")
-                        .WithMany()
-                        .HasForeignKey("LastModifiedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
-                        .WithMany()
-                        .HasForeignKey("SocieteId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CreatedByUser");
-
-                    b.Navigation("LastModifiedByUser");
-
-                    b.Navigation("Societe");
-=======
             modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Formation", "Formation")
@@ -3239,7 +3197,30 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Formation");
->>>>>>> meriem
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
+                {
+                    b.HasOne("ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ApplicationUser", "LastModifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("LastModifiedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("LastModifiedByUser");
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
@@ -3251,8 +3232,11 @@ namespace backend.Migrations
                     b.Navigation("Holding");
                 });
 
-<<<<<<< HEAD
-=======
+            modelBuilder.Entity("Domain.Entities.ActionPlan", b =>
+                {
+                    b.Navigation("PlanSteps");
+                });
+
             modelBuilder.Entity("Domain.Entities.Audit", b =>
                 {
                     b.Navigation("ControlStatuses");
@@ -3260,7 +3244,6 @@ namespace backend.Migrations
                     b.Navigation("NonConformites");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.ConformityProof", b =>
                 {
                     b.Navigation("Files");
@@ -3275,14 +3258,11 @@ namespace backend.Migrations
                     b.Navigation("SubClauses");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.NonConformite", b =>
                 {
                     b.Navigation("CorrectiveActions");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.PdcaCycle", b =>
                 {
                     b.Navigation("Phases");
@@ -3293,21 +3273,16 @@ namespace backend.Migrations
                     b.Navigation("Sections");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("Domain.Entities.Processus", b =>
                 {
                     b.Navigation("Documents");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("Domain.Entities.Section", b =>
                 {
                     b.Navigation("Items");
                 });
 
-<<<<<<< HEAD
-=======
             modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
                 {
                     b.Navigation("FormationDocuments");
@@ -3317,7 +3292,6 @@ namespace backend.Migrations
                     b.Navigation("Participants");
                 });
 
->>>>>>> meriem
             modelBuilder.Entity("backend.Domain.Entities.Holding", b =>
                 {
                     b.Navigation("Societes");

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const API = 'http://localhost:5006/api/controles';
+const API = 'http://localhost:5001/api/controles';
 
 /* ─── DESIGN TOKENS ───────────────────────────────────────────────────────── */
 const T = {

@@ -5,7 +5,7 @@ using backend.Application.Audits.Queries;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 
-namespace API.Controllers;
+namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/audits")]

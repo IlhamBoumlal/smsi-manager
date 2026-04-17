@@ -1,4 +1,4 @@
-﻿namespace Domain.Entities;
+﻿namespace backend.Domain.Entities;
 
 /// <summary>
 /// Représente une simulation d'audit ISO 27001 sauvegardée (historique).
