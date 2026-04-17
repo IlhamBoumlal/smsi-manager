@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5006/api/incidents';
-const API_USERS = 'http://localhost:5006/api/user';
 const SIGNALR_HUB = 'http://localhost:5006/notificationHub';
 
 const T = {
@@ -159,7 +158,6 @@ function NotificationToast({ notification, onClose, onView }) {
       }}>
         <div style={{ padding: '12px 16px' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            {/* Icône */}
             <div style={{
               flexShrink: 0,
               width: 32,
@@ -175,7 +173,6 @@ function NotificationToast({ notification, onClose, onView }) {
               </div>
             </div>
             
-            {/* Contenu */}
             <div style={{ flex: 1 }}>
               <div style={{ 
                 display: 'flex', 
@@ -183,11 +180,7 @@ function NotificationToast({ notification, onClose, onView }) {
                 justifyContent: 'space-between',
                 marginBottom: 4
               }}>
-                <span style={{ 
-                  fontWeight: 700, 
-                  fontSize: 13, 
-                  color: '#111827'
-                }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>
                   Nouvel incident
                 </span>
                 <span style={{
@@ -262,7 +255,6 @@ function NotificationToast({ notification, onClose, onView }) {
               </div>
             </div>
             
-            {/* Bouton fermer X */}
             <button
               onClick={onClose}
               style={{
@@ -308,7 +300,6 @@ function DetailIncidentPanel({ incident, onClose }) {
           <div><strong>Description :</strong> {incident.description || '—'}</div>
           <div><strong>Priorité :</strong> <PrioriteBadge priorite={incident.priorite} /></div>
           <div><strong>Statut :</strong> <StatutIncidentBadge statut={incident.statut} /></div>
-          <div><strong>Déclarant :</strong> {incident.declarant || '—'}</div>
           <div><strong>Date :</strong> {formatDateTime(incident.date)}</div>
           {incident.resolution && <div><strong>Résolution :</strong> {incident.resolution}</div>}
         </div>
@@ -321,18 +312,17 @@ function DetailIncidentPanel({ incident, onClose }) {
 }
 
 // Formulaire de création/modification
-function IncidentFormPanel({ incident, onClose, onSave, isCreating, users }) {
+function IncidentFormPanel({ incident, onClose, onSave, isCreating }) {
   const [form, setForm] = useState({
     titre: incident?.titre || '',
     description: incident?.description || '',
     priorite: incident?.priorite || 'MOYENNE',
-    declarant: incident?.declarant || '',
   });
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.titre.trim()) {
+    if (!form.titre?.trim()) {
       alert("Le titre est obligatoire");
       return;
     }
@@ -365,13 +355,6 @@ function IncidentFormPanel({ incident, onClose, onSave, isCreating, users }) {
               <label style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>Priorité</label>
               <select value={form.priorite} onChange={e => setForm({ ...form, priorite: e.target.value })} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, fontSize: 14 }}>
                 {PRIORITES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'block' }}>Déclarant</label>
-              <select value={form.declarant} onChange={e => setForm({ ...form, declarant: e.target.value })} style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, fontSize: 14 }}>
-                <option value="">-- Sélectionner un utilisateur --</option>
-                {users.map(user => (<option key={user.id} value={user.nomComplet || user.email}>{user.nomComplet || user.email}</option>))}
               </select>
             </div>
           </form>
@@ -434,7 +417,6 @@ function TraitementPanel({ incident, onClose, onSave }) {
 // Composant principal
 export default function GestionIncidents() {
   const [incidents, setIncidents] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
@@ -472,12 +454,10 @@ export default function GestionIncidents() {
         console.log('✅ SignalR connecté');
         setIsSignalRConnected(true);
         
-        // Écoute des notifications d'incidents
         newConnection.on('ReceiveNotification', (notification) => {
           console.log('📢 Notification reçue:', notification);
           setNotifications(prev => [notification, ...prev]);
           
-          // Notification système du navigateur
           if (Notification.permission === 'granted') {
             new Notification('Nouvel incident', {
               body: notification.message,
@@ -530,22 +510,17 @@ export default function GestionIncidents() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [incidentsRes, usersRes] = await Promise.all([
-        axios.get(API_BASE),
-        axios.get(API_USERS)
-      ]);
+      const incidentsRes = await axios.get(API_BASE);
       const incidentsData = incidentsRes.data.map(inc => ({
         id: inc.id || inc.Id,
         titre: inc.titre || inc.Titre,
         description: inc.description || inc.Description,
         date: inc.date || inc.Date,
         priorite: (inc.priorite || inc.Priorite || 'MOYENNE').toUpperCase(),
-        declarant: inc.declarant || inc.Declarant,
         statut: inc.statut || inc.Statut || 'EnCours',
         resolution: inc.resolution || inc.Resolution || '',
       }));
       setIncidents(incidentsData);
-      setUsers(usersRes.data);
 
       setDetailsIncident(prev =>
         prev ? incidentsData.find(i => i.id === prev.id) ?? prev : null
@@ -602,7 +577,6 @@ export default function GestionIncidents() {
       const payload = {
         titre:       traitementIncident.titre,
         description: traitementIncident.description,
-        declarant:   traitementIncident.declarant,
         priorite:    traitementIncident.priorite,
         statut:      data.statut,
         resolution:  data.resolution,
@@ -719,7 +693,6 @@ export default function GestionIncidents() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, fontSize: 12, color: T.gray400 }}>
                   <Clock size={14} /> {formatDateTime(incident.date)}
-                  {incident.declarant && <><User size={14} /> {incident.declarant}</>}
                 </div>
                 {incident.statut === 'Resolu' && incident.resolution && (
                   <div style={{ marginTop: 12, padding: 10, background: '#F0FDF4', borderRadius: 8, borderLeft: '4px solid #10B981' }}>
@@ -749,8 +722,8 @@ export default function GestionIncidents() {
         />
       )}
 
-      {showCreatePanel && <IncidentFormPanel isCreating onClose={() => setShowCreatePanel(false)} onSave={handleCreate} users={users} />}
-      {editingIncident && <IncidentFormPanel incident={editingIncident} isCreating={false} onClose={() => setEditingIncident(null)} onSave={handleUpdate} users={users} />}
+      {showCreatePanel && <IncidentFormPanel isCreating onClose={() => setShowCreatePanel(false)} onSave={handleCreate} />}
+      {editingIncident && <IncidentFormPanel incident={editingIncident} isCreating={false} onClose={() => setEditingIncident(null)} onSave={handleUpdate} />}
       {traitementIncident && <TraitementPanel incident={traitementIncident} onClose={() => setTraitementIncident(null)} onSave={handleTraitement} />}
       {detailsIncident && <DetailIncidentPanel incident={detailsIncident} onClose={() => setDetailsIncident(null)} />}
     </div>

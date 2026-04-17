@@ -18,7 +18,6 @@
             public DateTime? Date { get; init; }
 
             public PrioriteIncident? Priorite { get; init; }
-            public string? Declarant { get; init; }
             public StatutIncident? Statut { get; init; }
             public string? Resolution { get; init; }
         }

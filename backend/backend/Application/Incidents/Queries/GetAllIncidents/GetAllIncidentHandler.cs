@@ -20,7 +20,6 @@ namespace backend.Application.Incidents.Queries.GetAllIncidents
                     Description = i.Description,
                     Date = i.Date,
                     Priorite = i.Priorite,
-                    Declarant = i.Declarant,
                     Statut = i.Statut,
                     Resolution = i.Resolution
                 })

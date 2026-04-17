@@ -37,7 +37,6 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                 Description = request.Incident.Description,
                 Date = DateTime.UtcNow,
                 Priorite = request.Incident.Priorite,
-                Declarant = request.Incident.Declarant,
                 Statut = StatutIncident.EnCours,
                 Resolution = null
             };

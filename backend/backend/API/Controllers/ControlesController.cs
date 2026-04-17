@@ -2,7 +2,6 @@
 using backend.Application.Controles.Queries.GetAllControles;
 using backend.Application.Controles.Queries.GetControleById;
 using MediatR;
-//<<<<<<< HEAD
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

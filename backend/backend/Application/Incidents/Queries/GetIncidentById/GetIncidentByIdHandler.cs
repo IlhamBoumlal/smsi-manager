@@ -21,7 +21,6 @@ namespace backend.Application.Incidents.Queries.GetIncidentById
                 Description = incident.Description,
                 Date = incident.Date,
                 Priorite = incident.Priorite,
-                Declarant = incident.Declarant,
                 Statut = incident.Statut,
                 Resolution = incident.Resolution
             };

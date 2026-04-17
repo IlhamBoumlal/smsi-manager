@@ -9,7 +9,6 @@ namespace backend.Domain.Entities
         public string? Description { get; set; } = string.Empty;
         public DateTime? Date { get; set; }
         public PrioriteIncident? Priorite { get; set; }
-        public string? Declarant { get; set; }
         public StatutIncident? Statut { get; set; }
         public string? Resolution { get; set; }
     }

@@ -17,7 +17,6 @@ namespace backend.Application.Incidents.Commands.UpdateIncident
             incident.Titre = request.Incident.Titre;
             incident.Description = request.Incident.Description;
             incident.Priorite = request.Incident.Priorite;
-            incident.Declarant = request.Incident.Declarant;
             incident.Statut = request.Incident.Statut;      
             incident.Resolution = request.Incident.Resolution;  
 
