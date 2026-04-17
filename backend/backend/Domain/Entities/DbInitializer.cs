@@ -1,3 +1,4 @@
+using backend.Application.DTOs.Controles;
 using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +13,8 @@ namespace backend.Application.Services
         public static async Task InitializeAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+            var config = serviceProvider.GetRequiredService<IConfiguration>();
+
             try
             {
                 await dbContext.Database.MigrateAsync();
@@ -22,33 +25,21 @@ namespace backend.Application.Services
                 await dbContext.Database.EnsureCreatedAsync();
             }
 
-            var config = serviceProvider.GetRequiredService<IConfiguration>();
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            string[] roles =
-            {
-                "Admin",
-                "Chef de Projet",
-                "Membre",
-                "Lecteur",
-                "Responsable Sécurité",
-                "Auditeur Interne",
-                "Gestionnaire de Projet",
-                "Consultant",
-                "Utilisateur Standard",
-                "Responsable Conformité",
-                "DPO",
-                "Direction Générale",
+            // Création des rôles
+            string[] roles = {
+                "Admin", "Chef de Projet", "Membre", "Lecteur",
+                "Responsable Sécurité", "Auditeur Interne",
+                "Gestionnaire de Projet", "Consultant", "Utilisateur Standard",
+                "Responsable Conformité", "DPO", "Direction Générale",
                 "Responsable DevOps",
                 "Administrateur Infrastructure et Cloud",
-                "RSSI",
-                "DRH",
-                "DSI",
-                "Employé",
+                "RSSI", "DRH", "DSI", "Employé",
                 "Responsable Développement",
                 "Responsable Cloud",
-                "Responsable Infrastructure et Cloud",
+                "Responsable Infrastructure et Cloud"
             };
 
             foreach (var role in roles)
@@ -56,12 +47,14 @@ namespace backend.Application.Services
                 if (!await roleManager.RoleExistsAsync(role))
                 {
                     await roleManager.CreateAsync(new IdentityRole(role));
+                    Console.WriteLine($"✅ Rôle créé: {role}");
                 }
             }
 
+            // Seed users from configuration or use defaults
             var adminEmail = config["SeedUsers:Admin:Email"] ?? "admin@alexsys.com";
             var adminPassword = config["SeedUsers:Admin:Password"] ?? "Admin@123456!";
-            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur Systeme";
+            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur Système";
             var adminRole = config["SeedUsers:Admin:Role"] ?? "Admin";
 
             var standardEmail = config["SeedUsers:Standard:Email"] ?? "user@alexsys.com";
@@ -69,13 +62,27 @@ namespace backend.Application.Services
             var standardName = config["SeedUsers:Standard:NomComplet"] ?? "Utilisateur Standard";
             var standardRole = config["SeedUsers:Standard:Role"] ?? "Utilisateur Standard";
 
+            // VOTRE ADMIN PERSONNALISÉ 
+            var yourAdminEmail = "boumlalilham@gmail.com";
+            var yourAdminPassword = "Admin@123456!";
+            var yourAdminName = "Ilham Boumlal";
+
             await EnsureRoleExistsAsync(roleManager, adminRole);
             await EnsureRoleExistsAsync(roleManager, standardRole);
+            await EnsureRoleExistsAsync(roleManager, "Admin"); // Assure que le rôle Admin existe
 
+            // Créer les utilisateurs
             await SeedUserIfMissingAsync(userManager, adminEmail, adminPassword, adminName, adminRole);
             await SeedUserIfMissingAsync(userManager, standardEmail, standardPassword, standardName, standardRole);
 
-            await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager);
+            // CRÉER VOTRE ADMIN SPÉCIFIQUE - AJOUTEZ CECI
+            await SeedUserIfMissingAsync(userManager, yourAdminEmail, yourAdminPassword, yourAdminName, "Admin");
+            Console.WriteLine($"✅ Vérification admin {yourAdminEmail} terminée");
+
+            // Seed demo users and documentation for RBAC demonstration
+            await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager, config);
+            await SeedControlesAsync(serviceProvider);
+
         }
 
         private static async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, string role)
@@ -83,6 +90,7 @@ namespace backend.Application.Services
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
+                Console.WriteLine($"✅ Rôle créé: {role}");
             }
         }
 
@@ -94,7 +102,11 @@ namespace backend.Application.Services
             string role)
         {
             var existing = await userManager.FindByEmailAsync(email);
-            if (existing is not null) return;
+            if (existing is not null)
+            {
+                Console.WriteLine($"ℹ️ L'utilisateur {email} existe déjà");
+                return;
+            }
 
             var user = new ApplicationUser
             {
@@ -110,13 +122,19 @@ namespace backend.Application.Services
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(user, role);
+                Console.WriteLine($"✅ Utilisateur créé: {email} avec le rôle {role}");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Erreur création utilisateur {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
         }
 
         private static async Task SeedDocumentationMvpDemoAsync(
             AppDbContext dbContext,
             UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+            IConfiguration config)
         {
             const string demoSocieteName = "Societe Demo RBAC";
             var societe = await dbContext.Societes.FirstOrDefaultAsync(s => s.Nom == demoSocieteName);
@@ -129,6 +147,7 @@ namespace backend.Application.Services
                 };
                 dbContext.Societes.Add(societe);
                 await dbContext.SaveChangesAsync();
+                Console.WriteLine($"✅ Société créée: {demoSocieteName}");
             }
 
             var demoUsers = new[]
@@ -245,6 +264,7 @@ namespace backend.Application.Services
             }
 
             await dbContext.SaveChangesAsync();
+            Console.WriteLine($"✅ Documentation seed terminée");
         }
 
         private static async Task<ApplicationUser> EnsureDemoUserAsync(
@@ -272,6 +292,7 @@ namespace backend.Application.Services
                     throw new InvalidOperationException(
                         $"Impossible de creer l'utilisateur demo {seed.Email}: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
                 }
+                Console.WriteLine($"✅ Utilisateur demo créé: {seed.Email}");
             }
             else
             {
@@ -339,5 +360,102 @@ namespace backend.Application.Services
 
             return user;
         }
+
+        // À AJOUTER dans la classe DbInitializer
+        public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
+        {
+            var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+
+            if (await dbContext.Controles.AnyAsync())
+            {
+                Console.WriteLine("ℹ️ Contrôles déjà présents. Seed ignoré.");
+                return;
+            }
+
+            // Chercher le fichier JSON à différents emplacements
+            var jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "controles.json");
+
+            if (!File.Exists(jsonPath))
+            {
+                jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "controles.json");
+            }
+
+            if (!File.Exists(jsonPath))
+            {
+                jsonPath = Path.Combine(Directory.GetCurrentDirectory(),"Infrastructure", "SeedData", "controles.json");
+            }
+
+            if (!File.Exists(jsonPath))
+            {
+                Console.WriteLine($"⚠️ Fichier controles.json non trouvé. Chemins testés: {AppDomain.CurrentDomain.BaseDirectory}, {Directory.GetCurrentDirectory()}");
+                return;
+            }
+
+            Console.WriteLine($"📁 Fichier trouvé: {jsonPath}");
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            };
+
+            try
+            {
+                var jsonContent = await File.ReadAllTextAsync(jsonPath);
+                var dtos = System.Text.Json.JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
+
+                if (dtos is null || dtos.Count == 0)
+                {
+                    Console.WriteLine("⚠️ Aucune donnée trouvée dans le fichier JSON");
+                    return;
+                }
+
+                var controles = new List<Controle>();
+
+                foreach (var dto in dtos)
+                {
+                    var controle = new Controle
+                    {
+                        Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                        Code = dto.Code,
+                        Titre = dto.Titre,
+                        Description = dto.Description,
+                        Domaine = dto.Domaine,
+                        Applicable = dto.Applicable,
+                        RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
+                            ? System.Text.Json.JsonSerializer.Serialize(dto.RaisonsApplicabilite)
+                            : null,
+                        RaisonExclusion = dto.RaisonExclusion,
+                        Statut = dto.Statut,
+                        JustificationConformite = dto.JustificationConformite,
+                        Remarque = dto.Remarque,
+                        Preuves = dto.Preuves,
+                        Steps = dto.Steps != null
+                            ? System.Text.Json.JsonSerializer.Serialize(dto.Steps)
+                            : null,
+                        Priorite = dto.Priorite,
+                        StatutPlan = dto.StatutPlan,
+                        ResponsablePlan = dto.ResponsablePlan,
+                        DateEcheance = dto.DateEcheance,
+                        DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
+                        DernierModificateurId = dto.DernierModificateurId,
+                        DernierModificateurNom = dto.DernierModificateurNom
+                    };
+
+                    controles.Add(controle);
+                }
+
+                await dbContext.Controles.AddRangeAsync(controles);
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés avec succès.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Erreur lors du seed des contrôles: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
     }
 }

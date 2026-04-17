@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]

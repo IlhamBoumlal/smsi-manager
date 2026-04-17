@@ -2,10 +2,10 @@ import React from 'react';
 import logoIso from "../assets/ISO.png"; 
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
-import { resolveAssetUrl } from '../api/url';
 import { 
   ShieldCheck, Lightbulb, Play, Search, RotateCcw, 
-  Zap, BarChart3, Users, LogIn
+  Zap, BarChart3, Users, LogIn, Mail, Phone, MapPin,
+  ChevronRight
 } from 'lucide-react';
 
 // Données statiques pour les étapes PDCA (Plan-Do-Check-Act)
@@ -37,7 +37,15 @@ export default function Accueil() {
      else if (user.societe?.logoUrl) logoPath = user.societe.logoUrl;
      else if (user.societe?.logo) logoPath = user.societe.logo;
      
-     if (logoPath) logoImage = resolveAssetUrl(logoPath, logoIso);
+     if (logoPath) {
+       if (logoPath.startsWith('/')) {
+         logoImage = `http://localhost:5001${logoPath}`;
+       } else if (!logoPath.startsWith('http')) {
+         logoImage = `http://localhost:5001/${logoPath}`;
+       } else {
+         logoImage = logoPath;
+       }
+     }
    }
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">

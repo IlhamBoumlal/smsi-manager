@@ -19,7 +19,7 @@ namespace backend.Domain.Interfaces
         Task<IdentityResult> ResetPasswordAsync(ApplicationUser user, string token, string newPassword);
         Task<SignInResult> CheckPasswordAsync(ApplicationUser user, string password);
         Task<IdentityResult> DeleteAsync(ApplicationUser user);
-
+        Task<List<ApplicationUser>> GetUsersByRoleAsync(string role);
     }
 
 }

@@ -21,16 +21,32 @@ namespace backend.Infrastructure.Repositories
             var existing = await _context.Controles.FindAsync(controle.Id);
             if (existing is null) return null;
 
+            existing.Code = controle.Code;
             existing.Titre = controle.Titre;
             existing.Description = controle.Description;
             existing.Domaine = controle.Domaine;
-            existing.Statut = controle.Statut;
+
+            // Applicabilité
             existing.Applicable = controle.Applicable;
-            existing.JustificationApplicabilite = controle.JustificationApplicabilite;
+            existing.RaisonsApplicabilite = controle.RaisonsApplicabilite;
+            existing.RaisonExclusion = controle.RaisonExclusion;
+
+            // Évaluation
+            existing.Statut = controle.Statut;
+            existing.JustificationConformite = controle.JustificationConformite;
+            existing.Remarque = controle.Remarque;
             existing.Preuves = controle.Preuves;
-            existing.Responsable = controle.Responsable;
-            existing.ReferenceDocument = controle.ReferenceDocument;
-            existing.DateMiseAJour = DateTime.UtcNow;
+
+            // Plan d'action
+            existing.Steps = controle.Steps;
+            existing.Priorite = controle.Priorite;
+            existing.StatutPlan = controle.StatutPlan;
+            existing.ResponsablePlan = controle.ResponsablePlan;
+            existing.DateEcheance = controle.DateEcheance;
+
+            existing.DateMiseAJour = controle.DateMiseAJour ?? DateTime.UtcNow;
+            existing.DernierModificateurId = controle.DernierModificateurId;
+            existing.DernierModificateurNom = controle.DernierModificateurNom;
 
             await _context.SaveChangesAsync();
             return existing;

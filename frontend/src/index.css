@@ -15,3 +15,34 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+/* src/index.css */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Classe utilitaire pour l'animation */
+.animate-slide-in {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-out {
+  animation: slideOutRight 0.3s ease-out;
+}

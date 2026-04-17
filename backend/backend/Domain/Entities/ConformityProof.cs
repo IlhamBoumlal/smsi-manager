@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Domain.Entities
+namespace backend.Domain.Entities
 {
     /// <summary>
     /// Enregistrement d'une preuve de conformité pour une sous-clause.

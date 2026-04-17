@@ -1,9 +1,9 @@
 using backend.Infrastructure.Data;
-using Domain.Entities;
-using Domain.Interfaces;
+using backend.Domain.Entities;
+using backend.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Repositories;
+namespace backend.Infrastructure.Repositories;
 
 public class PdcaRepository : IPdcaRepository
 {

@@ -1,9 +1,9 @@
-namespace Domain.Entities;
+namespace backend.Domain.Entities;
 
 public class PlanStep
 {
-    public Guid     Id           { get; set; } = Guid.NewGuid();
-    public Guid     ActionPlanId { get; set; }
+    public int     Id           { get; set; }
+    public int     ActionPlanId { get; set; }
     public string   Title        { get; set; } = default!;
     public string?  Description  { get; set; }
     public string   Status       { get; set; } = "todo";

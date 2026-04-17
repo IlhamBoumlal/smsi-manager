@@ -21,7 +21,9 @@ import RiskModuleLayout from './components/risques/RiskModuleLayout';
 import RiskStudiesPage from './components/risques/RiskStudiesPage';
 import RiskStudyDetailPage from './components/risques/RiskStudyDetailPage';
 import RiskWorkshopPage from './components/risques/RiskWorkshopPage';
-
+import Audits from './components/Audits';
+import Sensibilisation from './components/sensibilisation';
+import GestionIncidents from './components/GestionIncidents';
 function LegacyClauseDetailRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -37,10 +39,14 @@ function LegacyClauseDetailRedirect() {
 export default function App() {
   return (
     <Routes>
+      {/* Page login sans header */}
       <Route path="/login" element={<Login />} />
+
+      {/* Page accueil sans header du layout */}
       <Route path="/" element={<Accueil />} />
       <Route path="/accueil" element={<Accueil />} />
 
+      {/* Autres pages avec le header principal et protection par authentification */}
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route path="/cartographie" element={<CartographieProcessus />} />
         <Route path="/tableau-bord" element={<Dashboard />} />
@@ -48,21 +54,35 @@ export default function App() {
         <Route path="/actifs" element={<GestionActifs />} />
         <Route path="/pdca" element={<Progression />} />
         <Route path="/clauses" element={<ClauseDashboard />} />
+        
+        {/* Routes pour les clauses - support des deux formats */}
         <Route path="/clauses/:id" element={<ClauseDetail />} />
+        <Route path="/Clausedetail" element={<LegacyClauseDetailRedirect />} />
+        
         <Route path="/documentation" element={<Documentation />} />
+        
+        {/* Routes pour le module de gestion des risques */}
         <Route path="/risques" element={<RiskModuleLayout />}>
           <Route index element={<RiskStudiesPage />} />
           <Route path="etudes/:id" element={<RiskStudyDetailPage />} />
           <Route path="etudes/:id/atelier/:atelierId" element={<RiskWorkshopPage />} />
         </Route>
+        
         <Route path="/gestion-risque" element={<GestionRisque />} />
-        <Route path="/Clausedetail" element={<LegacyClauseDetailRedirect />} />
+        
+        {/* Nouvelles routes */}
+        <Route path="/audits" element={<Audits />} />
+        <Route path="/sensibilisation" element={<Sensibilisation />} />
+        <Route path="/incidents" element={<GestionIncidents />} />
+        
+        {/* Pages admin séparées, protégées */}
         <Route path="/admin/stats" element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />
         <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />
         <Route path="/admin/societes" element={<PrivateAdminRoute><GestionSocietes /></PrivateAdminRoute>} />
         <Route path="/admin/holdings" element={<PrivateAdminRoute><GestionHoldings /></PrivateAdminRoute>} />
       </Route>
 
+      {/* Route 404 - redirection vers l'accueil */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

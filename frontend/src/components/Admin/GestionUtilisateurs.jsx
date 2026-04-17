@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Search, Edit, Trash2, Shield, Mail, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown, Factory } from 'lucide-react';
-import axiosInstance from '../../api/axiosInstance';
+import axios from 'axios';
 
-const API = '/api';
+const API = 'http://localhost:5006/api';
 
 export default function GestionUtilisateurs() {
   const [users,     setUsers]     = useState([]);
@@ -19,9 +19,9 @@ export default function GestionUtilisateurs() {
 
   const fetchAll = async () => {
     const [u, s, r] = await Promise.all([
-      axiosInstance.get(`${API}/user`),
-      axiosInstance.get(`${API}/societe`),
-      axiosInstance.get(`${API}/user/roles`),
+      axios.get(`${API}/user`),
+      axios.get(`${API}/societe`),
+      axios.get(`${API}/user/roles`),
     ]);
     setUsers(u.data); setSocietes(s.data); setRoles(r.data);
   };
@@ -44,10 +44,10 @@ export default function GestionUtilisateurs() {
     setLoading(true);
     try {
       if (editing) {
-        await axiosInstance.put(`${API}/user/${editing.id}`, { nomComplet: form.nomComplet, email: form.email, societeId: parseInt(form.societeId), roleId: form.roleId, password: form.password || null, confirmPassword: form.confirmPassword || null, isActive: form.isActive });
+        await axios.put(`${API}/user/${editing.id}`, { nomComplet: form.nomComplet, email: form.email, societeId: parseInt(form.societeId), roleId: form.roleId, password: form.password || null, confirmPassword: form.confirmPassword || null, isActive: form.isActive });
       } else {
         if (!form.password) { alert("Mot de passe requis !"); setLoading(false); return; }
-        await axiosInstance.post(`${API}/user`, { nomComplet: form.nomComplet, email: form.email, password: form.password, confirmPassword: form.confirmPassword, societeId: parseInt(form.societeId), roleId: form.roleId });
+        await axios.post(`${API}/user`, { nomComplet: form.nomComplet, email: form.email, password: form.password, confirmPassword: form.confirmPassword, societeId: parseInt(form.societeId), roleId: form.roleId });
       }
       await fetchAll(); closeModal();
     } catch (err) {
@@ -58,7 +58,7 @@ export default function GestionUtilisateurs() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cet utilisateur ?")) return;
-    await axiosInstance.delete(`${API}/user/${id}`);
+    await axios.delete(`${API}/user/${id}`);
     await fetchAll();
   };
 

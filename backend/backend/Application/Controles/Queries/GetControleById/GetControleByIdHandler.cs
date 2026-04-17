@@ -1,24 +1,69 @@
 ﻿using backend.Application.DTOs.Controles;
-using backend.Domain.Interfaces;
+using backend.Infrastructure.Data;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
-namespace backend.Application.Controles.Queries.GetControleById
+namespace backend.Application.Controles.Queries.GetAllControles;
+
+public class GetAllControlesHandler : IRequestHandler<GetAllControlesQuery, List<ControleDto>>
 {
-    public class GetControleByIdHandler : IRequestHandler<GetControleByIdQuery, ControleDto?>
-    {
-        private readonly IControleRepository _repo;
-        public GetControleByIdHandler(IControleRepository repo) => _repo = repo;
+    private readonly AppDbContext _context;
 
-        public async Task<ControleDto?> Handle(GetControleByIdQuery request, CancellationToken ct)
+    // Options pour la désérialisation (doit correspondre aux options de l'Update)
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNameCaseInsensitive = true
+    };
+
+    public GetAllControlesHandler(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<List<ControleDto>> Handle(GetAllControlesQuery request, CancellationToken cancellationToken)
+    {
+        // 1. On récupère les données brutes (Entities) depuis SQL Server
+        var entites = await _context.Controles
+            .AsNoTracking()
+            .OrderBy(c => c.Code)
+            .ToListAsync(cancellationToken);
+
+        // 2. On transforme les Entities en DTOs en mémoire pour gérer le JSON
+        var dtos = entites.Select(c => new ControleDto
         {
-            var c = await _repo.GetByIdAsync(request.Id);
-            if (c is null) return null;
-            return new ControleDto(
-                c.Id, c.Code, c.Titre, c.Description, c.Domaine,
-                c.Applicable, c.JustificationApplicabilite, c.Statut,
-                c.Preuves, c.Responsable, c.ReferenceDocument,
-                c.DateMiseAJour
-            );
-        }
+            Id = c.Id,
+            Code = c.Code,
+            Titre = c.Titre,
+            Description = c.Description,
+            Domaine = c.Domaine,
+            Applicable = c.Applicable,
+            RaisonExclusion = c.RaisonExclusion,
+            Statut = c.Statut,
+            JustificationConformite = c.JustificationConformite,
+            Remarque = c.Remarque,
+            Preuves = c.Preuves,
+            Priorite = c.Priorite,
+            StatutPlan = c.StatutPlan,
+            ResponsablePlan = c.ResponsablePlan,
+            DateEcheance = c.DateEcheance,
+            DateMiseAJour = c.DateMiseAJour,
+            DernierModificateurId = c.DernierModificateurId,
+            DernierModificateurNom = c.DernierModificateurNom,
+
+            // DÉSÉRIALISATION : Texte SQL -> Liste de strings pour React
+            RaisonsApplicabilite = string.IsNullOrEmpty(c.RaisonsApplicabilite)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(c.RaisonsApplicabilite, _jsonOptions),
+
+            // DÉSÉRIALISATION : Texte SQL -> Objet/Tableau pour React
+            Steps = string.IsNullOrEmpty(c.Steps)
+                ? null
+                : JsonSerializer.Deserialize<object>(c.Steps, _jsonOptions)
+        }).ToList();
+
+        return dtos;
     }
 }

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Domain.Entities
+namespace backend.Domain.Entities
 {
     // ── CLAUSE (référentiel ISO 27001, prédéfini) ─────────────────────────────
     public class IsoClause

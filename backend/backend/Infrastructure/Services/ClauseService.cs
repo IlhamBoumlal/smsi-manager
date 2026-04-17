@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
-using Domain.Entities;
+using backend.Domain.Entities;
 namespace backend.Infrastructure.Services
 {
     public class ClauseService : IClauseService
@@ -16,6 +16,8 @@ namespace backend.Infrastructure.Services
         private readonly IWebHostEnvironment _env;
         public ClauseService(AppDbContext db, IWebHostEnvironment env)
         { _db = db; _env = env; }
+
+        public ClauseService(AppDbContext db) => _db = db;
 
         // ── MAPPERS ───────────────────────────────────────────────────────────
 
@@ -43,7 +45,7 @@ namespace backend.Infrastructure.Services
 
         private static ActionPlanDto MapActionPlan(ActionPlan ap) => new()
         {
-            Id = ap.Id,
+            Id = ap.Id.GetHashCode(),
             IsoClauseId = ap.IsoClauseId,
             SubClauseId = ap.SubClauseId,
             Reference = ap.Reference,
@@ -255,7 +257,7 @@ namespace backend.Infrastructure.Services
         public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
             return ap is null ? null : MapActionPlan(ap);
         }
 
@@ -271,7 +273,7 @@ namespace backend.Infrastructure.Services
         public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, UpdateActionPlanDto dto)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
             if (ap is null) return null;
             ApplyDto(ap, dto);
             ap.UpdatedAt = DateTime.UtcNow;
@@ -282,7 +284,7 @@ namespace backend.Infrastructure.Services
         public async Task<bool> DeleteActionPlanAsync(int id, string userId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
             if (ap is null) return false;
             _db.ActionPlans.Remove(ap);
             await _db.SaveChangesAsync();
@@ -540,7 +542,7 @@ namespace backend.Infrastructure.Services
             int planId, string userId, IFormFile file, string? description)
         {
             var plan = await _db.ActionPlans
-                .FirstOrDefaultAsync(p => p.Id == planId && p.UserId == userId)
+                .FirstOrDefaultAsync(p => p.Id.Equals(planId) && p.UserId == userId)
                 ?? throw new KeyNotFoundException("Plan d'action introuvable.");
 
             var content = await ReadAndValidateAsync(file);
