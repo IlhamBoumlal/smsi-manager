@@ -1,4 +1,4 @@
-﻿using backend.Domain.Interfaces;
+using backend.Domain.Interfaces;
 
 namespace backend.Infrastructure.Services
 {
@@ -24,6 +24,29 @@ namespace backend.Infrastructure.Services
         {
             if (string.IsNullOrEmpty(logoPath)) return;
             var oldPath = Path.Combine("wwwroot", logoPath.TrimStart('/'));
+            if (File.Exists(oldPath)) File.Delete(oldPath);
+        }
+
+        public async Task<string?> SaveDocumentAsync(IFormFile? file)
+        {
+            if (file == null) return null;
+
+            var uploadsDir = Path.Combine("wwwroot", "documents");
+            Directory.CreateDirectory(uploadsDir);
+
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+
+            using var stream = new FileStream(filePath, FileMode.Create);
+            await file.CopyToAsync(stream);
+
+            return $"/documents/{fileName}";
+        }
+
+        public void DeleteDocumentFile(string? documentPath)
+        {
+            if (string.IsNullOrEmpty(documentPath)) return;
+            var oldPath = Path.Combine("wwwroot", documentPath.TrimStart('/'));
             if (File.Exists(oldPath)) File.Delete(oldPath);
         }
     }

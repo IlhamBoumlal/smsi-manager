@@ -1,4 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
+import {
+  getAllProcessus,
+  createProcessus,
+  updateProcessus,
+  deleteProcessus,
+  addDocument,
+  deleteDocument,
+  downloadFichier,
+} from "../api/cartographie";
 
 /* ═══════════════════════════════════════════════════════════
    FONT AWESOME (CDN via useEffect)
@@ -40,29 +49,51 @@ const CAT_META = {
   supp:{ label:"Processus de Support",     color:"#2471a3", gradient:"linear-gradient(90deg,#2471a3,#5dade2)" },
 };
 
-const INITIAL_PROCESSES = [
-  { id:"p1",  cat:"mgmt", name:"Gouvernance et pilotage du SMSI",          owner:"Direction",            desc:"Pilotage stratégique du SMQ/SMSI, définition de la politique qualité, revue de direction et objectifs.", docs:[] },
-  { id:"p2",  cat:"mgmt", name:"Gestion des risques et plan de traitement", owner:"Responsable Qualité",  desc:"Identification, évaluation et traitement des risques organisationnels et sécurité.", docs:[] },
-  { id:"p3",  cat:"real", name:"Commercial / Prospection",                  owner:"Directeur Commercial", desc:"Développement commercial, gestion des offres et de la relation client.", docs:[] },
-  { id:"p4",  cat:"real", name:"Réalisation / Développement applicatif",    owner:"Lead Developer",       desc:"Conception, développement, intégration et tests des solutions applicatives.", docs:[] },
-  { id:"p5",  cat:"real", name:"Déploiement / Livraison",                   owner:"Responsable Technique",desc:"Déploiement, mise en production et transfert de compétences chez les clients.", docs:[] },
-  { id:"p6",  cat:"supp", name:"Gestion RH",                                owner:"DRH",                  desc:"Recrutement, formation, évaluation et développement des compétences.", docs:[] },
-  { id:"p7",  cat:"supp", name:"Infrastructure et Outils",                  owner:"DSI",                  desc:"Gestion et maintenance de l'infrastructure IT interne et des outils.", docs:[] },
-  { id:"p8",  cat:"supp", name:"Sécurité de l'Information",                 owner:"RSSI",                 desc:"Mise en oeuvre des mesures de sécurité, conformité et gestion des incidents.", docs:[] },
-  { id:"p9",  cat:"supp", name:"Gestion des fournisseurs",                  owner:"Responsable Achats",   desc:"Sélection, évaluation et suivi des prestataires et fournisseurs.", docs:[] },
-  { id:"p10", cat:"supp", name:"Gestion des changements",                   owner:"Chef de Projet",       desc:"Contrôle, traçabilité et validation des changements sur les systèmes.", docs:[] },
-];
-
 const EMPTY_PROC = { cat:"mgmt", name:"", owner:"", desc:"" };
-const EMPTY_DOC  = { name:"", type:"procédure", ref:"", status:"en vigueur" };
+const EMPTY_DOC  = { name:"", type:"procédure", ref:"", status:"en vigueur", fichier: null };
+
+/* ═══════════════════════════════════════════════════════════
+   HOOK — liaison backend
+═══════════════════════════════════════════════════════════ */
+const fromApi = (p) => ({
+  id:    p.id,
+  cat:   p.categorie,
+  name:  p.nom,
+  owner: p.responsable,
+  desc:  p.description,
+  docs: (p.documents ?? []).map(d => ({
+    id:          d.id,
+    name:        d.nom,
+    type:        d.type,
+    ref:         d.reference,
+    status:      d.statut,
+    fichierNom:  d.fichierNom  ?? null,
+    fichierType: d.fichierType ?? null,
+    aFichier:    d.aFichier    ?? false,
+  })),
+});
 
 function useProcesses() {
-  const [procs, setProcs] = useState(() => {
-    try { const s = localStorage.getItem("smq_v7"); return s ? JSON.parse(s) : INITIAL_PROCESSES; }
-    catch { return INITIAL_PROCESSES; }
-  });
-  const save = useCallback((next) => { setProcs(next); localStorage.setItem("smq_v7", JSON.stringify(next)); }, []);
-  return [procs, save];
+  const [procs,   setProcs]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getAllProcessus();
+      setProcs(data.map(fromApi));
+      setError(null);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  return { procs, setProcs, loading, error, refresh };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -70,14 +101,18 @@ function useProcesses() {
 ═══════════════════════════════════════════════════════════ */
 export default function CartographieProcessus() {
   useFontAwesome();
-  const [procs, saveProcs]        = useProcesses();
+
+  const { procs, setProcs, loading, error, refresh } = useProcesses();
+
   const [activeId,  setActiveId]  = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [procModal, setProcModal] = useState({ open:false, editId:null, form:EMPTY_PROC });
   const [docModal,  setDocModal]  = useState({ open:false, form:EMPTY_DOC });
   const [mounted,   setMounted]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
 
   useEffect(() => { setTimeout(() => setMounted(true), 60); }, []);
+
   useEffect(() => {
     const fn = (e) => {
       if (e.key !== "Escape") return;
@@ -89,35 +124,89 @@ export default function CartographieProcessus() {
     return () => document.removeEventListener("keydown", fn);
   }, [procModal.open, docModal.open]);
 
-  const selectProc = (id) => { setActiveId(id); setPanelOpen(true); };
-  const closePanel = ()    => { setPanelOpen(false); setTimeout(() => setActiveId(null), 350); };
+  const selectProc   = (id)  => { setActiveId(id); setPanelOpen(true); };
+  const closePanel   = ()    => { setPanelOpen(false); setTimeout(() => setActiveId(null), 350); };
   const openAddProc  = (cat) => setProcModal({ open:true, editId:null, form:{ ...EMPTY_PROC, cat } });
-  const openEditProc = (id) => {
+  const openEditProc = (id)  => {
     const p = procs.find(x => x.id === id);
     if (p) setProcModal({ open:true, editId:id, form:{ cat:p.cat, name:p.name, owner:p.owner, desc:p.desc } });
   };
-  const saveProc = () => {
+
+  /* ── CRUD Processus ── */
+  const saveProc = async () => {
     const { editId, form } = procModal;
     if (!form.name.trim()) return;
-    if (editId) saveProcs(procs.map(p => p.id === editId ? { ...p, ...form } : p));
-    else        saveProcs([...procs, { id:"p"+Date.now(), ...form, docs:[] }]);
-    setProcModal({ open:false, editId:null, form:EMPTY_PROC });
+    setSaving(true);
+    try {
+      const body = { categorie: form.cat, nom: form.name, responsable: form.owner, description: form.desc };
+      if (editId) await updateProcessus(editId, body);
+      else        await createProcessus(body);
+      await refresh();
+      setProcModal({ open:false, editId:null, form:EMPTY_PROC });
+    } finally {
+      setSaving(false);
+    }
   };
-  const deleteProc = (id) => {
+
+  const deleteProc = async (id) => {
     if (!window.confirm("Supprimer ce processus et tous ses documents ?")) return;
-    saveProcs(procs.filter(p => p.id !== id));
+    await deleteProcessus(id);
+    await refresh();
     if (activeId === id) closePanel();
   };
-  const saveDoc = () => {
+
+  /* ── CRUD Documents ── */
+  const saveDoc = async () => {
     const { form } = docModal;
-    if (!form.name.trim()) return;
-    saveProcs(procs.map(p => p.id === activeId ? { ...p, docs:[...p.docs,{ id:"d"+Date.now(),...form }] } : p));
-    setDocModal({ open:false, form:EMPTY_DOC });
+    if (!form.name.trim() || !activeId) return;
+    setSaving(true);
+    try {
+      const body = { nom: form.name, type: form.type, reference: form.ref, statut: form.status };
+      const newDoc = await addDocument(activeId, body, form.fichier ?? null);
+      // Mise à jour locale optimiste
+      setProcs(prev => prev.map(p =>
+        p.id === activeId
+          ? { ...p, docs: [...p.docs, {
+                id:          newDoc.id,
+                name:        newDoc.nom,
+                type:        newDoc.type,
+                ref:         newDoc.reference,
+                status:      newDoc.statut,
+                fichierNom:  newDoc.fichierNom  ?? null,
+                fichierType: newDoc.fichierType ?? null,
+                aFichier:    newDoc.aFichier    ?? false,
+              }]}
+          : p
+      ));
+      setDocModal({ open:false, form:EMPTY_DOC });
+    } finally {
+      setSaving(false);
+    }
   };
-  const deleteDoc = (pid, did) =>
-    saveProcs(procs.map(p => p.id === pid ? { ...p, docs:p.docs.filter(d => d.id !== did) } : p));
+
+  const deleteDoc = async (pid, did) => {
+    await deleteDocument(pid, did);
+    setProcs(prev => prev.map(p =>
+      p.id === pid ? { ...p, docs: p.docs.filter(d => d.id !== did) } : p
+    ));
+  };
 
   const activeProc = procs.find(p => p.id === activeId) || null;
+
+  /* ── États chargement / erreur ── */
+  if (loading) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#4a7a95", fontFamily:"Outfit,sans-serif", gap:12 }}>
+      <i className="fa-solid fa-spinner fa-spin" style={{ fontSize:22 }}/>
+      Chargement de la cartographie…
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#e74c3c", fontFamily:"Outfit,sans-serif", gap:12 }}>
+      <i className="fa-solid fa-triangle-exclamation" style={{ fontSize:22 }}/>
+      Erreur de chargement. Veuillez réessayer.
+    </div>
+  );
 
   return (
     <>
@@ -187,6 +276,7 @@ export default function CartographieProcessus() {
                             )}
                             <ProcCard
                               proc={p} cat={cat}
+                              index={procs.indexOf(p) + 1}
                               isActive={activeId === p.id}
                               onClick={() => selectProc(p.id)}
                               onEdit={() => openEditProc(p.id)}
@@ -294,9 +384,25 @@ export default function CartographieProcessus() {
                         <i className={`${DOC_TYPE_ICONS[d.type]||"fa-solid fa-folder"} cx-doc-type-ico`}/>
                         <div className="cx-doc-info">
                           <div className="cx-doc-nm">{d.name}</div>
-                          <div className="cx-doc-mt">{d.ref||"—"} · {d.type}</div>
+                          <div className="cx-doc-mt">
+                            {d.ref||"—"} · {d.type}
+                            {d.aFichier && (
+                              <span className="cx-doc-fichier-badge">
+                                <i className="fa-solid fa-paperclip"/> {d.fichierNom}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className={`cx-doc-st ${STATUS_CLASS[d.status]||""}`}>{d.status}</div>
+                        {d.aFichier && (
+                          <button
+                            className="cx-dl-btn"
+                            title={`Télécharger ${d.fichierNom}`}
+                            onClick={() => downloadFichier(d.id, d.fichierNom)}
+                          >
+                            <i className="fa-solid fa-download"/>
+                          </button>
+                        )}
                         <button className="cx-del-btn" onClick={() => deleteDoc(activeProc.id, d.id)} title="Supprimer">
                           <i className="fa-solid fa-trash-can"/>
                         </button>
@@ -345,8 +451,14 @@ export default function CartographieProcessus() {
               <button className="cx-btn-cancel" onClick={()=>setProcModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              <button className="cx-btn-save" style={{ background:CAT_META[procModal.form.cat].gradient }} onClick={saveProc}>
-                <i className="fa-solid fa-check" style={{marginRight:6}}/>{procModal.editId?"Modifier":"Ajouter"}
+              <button
+                className="cx-btn-save"
+                style={{ background:CAT_META[procModal.form.cat].gradient }}
+                onClick={saveProc}
+                disabled={saving}
+              >
+                <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
+                {procModal.editId?"Modifier":"Ajouter"}
               </button>
             </div>
           </div>
@@ -362,7 +474,12 @@ export default function CartographieProcessus() {
               Ajouter un document
             </h3>
             <Fg label="Nom du document" icon="fa-solid fa-file-signature">
-              <input autoFocus placeholder="Ex: Procédure de non-conformités" value={docModal.form.name} onChange={e=>setDocModal(m=>({...m,form:{...m.form,name:e.target.value}}))}/>
+              <input
+                autoFocus
+                placeholder="Ex: Procédure de non-conformités"
+                value={docModal.form.name}
+                onChange={e=>setDocModal(m=>({...m,form:{...m.form,name:e.target.value}}))}
+              />
             </Fg>
             <Fg label="Type" icon="fa-solid fa-shapes">
               <select value={docModal.form.type} onChange={e=>setDocModal(m=>({...m,form:{...m.form,type:e.target.value}}))}>
@@ -376,7 +493,11 @@ export default function CartographieProcessus() {
               </select>
             </Fg>
             <Fg label="Référence" icon="fa-solid fa-hashtag">
-              <input placeholder="Ex: PROC-QUA-001" value={docModal.form.ref} onChange={e=>setDocModal(m=>({...m,form:{...m.form,ref:e.target.value}}))}/>
+              <input
+                placeholder="Ex: PROC-QUA-001"
+                value={docModal.form.ref}
+                onChange={e=>setDocModal(m=>({...m,form:{...m.form,ref:e.target.value}}))}
+              />
             </Fg>
             <Fg label="Statut" icon="fa-solid fa-circle-check">
               <select value={docModal.form.status} onChange={e=>setDocModal(m=>({...m,form:{...m.form,status:e.target.value}}))}>
@@ -386,12 +507,56 @@ export default function CartographieProcessus() {
                 <option value="obsolète">Obsolète</option>
               </select>
             </Fg>
+
+            {/* ── Champ fichier ── */}
+            <Fg label="Fichier (optionnel)" icon="fa-solid fa-paperclip">
+              <div
+                className="cx-file-zone"
+                onClick={() => document.getElementById("cx-file-input").click()}
+              >
+                {docModal.form.fichier
+                  ? (
+                    <span className="cx-file-chosen">
+                      <i className="fa-solid fa-file-check" style={{marginRight:7, color:"#0e6073"}}/>
+                      {docModal.form.fichier.name}
+                      <button
+                        className="cx-file-clear"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setDocModal(m=>({...m,form:{...m.form,fichier:null}}));
+                          document.getElementById("cx-file-input").value = "";
+                        }}
+                        title="Retirer le fichier"
+                      >
+                        <i className="fa-solid fa-xmark"/>
+                      </button>
+                    </span>
+                  )
+                  : (
+                    <span className="cx-file-placeholder">
+                      <i className="fa-solid fa-cloud-arrow-up" style={{marginRight:7}}/>
+                      Cliquez pour choisir un fichier
+                      <span className="cx-file-hint">PDF, Word, Excel, image…</span>
+                    </span>
+                  )
+                }
+              </div>
+              <input
+                id="cx-file-input"
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.txt"
+                style={{ display:"none" }}
+                onChange={e => setDocModal(m=>({...m,form:{...m.form,fichier:e.target.files[0] ?? null}}))}
+              />
+            </Fg>
+
             <div className="cx-modal-ft">
               <button className="cx-btn-cancel" onClick={()=>setDocModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              <button className="cx-btn-save" onClick={saveDoc}>
-                <i className="fa-solid fa-check" style={{marginRight:6}}/>Ajouter
+              <button className="cx-btn-save" onClick={saveDoc} disabled={saving}>
+                <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
+                Ajouter
               </button>
             </div>
           </div>
@@ -404,7 +569,7 @@ export default function CartographieProcessus() {
 /* ═══════════════════════════════════════════════════════════
    SOUS-COMPOSANTS
 ═══════════════════════════════════════════════════════════ */
-function ProcCard({ proc, cat, isActive, onClick, onEdit, onDelete }) {
+function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete }) {
   const CAT_ICONS = {
     mgmt: "fa-solid fa-building-columns",
     real: "fa-solid fa-bolt",
@@ -421,7 +586,7 @@ function ProcCard({ proc, cat, isActive, onClick, onEdit, onDelete }) {
         </button>
       </div>
       <div className="cx-card-num">
-        <i className={`${CAT_ICONS[cat]} cx-card-cat-ico`}/>{proc.id.toUpperCase()}
+        <i className={`${CAT_ICONS[cat]} cx-card-cat-ico`}/>P{index}
       </div>
       <div className="cx-card-nm">{proc.name}</div>
       <div className="cx-card-ft">
@@ -458,400 +623,170 @@ const CSS = `
 
 .cx-root {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background: #f0f7fb;
-  color: #0d2b3e;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
+  background: #f0f7fb; color: #0d2b3e;
+  min-height: 100vh; position: relative; overflow-x: hidden;
 }
 
-/* ── BLOBS ── */
-.cx-blob {
-  position: fixed; border-radius: 50%;
-  filter: blur(80px); pointer-events: none; z-index: 0;
-  opacity: 0; transition: opacity 1.2s ease;
-}
+.cx-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.2s ease; }
 .cx-in .cx-blob { opacity: 1; }
 .cx-b1 { width:520px;height:520px;top:-130px;left:-80px;  background:radial-gradient(ellipse,rgba(14,165,233,0.13),transparent 70%); }
 .cx-b2 { width:440px;height:440px;top:35%;right:-100px;   background:radial-gradient(ellipse,rgba(139,92,246,0.09),transparent 70%); }
 .cx-b3 { width:380px;height:380px;bottom:-80px;left:32%;  background:radial-gradient(ellipse,rgba(16,185,129,0.09),transparent 70%); }
 
-/* ══════════════════════════════
-   HERO
-══════════════════════════════ */
-.cx-hero {
-  position: relative; z-index: 10;
-  text-align: center;
-  padding: 60px 48px 48px;
-  opacity: 0; transform: translateY(22px);
-  transition: opacity .65s ease, transform .65s ease;
-}
-.cx-in .cx-hero { opacity: 1; transform: none; }
+.cx-hero { position:relative;z-index:10;text-align:center;padding:60px 48px 48px;opacity:0;transform:translateY(22px);transition:opacity .65s ease,transform .65s ease; }
+.cx-in .cx-hero { opacity:1;transform:none; }
+.cx-badge { display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#0ea5e9;background:#e0f2fe;border:1px solid #bae6fd;padding:6px 16px;border-radius:99px;margin-bottom:24px; }
+.cx-dot { width:7px;height:7px;border-radius:50%;background:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,0.25);animation:cxBlink 2s ease-in-out infinite;flex-shrink:0; }
+@keyframes cxBlink { 0%,100%{box-shadow:0 0 0 3px rgba(14,165,233,0.25)}50%{box-shadow:0 0 0 7px rgba(14,165,233,0.1)} }
+.cx-h1 { font-size:clamp(36px,5vw,62px);font-weight:800;letter-spacing:-.045em;color:#0d2b3e;line-height:1.05;margin-bottom:14px; }
+.cx-h1-grad { background:linear-gradient(135deg,#0ea5e9 0%,#8b5cf6 50%,#10b981 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+.cx-lead { font-size:15px;color:#4a7a95;max-width:500px;margin:0 auto 40px;line-height:1.65; }
 
-.cx-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
-  color: #0ea5e9; background: #e0f2fe; border: 1px solid #bae6fd;
-  padding: 6px 16px; border-radius: 99px; margin-bottom: 24px;
-}
-.cx-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.25);
-  animation: cxBlink 2s ease-in-out infinite; flex-shrink: 0;
-}
-@keyframes cxBlink { 0%,100%{box-shadow:0 0 0 3px rgba(14,165,233,0.25)} 50%{box-shadow:0 0 0 7px rgba(14,165,233,0.1)} }
+.cx-flow { position:relative;z-index:10;padding:0 40px 48px;max-width:1440px;margin:0 auto; }
+.cx-flow-wrapper { display:grid;grid-template-columns:96px 1fr 96px;align-items:center; }
+.cx-flow-center { display:flex;flex-direction:column;gap:0;padding:0 12px; }
+.cx-side { writing-mode:vertical-rl;text-orientation:mixed;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#0ea5e9,#8b5cf6,#10b981);border-radius:14px;padding:28px 10px;text-align:center;box-shadow:0 6px 24px rgba(14,165,233,0.22);display:flex;align-items:center;justify-content:center;gap:14px;min-height:300px;font-family:'Outfit',sans-serif; }
+.cx-side-l { transform:rotate(180deg); }
+.cx-side-arrow-icon { font-size:13px;opacity:.75; }
 
-.cx-h1 {
-  font-size: clamp(36px, 5vw, 62px);
-  font-weight: 800; letter-spacing: -.045em;
-  color: #0d2b3e; line-height: 1.05; margin-bottom: 14px;
-}
-.cx-h1-grad {
-  background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 50%, #10b981 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
-.cx-lead { font-size: 15px; color: #4a7a95; max-width: 500px; margin: 0 auto 40px; line-height: 1.65; }
+.cx-layer { border-radius:20px;padding:22px 24px;margin:6px 0;border:1.5px solid transparent;opacity:0;transform:translateY(18px);animation:cxUp .55s ease forwards;box-shadow:0 2px 16px rgba(13,43,62,0.06); }
+.cx-layer-mgmt { background:rgba(14,165,233,0.08);border-color:rgba(14,165,233,0.3); }
+.cx-layer-real  { background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.3); }
+.cx-layer-supp  { background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3); }
+@keyframes cxUp { to { opacity:1;transform:none; } }
+.cx-layer-hd { display:flex;align-items:center;gap:12px;margin-bottom:16px; }
+.cx-layer-ico { width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:#fff;box-shadow:0 2px 8px rgba(13,43,62,0.12); }
+.cx-ico-mgmt { background:#0ea5e9; } .cx-ico-real { background:#8b5cf6; } .cx-ico-supp { background:#10b981; }
+.cx-layer-title { font-size:14px;font-weight:700;font-family:'Outfit',sans-serif; }
+.cx-title-mgmt { color:#0284c7; } .cx-title-real { color:#7c3aed; } .cx-title-supp { color:#059669; }
+.cx-layer-cnt { margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px; }
+.cx-cnt-mgmt { background:rgba(14,165,233,0.12);color:#0284c7;border:1px solid rgba(14,165,233,0.25); }
+.cx-cnt-real  { background:rgba(139,92,246,0.12);color:#7c3aed;border:1px solid rgba(139,92,246,0.25); }
+.cx-cnt-supp  { background:rgba(16,185,129,0.12);color:#059669;border:1px solid rgba(16,185,129,0.25); }
 
-/* ══════════════════════════════
-   FLOW
-══════════════════════════════ */
-.cx-flow {
-  position: relative; z-index: 10;
-  padding: 0 40px 48px;
-  max-width: 1440px; margin: 0 auto;
-}
-.cx-flow-wrapper {
-  display: grid;
-  grid-template-columns: 96px 1fr 96px;
-  align-items: center;
-}
-.cx-flow-center { display: flex; flex-direction: column; gap: 0; padding: 0 12px; }
+.cx-add-proc { display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:9px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;border:1.5px solid transparent; }
+.cx-add-mgmt { background:rgba(14,165,233,0.1);color:#0284c7;border-color:rgba(14,165,233,0.3); }
+.cx-add-mgmt:hover { background:#0ea5e9;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(14,165,233,0.35); }
+.cx-add-real  { background:rgba(139,92,246,0.1);color:#7c3aed;border-color:rgba(139,92,246,0.3); }
+.cx-add-real:hover  { background:#8b5cf6;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(139,92,246,0.35); }
+.cx-add-supp  { background:rgba(16,185,129,0.1);color:#059669;border-color:rgba(16,185,129,0.3); }
+.cx-add-supp:hover  { background:#10b981;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,0.35); }
 
-/* Side labels */
-.cx-side {
-  writing-mode: vertical-rl; text-orientation: mixed;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: #fff;
-  background: linear-gradient(180deg, #0ea5e9, #8b5cf6, #10b981);
-  border-radius: 14px;
-  padding: 28px 10px;
-  text-align: center;
-  box-shadow: 0 6px 24px rgba(14,165,233,0.22);
-  display: flex; align-items: center; justify-content: center; gap: 14px;
-  min-height: 300px;
-  font-family: 'Outfit', sans-serif;
-}
-.cx-side-l { transform: rotate(180deg); }
-.cx-side-arrow-icon { font-size: 13px; opacity: .75; }
+.cx-proc-row { display:flex;gap:10px;flex-wrap:wrap;align-items:stretch; }
+.cx-flow-arr { color:#5dade2;font-size:16px;flex-shrink:0;opacity:.7; }
+.cx-empty-row { font-size:12px;padding:14px;border-radius:10px;width:100%;text-align:center;border:1.5px dashed;opacity:.6;display:flex;align-items:center;justify-content:center;gap:7px; }
+.cx-empty-mgmt { color:#0284c7;border-color:rgba(14,165,233,0.3); }
+.cx-empty-real  { color:#7c3aed;border-color:rgba(139,92,246,0.3); }
+.cx-empty-supp  { color:#059669;border-color:rgba(16,185,129,0.3); }
 
-/* LAYERS */
-.cx-layer {
-  border-radius: 20px;
-  padding: 22px 24px;
-  margin: 6px 0;
-  border: 1.5px solid transparent;
-  opacity: 0; transform: translateY(18px);
-  animation: cxUp .55s ease forwards;
-  box-shadow: 0 2px 16px rgba(13,43,62,0.06);
-}
-.cx-layer-mgmt { background: rgba(14,165,233,0.08);  border-color: rgba(14,165,233,0.3); }
-.cx-layer-real  { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.3); }
-.cx-layer-supp  { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); }
-@keyframes cxUp { to { opacity:1; transform:none; } }
+.cx-card { flex:1;min-width:140px;background:#fff;border-radius:14px;padding:14px 14px 12px;cursor:pointer;position:relative;overflow:hidden;transition:all .22s cubic-bezier(.34,1.56,.64,1); }
+.cx-card::before { content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0; }
+.cx-card-mgmt { border:1.5px solid rgba(14,165,233,0.25);box-shadow:0 2px 10px rgba(14,165,233,0.08); }
+.cx-card-real  { border:1.5px solid rgba(139,92,246,0.25);box-shadow:0 2px 10px rgba(139,92,246,0.08); }
+.cx-card-supp  { border:1.5px solid rgba(16,185,129,0.25);box-shadow:0 2px 10px rgba(16,185,129,0.08); }
+.cx-card-mgmt::before { background:linear-gradient(90deg,#0ea5e9,#38bdf8); }
+.cx-card-real::before  { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+.cx-card-supp::before  { background:linear-gradient(90deg,#10b981,#34d399); }
+.cx-card:hover { transform:translateY(-4px); }
+.cx-card-mgmt:hover { border-color:#0ea5e9;box-shadow:0 8px 28px rgba(14,165,233,0.18); }
+.cx-card-real:hover  { border-color:#8b5cf6;box-shadow:0 8px 28px rgba(139,92,246,0.18); }
+.cx-card-supp:hover  { border-color:#10b981;box-shadow:0 8px 28px rgba(16,185,129,0.18); }
+.cx-card-on { transform:translateY(-2px) !important; }
+.cx-card-mgmt.cx-card-on { border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,0.15),0 8px 24px rgba(14,165,233,0.18) !important; }
+.cx-card-real.cx-card-on  { border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.15),0 8px 24px rgba(139,92,246,0.18) !important; }
+.cx-card-supp.cx-card-on  { border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.15),0 8px 24px rgba(16,185,129,0.18) !important; }
+.cx-card-acts { position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s; }
+.cx-card:hover .cx-card-acts { opacity:1; }
+.cx-act { width:24px;height:24px;border-radius:6px;border:1px solid transparent;background:rgba(255,255,255,.85);font-size:11px;cursor:pointer;transition:all .12s;color:#4a7a95;display:flex;align-items:center;justify-content:center; }
+.cx-act-e:hover { background:#eaf4fb;border-color:#0e6073;color:#0e6073; }
+.cx-act-d:hover { background:#fde8e8;border-color:#e74c3c;color:#e74c3c; }
+.cx-card-num { font-family:'JetBrains Mono',monospace;font-size:9px;color:#8fb8cc;margin-bottom:6px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:5px; }
+.cx-card-cat-ico { font-size:9px; }
+.cx-card-nm  { font-size:13px;font-weight:600;color:#0d2b3e;line-height:1.35;margin-bottom:10px; }
+.cx-card-ft  { display:flex;align-items:center;justify-content:space-between;gap:6px; }
+.cx-card-own { font-size:10px;color:#4a7a95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px; }
+.cx-own-ico { font-size:9px;opacity:.7; }
+.cx-card-bdg { font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:6px;font-weight:500;flex-shrink:0;display:flex;align-items:center;gap:4px; }
+.cx-bdg-ico { font-size:9px; }
+.cx-bdg-mgmt { background:rgba(14,165,233,0.1);color:#0284c7; }
+.cx-bdg-real  { background:rgba(139,92,246,0.1);color:#7c3aed; }
+.cx-bdg-supp  { background:rgba(16,185,129,0.1);color:#059669; }
 
-.cx-layer-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.cx-connector { display:flex;align-items:center;justify-content:center;height:26px;position:relative; }
+.cx-conn-line { width:2px;height:100%;background:linear-gradient(to bottom,#0ea5e9,#8b5cf6,#10b981);opacity:.3;border-radius:2px; }
+.cx-legend { position:relative;z-index:10;display:flex;gap:24px;justify-content:center;align-items:center;padding:0 48px 52px;flex-wrap:wrap; }
+.cx-leg-item { display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600; }
+.cx-leg-hint { font-size:11px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;display:flex;align-items:center; }
 
-.cx-layer-ico {
-  width: 36px; height: 36px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; flex-shrink: 0; color: #fff;
-  box-shadow: 0 2px 8px rgba(13,43,62,0.12);
-}
-.cx-ico-mgmt { background: #0ea5e9; }
-.cx-ico-real  { background: #8b5cf6; }
-.cx-ico-supp  { background: #10b981; }
+/* PANNEAU */
+.cx-panel { position:fixed;right:-430px;top:85px;width:410px;height:calc(100vh - 85px);background:#fff;border-left:2px solid #aed6f1;z-index:50;transition:right .38s cubic-bezier(.34,1.56,.64,1);overflow-y:auto;display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(14,96,115,0.1);font-family:'Outfit',sans-serif; }
+.cx-panel-open { right:0; }
+.cx-ph { padding:24px 22px 18px;border-bottom:1px solid #d6eaf8;position:sticky;top:0;background:#fff;z-index:5; }
+.cx-ph-strip { height:4px;border-radius:4px;margin-bottom:15px; }
+.cx-ph-cat { font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;display:flex;align-items:center;gap:6px; }
+.cx-ph-cat-ico { font-size:11px; }
+.cx-ph-title { font-size:16px;font-weight:700;color:#0d2b3e;padding-right:38px;line-height:1.35; }
+.cx-ph-owner { margin-top:8px;font-size:12px;color:#4a7a95;display:flex;align-items:center;gap:6px; }
+.cx-ph-close { position:absolute;top:20px;right:16px;width:30px;height:30px;background:#eaf4fb;border:1px solid #aed6f1;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#4a7a95;transition:all .15s; }
+.cx-ph-close:hover { background:#fde8e8;border-color:#e74c3c;color:#e74c3c; }
+.cx-pb { padding:20px 22px;flex:1; }
+.cx-pb-desc { font-size:13px;color:#4a7a95;line-height:1.7;padding:13px 15px;background:#eaf4fb;border:1px solid #d6eaf8;border-radius:10px;margin-bottom:20px;display:flex;gap:9px;align-items:flex-start; }
+.cx-desc-ico { font-size:13px;color:#0ea5e9;flex-shrink:0;margin-top:2px; }
+.cx-pb-sh { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
+.cx-pb-stit { font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4a7a95;display:flex;align-items:center;gap:6px; }
+.cx-sh-ico { font-size:11px; }
+.cx-pb-cnt { font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700; }
+.cx-doc-list { display:flex;flex-direction:column;gap:8px; }
+.cx-no-doc { text-align:center;padding:22px;color:#8fb8cc;font-size:12px;border:1.5px dashed #d6eaf8;border-radius:10px;line-height:1.9; }
+.cx-no-doc-ico { font-size:26px;display:block;margin-bottom:4px;opacity:.5; }
+.cx-doc-item { display:flex;align-items:center;gap:10px;padding:10px 12px;background:#eaf4fb;border:1px solid #d6eaf8;border-radius:10px;transition:border-color .15s; }
+.cx-doc-item:hover { border-color:#aed6f1; }
+.cx-doc-type-ico { font-size:15px;color:#0e6073;flex-shrink:0;width:18px;text-align:center; }
+.cx-doc-info { flex:1;min-width:0; }
+.cx-doc-nm   { font-size:12px;font-weight:600;color:#0d2b3e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.cx-doc-mt   { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
+.cx-doc-fichier-badge { display:inline-flex;align-items:center;gap:3px;background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.cx-doc-st   { font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;flex-shrink:0;white-space:nowrap; }
+.s-vigueur { background:#d4edda;color:#1a7a3c;border:1px solid #b3dfc0; }
+.s-cours   { background:#d6eaf8;color:#1a4f72;border:1px solid #aed6f1; }
+.s-reviser { background:#fef9e7;color:#9a7d0a;border:1px solid #f9e79f; }
+.s-obsolete{ background:#fde8e8;color:#922b21;border:1px solid #f5b7b1; }
+.cx-dl-btn { background:none;border:none;cursor:pointer;color:#0284c7;font-size:13px;padding:5px;border-radius:6px;transition:color .15s,background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
+.cx-dl-btn:hover { color:#0e6073;background:#e0f2fe; }
+.cx-del-btn { background:none;border:none;cursor:pointer;color:#8fb8cc;font-size:13px;padding:5px;border-radius:6px;transition:color .15s,background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
+.cx-del-btn:hover { color:#e74c3c;background:#fde8e8; }
+.cx-add-doc-btn { width:100%;margin-top:12px;padding:11px;background:transparent;border:1.5px dashed #aed6f1;border-radius:10px;color:var(--ac,#0e6073);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px; }
+.cx-add-doc-btn:hover { border-color:#0e6073;background:#eaf4fb; }
 
-.cx-layer-title { font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif; }
-.cx-title-mgmt { color: #0284c7; }
-.cx-title-real  { color: #7c3aed; }
-.cx-title-supp  { color: #059669; }
+/* MODALS */
+.cx-overlay { position:fixed;inset:0;background:rgba(13,43,62,0.45);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center; }
+.cx-modal { background:#fff;border:1.5px solid #aed6f1;border-radius:20px;width:440px;max-width:92vw;padding:28px;box-shadow:0 32px 80px rgba(13,43,62,0.22);animation:cxPop .22s cubic-bezier(.34,1.56,.64,1);font-family:'Outfit',sans-serif;max-height:90vh;overflow-y:auto; }
+@keyframes cxPop { from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none} }
+.cx-modal h3 { font-size:17px;font-weight:700;color:#0e6073;margin-bottom:20px;display:flex;align-items:center; }
+.cx-fg { margin-bottom:14px; }
+.cx-flbl { display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#4a7a95;margin-bottom:6px; }
+.cx-flbl-ico { font-size:10px; }
+.cx-fg input, .cx-fg select, .cx-fg textarea { width:100%;background:#eaf4fb;border:1.5px solid #d6eaf8;border-radius:10px;padding:9px 13px;color:#0d2b3e;font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s; }
+.cx-fg input:focus,.cx-fg select:focus,.cx-fg textarea:focus { border-color:#0e6073;box-shadow:0 0 0 3px rgba(14,96,115,0.1);background:#fff; }
+.cx-fg textarea { resize:vertical;min-height:72px; }
 
-.cx-layer-cnt {
-  margin-left: auto;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; font-weight: 500;
-  padding: 3px 10px; border-radius: 20px;
-}
-.cx-cnt-mgmt { background: rgba(14,165,233,0.12); color: #0284c7; border: 1px solid rgba(14,165,233,0.25); }
-.cx-cnt-real  { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.25); }
-.cx-cnt-supp  { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.25); }
+/* Zone fichier */
+.cx-file-zone { width:100%;min-height:54px;background:#eaf4fb;border:1.5px dashed #aed6f1;border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:center; }
+.cx-file-zone:hover { border-color:#0e6073;background:#dff0f9; }
+.cx-file-placeholder { display:flex;align-items:center;font-size:12px;color:#4a7a95;flex-wrap:wrap;font-family:'Outfit',sans-serif; }
+.cx-file-hint { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-left:8px; }
+.cx-file-chosen { display:flex;align-items:center;gap:4px;font-size:12px;color:#0d2b3e;font-weight:600;font-family:'Outfit',sans-serif;word-break:break-all;flex:1; }
+.cx-file-clear { background:none;border:none;cursor:pointer;color:#8fb8cc;font-size:12px;padding:2px 5px;border-radius:4px;margin-left:auto;flex-shrink:0;transition:color .15s,background .15s; }
+.cx-file-clear:hover { color:#e74c3c;background:#fde8e8; }
 
-/* Add proc button */
-.cx-add-proc {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 9px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all .15s; white-space: nowrap;
-  border: 1.5px solid transparent;
-}
-.cx-add-mgmt { background: rgba(14,165,233,0.1); color: #0284c7; border-color: rgba(14,165,233,0.3); }
-.cx-add-mgmt:hover { background: #0ea5e9; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(14,165,233,0.35); }
-.cx-add-real  { background: rgba(139,92,246,0.1); color: #7c3aed; border-color: rgba(139,92,246,0.3); }
-.cx-add-real:hover  { background: #8b5cf6; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,0.35); }
-.cx-add-supp  { background: rgba(16,185,129,0.1); color: #059669; border-color: rgba(16,185,129,0.3); }
-.cx-add-supp:hover  { background: #10b981; color: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.35); }
+.cx-modal-ft { display:flex;justify-content:flex-end;gap:10px;margin-top:22px; }
+.cx-btn-cancel { display:inline-flex;align-items:center;padding:9px 18px;background:transparent;border:1.5px solid #aed6f1;border-radius:10px;color:#4a7a95;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s; }
+.cx-btn-cancel:hover { border-color:#e74c3c;color:#e74c3c; }
+.cx-btn-save { display:inline-flex;align-items:center;padding:9px 22px;border:none;border-radius:10px;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:linear-gradient(135deg,#0e6073,#1a4f72);box-shadow:0 4px 14px rgba(14,96,115,0.3); }
+.cx-btn-save:hover { transform:translateY(-1px);box-shadow:0 6px 20px rgba(14,96,115,0.4); }
+.cx-btn-save:disabled { opacity:.65;cursor:not-allowed;transform:none; }
 
-/* Process row */
-.cx-proc-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
-.cx-flow-arr { color: #5dade2; font-size: 16px; flex-shrink: 0; opacity: .7; }
-.cx-empty-row {
-  font-size: 12px; padding: 14px; border-radius: 10px;
-  width: 100%; text-align: center; border: 1.5px dashed; opacity: .6;
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-}
-.cx-empty-mgmt { color: #0284c7; border-color: rgba(14,165,233,0.3); }
-.cx-empty-real  { color: #7c3aed; border-color: rgba(139,92,246,0.3); }
-.cx-empty-supp  { color: #059669; border-color: rgba(16,185,129,0.3); }
-
-/* ── PROC CARDS ── */
-.cx-card {
-  flex: 1; min-width: 140px;
-  background: #fff;
-  border-radius: 14px;
-  padding: 14px 14px 12px;
-  cursor: pointer;
-  position: relative; overflow: hidden;
-  transition: all .22s cubic-bezier(.34,1.56,.64,1);
-}
-.cx-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; border-radius: 14px 14px 0 0;
-}
-.cx-card-mgmt { border: 1.5px solid rgba(14,165,233,0.25); box-shadow: 0 2px 10px rgba(14,165,233,0.08); }
-.cx-card-real  { border: 1.5px solid rgba(139,92,246,0.25); box-shadow: 0 2px 10px rgba(139,92,246,0.08); }
-.cx-card-supp  { border: 1.5px solid rgba(16,185,129,0.25); box-shadow: 0 2px 10px rgba(16,185,129,0.08); }
-.cx-card-mgmt::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
-.cx-card-real::before  { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
-.cx-card-supp::before  { background: linear-gradient(90deg, #10b981, #34d399); }
-
-.cx-card:hover { transform: translateY(-4px); }
-.cx-card-mgmt:hover { border-color: #0ea5e9; box-shadow: 0 8px 28px rgba(14,165,233,0.18); }
-.cx-card-real:hover  { border-color: #8b5cf6; box-shadow: 0 8px 28px rgba(139,92,246,0.18); }
-.cx-card-supp:hover  { border-color: #10b981; box-shadow: 0 8px 28px rgba(16,185,129,0.18); }
-
-.cx-card-on { transform: translateY(-2px) !important; }
-.cx-card-mgmt.cx-card-on { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.15), 0 8px 24px rgba(14,165,233,0.18) !important; }
-.cx-card-real.cx-card-on  { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.15), 0 8px 24px rgba(139,92,246,0.18) !important; }
-.cx-card-supp.cx-card-on  { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.15), 0 8px 24px rgba(16,185,129,0.18) !important; }
-
-.cx-card-acts { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
-.cx-card:hover .cx-card-acts { opacity: 1; }
-.cx-act {
-  width: 24px; height: 24px; border-radius: 6px;
-  border: 1px solid transparent; background: rgba(255,255,255,.85);
-  font-size: 11px; cursor: pointer; transition: all .12s; color: #4a7a95;
-  display: flex; align-items: center; justify-content: center;
-}
-.cx-act-e:hover { background: #eaf4fb; border-color: #0e6073; color: #0e6073; }
-.cx-act-d:hover { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; }
-
-.cx-card-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px; color: #8fb8cc;
-  margin-bottom: 6px; font-weight: 500;
-  letter-spacing: .1em; text-transform: uppercase;
-  display: flex; align-items: center; gap: 5px;
-}
-.cx-card-cat-ico { font-size: 9px; }
-.cx-card-nm  { font-size: 13px; font-weight: 600; color: #0d2b3e; line-height: 1.35; margin-bottom: 10px; }
-.cx-card-ft  { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.cx-card-own {
-  font-size: 10px; color: #4a7a95;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  display: flex; align-items: center; gap: 4px;
-}
-.cx-own-ico { font-size: 9px; opacity: .7; }
-.cx-card-bdg {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; padding: 2px 8px; border-radius: 6px;
-  font-weight: 500; flex-shrink: 0;
-  display: flex; align-items: center; gap: 4px;
-}
-.cx-bdg-ico { font-size: 9px; }
-.cx-bdg-mgmt { background: rgba(14,165,233,0.1); color: #0284c7; }
-.cx-bdg-real  { background: rgba(139,92,246,0.1); color: #7c3aed; }
-.cx-bdg-supp  { background: rgba(16,185,129,0.1); color: #059669; }
-
-/* Connector */
-.cx-connector { display: flex; align-items: center; justify-content: center; height: 26px; position: relative; }
-.cx-conn-line { width: 2px; height: 100%; background: linear-gradient(to bottom, #0ea5e9, #8b5cf6, #10b981); opacity: .3; border-radius: 2px; }
-
-/* Legend */
-.cx-legend {
-  position: relative; z-index: 10;
-  display: flex; gap: 24px; justify-content: center; align-items: center;
-  padding: 0 48px 52px; flex-wrap: wrap;
-}
-.cx-leg-item { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; }
-.cx-leg-hint { font-size: 11px; color: #8fb8cc; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; }
-
-/* ══════════════════════════════
-   PANNEAU DÉTAIL
-══════════════════════════════ */
-.cx-panel {
-  position: fixed; right: -430px; top: 85px;
-  width: 410px; height: calc(100vh - 85px);
-  background: #fff;
-  border-left: 2px solid #aed6f1;
-  z-index: 50;
-  transition: right .38s cubic-bezier(.34,1.56,.64,1);
-  overflow-y: auto; display: flex; flex-direction: column;
-  box-shadow: -8px 0 40px rgba(14,96,115,0.1);
-  font-family: 'Outfit', sans-serif;
-}
-.cx-panel-open { right: 0; }
-
-.cx-ph { padding: 24px 22px 18px; border-bottom: 1px solid #d6eaf8; position: sticky; top: 0; background: #fff; z-index: 5; }
-.cx-ph-strip { height: 4px; border-radius: 4px; margin-bottom: 15px; }
-.cx-ph-cat {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .1em;
-  margin-bottom: 7px;
-  display: flex; align-items: center; gap: 6px;
-}
-.cx-ph-cat-ico { font-size: 11px; }
-.cx-ph-title { font-size: 16px; font-weight: 700; color: #0d2b3e; padding-right: 38px; line-height: 1.35; }
-.cx-ph-owner { margin-top: 8px; font-size: 12px; color: #4a7a95; display: flex; align-items: center; gap: 6px; }
-.cx-ph-close {
-  position: absolute; top: 20px; right: 16px;
-  width: 30px; height: 30px;
-  background: #eaf4fb; border: 1px solid #aed6f1;
-  border-radius: 8px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 13px; color: #4a7a95; transition: all .15s;
-}
-.cx-ph-close:hover { background: #fde8e8; border-color: #e74c3c; color: #e74c3c; }
-
-.cx-pb { padding: 20px 22px; flex: 1; }
-.cx-pb-desc {
-  font-size: 13px; color: #4a7a95; line-height: 1.7;
-  padding: 13px 15px; background: #eaf4fb;
-  border: 1px solid #d6eaf8; border-radius: 10px; margin-bottom: 20px;
-  display: flex; gap: 9px; align-items: flex-start;
-}
-.cx-desc-ico { font-size: 13px; color: #0ea5e9; flex-shrink: 0; margin-top: 2px; }
-.cx-pb-sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.cx-pb-stit {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .1em; color: #4a7a95;
-  display: flex; align-items: center; gap: 6px;
-}
-.cx-sh-ico { font-size: 11px; }
-.cx-pb-cnt { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; }
-
-.cx-doc-list { display: flex; flex-direction: column; gap: 8px; }
-.cx-no-doc {
-  text-align: center; padding: 22px; color: #8fb8cc;
-  font-size: 12px; border: 1.5px dashed #d6eaf8; border-radius: 10px;
-  line-height: 1.9;
-}
-.cx-no-doc-ico { font-size: 26px; display: block; margin-bottom: 4px; opacity: .5; }
-.cx-doc-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; background: #eaf4fb;
-  border: 1px solid #d6eaf8; border-radius: 10px; transition: border-color .15s;
-}
-.cx-doc-item:hover { border-color: #aed6f1; }
-.cx-doc-type-ico { font-size: 15px; color: #0e6073; flex-shrink: 0; width: 18px; text-align: center; }
-.cx-doc-info { flex: 1; min-width: 0; }
-.cx-doc-nm   { font-size: 12px; font-weight: 600; color: #0d2b3e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cx-doc-mt   { font-size: 10px; color: #8fb8cc; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
-.cx-doc-st   { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
-.s-vigueur { background: #d4edda; color: #1a7a3c; border: 1px solid #b3dfc0; }
-.s-cours   { background: #d6eaf8; color: #1a4f72; border: 1px solid #aed6f1; }
-.s-reviser { background: #fef9e7; color: #9a7d0a; border: 1px solid #f9e79f; }
-.s-obsolete{ background: #fde8e8; color: #922b21; border: 1px solid #f5b7b1; }
-.cx-del-btn {
-  background: none; border: none; cursor: pointer;
-  color: #8fb8cc; font-size: 13px; padding: 5px; border-radius: 6px;
-  transition: color .15s, background .15s; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.cx-del-btn:hover { color: #e74c3c; background: #fde8e8; }
-
-.cx-add-doc-btn {
-  width: 100%; margin-top: 12px; padding: 11px;
-  background: transparent; border: 1.5px dashed #aed6f1;
-  border-radius: 10px; color: var(--ac, #0e6073);
-  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all .15s;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.cx-add-doc-btn:hover { border-color: #0e6073; background: #eaf4fb; }
-
-/* ══════════════════════════════
-   MODALS
-══════════════════════════════ */
-.cx-overlay {
-  position: fixed; inset: 0;
-  background: rgba(13,43,62,0.45); backdrop-filter: blur(6px);
-  z-index: 100; display: flex; align-items: center; justify-content: center;
-}
-.cx-modal {
-  background: #fff; border: 1.5px solid #aed6f1;
-  border-radius: 20px; width: 440px; max-width: 92vw; padding: 28px;
-  box-shadow: 0 32px 80px rgba(13,43,62,0.22);
-  animation: cxPop .22s cubic-bezier(.34,1.56,.64,1);
-  font-family: 'Outfit', sans-serif;
-}
-@keyframes cxPop { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:none; } }
-.cx-modal h3 {
-  font-size: 17px; font-weight: 700; color: #0e6073;
-  margin-bottom: 20px; display: flex; align-items: center;
-}
-.cx-fg { margin-bottom: 14px; }
-.cx-flbl {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .08em;
-  color: #4a7a95; margin-bottom: 6px;
-}
-.cx-flbl-ico { font-size: 10px; }
-.cx-fg input, .cx-fg select, .cx-fg textarea {
-  width: 100%; background: #eaf4fb; border: 1.5px solid #d6eaf8;
-  border-radius: 10px; padding: 9px 13px; color: #0d2b3e;
-  font-family: 'Outfit', sans-serif; font-size: 13px; outline: none;
-  transition: border-color .15s, box-shadow .15s;
-}
-.cx-fg input:focus, .cx-fg select:focus, .cx-fg textarea:focus {
-  border-color: #0e6073; box-shadow: 0 0 0 3px rgba(14,96,115,0.1); background: #fff;
-}
-.cx-fg textarea { resize: vertical; min-height: 72px; }
-.cx-modal-ft { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
-.cx-btn-cancel {
-  display: inline-flex; align-items: center;
-  padding: 9px 18px; background: transparent;
-  border: 1.5px solid #aed6f1; border-radius: 10px;
-  color: #4a7a95; font-family: 'Outfit', sans-serif;
-  font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
-}
-.cx-btn-cancel:hover { border-color: #e74c3c; color: #e74c3c; }
-.cx-btn-save {
-  display: inline-flex; align-items: center;
-  padding: 9px 22px; border: none; border-radius: 10px; color: #fff;
-  font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all .15s;
-  background: linear-gradient(135deg, #0e6073, #1a4f72);
-  box-shadow: 0 4px 14px rgba(14,96,115,0.3);
-}
-.cx-btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14,96,115,0.4); }
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #aed6f1; border-radius: 99px; }
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#aed6f1;border-radius:99px; }
 `;

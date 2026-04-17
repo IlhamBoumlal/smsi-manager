@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Domain.Entities
+namespace backend.Domain.Entities
 {
     // ── CONFORMITY STATUS ─────────────────────────────────────────────────────
     public class ConformityStatus

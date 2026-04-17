@@ -11,7 +11,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace API.Controllers;
+namespace backend.API.Controllers;
 
 [Authorize]
 [ApiController]

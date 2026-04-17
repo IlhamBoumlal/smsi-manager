@@ -7,7 +7,17 @@ const API = 'http://localhost:5006';
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
-    return token ? JSON.parse(localStorage.getItem('user')) : null;
+    const storedUser = localStorage.getItem('user');
+    
+    if (!token || !storedUser) return null;
+    
+    try {
+      const parsed = JSON.parse(storedUser);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
   });
 
   const refreshTimerRef = useRef(null);
@@ -77,6 +87,8 @@ export function AuthProvider({ children }) {
 
   /* ─── Login ─────────────────────────────────────────────────── */
   const loginUser = (data) => {
+    if (!data?.token) return;
+    
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
     if (data.refreshToken) {
@@ -98,15 +110,34 @@ export function AuthProvider({ children }) {
   /* ─── Au démarrage : si token déjà en storage, planifie refresh */
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      const msLeft = getMsUntilExpiry(token);
-      if (!msLeft || msLeft <= 0) {
-        // Token déjà expiré → tente refresh direct
-        refreshToken();
-      } else {
-        scheduleRefresh(token);
+    const storedUser = localStorage.getItem('user');
+
+    if (!token || !storedUser) {
+      if (token && !storedUser) {
+        localStorage.removeItem('token');
       }
+      setUser(null);
+      return;
     }
+
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (parsed && typeof parsed === 'object') {
+        setUser(parsed);
+        
+        const msLeft = getMsUntilExpiry(token);
+        if (!msLeft || msLeft <= 0) {
+          // Token déjà expiré → tente refresh direct
+          refreshToken();
+        } else {
+          scheduleRefresh(token);
+        }
+      }
+    } catch {
+      localStorage.removeItem('user');
+      setUser(null);
+    }
+    
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Users, UserCheck, UserX, Building2, Factory, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
 import axios from 'axios';
 
-const API = 'http://localhost:5006/api';
+const API = 'http://localhost:5001/api';
 
 // Composant DashboardAdmin : Tableau de bord administrateur avec statistiques animées
 // Affiche des métriques sur utilisateurs, sociétés, holdings avec graphiques et animations

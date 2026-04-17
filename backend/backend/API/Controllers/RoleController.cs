@@ -1,9 +1,11 @@
-﻿using backend.Application.Roles.Queries.GetAllRoles;
+using backend.Application.Roles.Queries.GetAllRoles;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class RoleController : ControllerBase

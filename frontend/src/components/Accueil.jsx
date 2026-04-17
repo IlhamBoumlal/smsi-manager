@@ -39,9 +39,9 @@ export default function Accueil() {
      
      if (logoPath) {
        if (logoPath.startsWith('/')) {
-         logoImage = `http://localhost:5006${logoPath}`;
+         logoImage = `http://localhost:5001${logoPath}`;
        } else if (!logoPath.startsWith('http')) {
-         logoImage = `http://localhost:5006/${logoPath}`;
+         logoImage = `http://localhost:5001/${logoPath}`;
        } else {
          logoImage = logoPath;
        }

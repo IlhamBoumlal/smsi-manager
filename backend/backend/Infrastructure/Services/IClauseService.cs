@@ -1,7 +1,7 @@
 using Application.DTOs.Clause;
 using Microsoft.AspNetCore.Http;
 
-namespace Infrastructure.Services
+namespace backend.Infrastructure.Services
 {
     public interface IClauseService
     {

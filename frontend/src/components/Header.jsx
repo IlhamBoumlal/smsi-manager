@@ -2,43 +2,53 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import isoLogo from "../assets/ISO.png";
 import {
-  LogIn, ChevronDown, ClipboardCheck, Database, LogOut,
-  BarChart3, Users, Factory, Building2, Network
+  LogIn,
+  ChevronDown,
+  Database,
+  LogOut,
+  BarChart3,
+  Users,
+  Factory,
+  Building2,
+  Shield,
+  ClipboardCheck,
+  Network,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { resolveAssetUrl } from "../api/url";
 
 const mainAxes = [
-  { id: "cartographie",  label: "Cartographie",        path: "/cartographie" },
-  { id: "tableau-bord",  label: "Tableau de bord",     path: "/tableau-bord" },
-  { id: "pdca",          label: "PDCA",                path: "/pdca" },
-  { id: "clauses",       label: "Clauses",             path: "/clauses" },
-  { id: "controles",     label: "Contrôles",           path: "/controles" },
-  { id: "documentation", label: "Documentation",       path: "/documentation" },
-  { id: "risques",       label: "Risques",             path: "/risques" },
+  { id: "cartographie", label: "Cartographie", path: "/cartographie" },
+  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord" },
+  { id: "pdca", label: "PDCA", path: "/pdca" },
+  { id: "clauses", label: "Clauses", path: "/clauses" },
+  { id: "controles", label: "Contrôles", path: "/controles" },
+  { id: "documentation", label: "Documentation", path: "/documentation" },
+  { id: "risques", label: "Risques", path: "/risques" },
 ];
 
 const moreAxes = [
   { id: "audits", label: "Audits", path: "/audits", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", icon: <Database size={20} /> },
-  { id: "incidents", label: "Gestion Incidents", path: "/incidents", icon: <Network size={20} /> },
+  { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", icon: <Network size={20} /> },
 ];
 
 const adminMenuItems = [
-  { label: "Statistiques",   Icon: BarChart3,  path: "/admin/stats"        },
-  { label: "Utilisateurs",   Icon: Users,      path: "/admin/utilisateurs" },
-  { label: "Sociétés",       Icon: Factory,    path: "/admin/societes"     },
-  { label: "Holdings",       Icon: Building2,  path: "/admin/holdings"     },
+  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats" },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs" },
+  { label: "Sociétés", Icon: Factory, path: "/admin/societes" },
+  { label: "Holdings", Icon: Building2, path: "/admin/holdings" },
 ];
 
-const ADMIN_EMAIL = "ilham.boumlal@usmba.ac.ma";
+const ADMIN_EMAIL = "admin@alexsys.com";
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const userMenuRef = useRef(null);
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, logoutUser } = useAuth();
 
   // Détecte automatiquement l'axe actif depuis l'URL courante
@@ -51,38 +61,49 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
   const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
 
-  const nom   = user?.nomComplet  || user?.NomComplet  || '';
-  const email = user?.email       || user?.Email       || '';
+  const nom = user?.nomComplet || user?.NomComplet || "";
+  const email = user?.email || user?.Email || "";
   const initiales = nom
-    ? nom.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    : email?.charAt(0).toUpperCase() || '?';
+    ? nom
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase()
+    : email?.charAt(0).toUpperCase() || "?";
 
   let logoImage = isoLogo;
   if (user) {
-    let logoPath = user.logoUrl || user.logo || user.societeLogo || user.societe?.logoUrl || user.societe?.logo;
+    const logoPath =
+      user.logoUrl || user.logo || user.societeLogo || user.societe?.logoUrl || user.societe?.logo;
+
     if (logoPath) {
-      logoImage = logoPath.startsWith('http') ? logoPath : `http://localhost:5006${logoPath.startsWith('/') ? '' : '/'}${logoPath}`;
+      logoImage = resolveAssetUrl(logoPath, isoLogo);
     }
   }
 
   useEffect(() => {
     const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false);
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const handleAxeChange = (axe) => {
-    onAxeChange && onAxeChange(axe.id);
+    if (onAxeChange) onAxeChange(axe.id);
     if (axe.path) navigate(axe.path);
   };
 
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
-
         {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
@@ -128,7 +149,10 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     key={axe.id}
                     axe={axe}
                     isActive={activeAxe === axe.id}
-                    onClick={() => { handleAxeChange(axe); setDropdownOpen(false); }}
+                    onClick={() => {
+                      handleAxeChange(axe);
+                      setDropdownOpen(false);
+                    }}
                   />
                 ))}
               </div>
@@ -176,7 +200,10 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                       {adminMenuItems.map(({ label, Icon, path }) => (
                         <button
                           key={path}
-                          onClick={() => { navigate(path); setUserMenuOpen(false); }}
+                          onClick={() => {
+                            navigate(path);
+                            setUserMenuOpen(false);
+                          }}
                           className="w-full flex items-center gap-4 px-5 py-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                         >
                           <span className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
@@ -190,7 +217,10 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
 
                   <div className="py-2">
                     <button
-                      onClick={() => { logoutUser(); navigate("/"); }}
+                      onClick={() => {
+                        logoutUser();
+                        navigate("/");
+                      }}
                       className="w-full flex items-center gap-4 px-5 py-3 text-[15px] font-bold text-red-500 hover:bg-red-50 transition-colors"
                     >
                       <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
@@ -221,9 +251,10 @@ function NavButton({ label, isActive, onClick, suffix }) {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[15px] font-bold transition-all duration-200 whitespace-nowrap
-      ${isActive
-        ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
-        : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+      ${
+        isActive
+          ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
+          : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
       }`}
     >
       {label} {suffix}

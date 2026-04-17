@@ -4,10 +4,13 @@ using backend.Application.Actifs.Commands.UpdateActif;
 using backend.Application.Actifs.Queries.GetActifById;
 using backend.Application.Actifs.Queries.GetAllActifs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class ActifsController : ControllerBase

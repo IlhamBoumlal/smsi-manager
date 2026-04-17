@@ -15,6 +15,7 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public AuthController(IMediator mediator) => _mediator = mediator;
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
