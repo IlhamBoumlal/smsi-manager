@@ -1,8 +1,8 @@
+using backend.Application.DTOs.Controles;
 using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration; // ← Ajoutez ce using
 
 namespace backend.Application.Services
 {
@@ -62,7 +62,7 @@ namespace backend.Application.Services
             var standardName = config["SeedUsers:Standard:NomComplet"] ?? "Utilisateur Standard";
             var standardRole = config["SeedUsers:Standard:Role"] ?? "Utilisateur Standard";
 
-            // VOTRE ADMIN PERSONNALISÉ - AJOUTEZ CECI
+            // VOTRE ADMIN PERSONNALISÉ 
             var yourAdminEmail = "boumlalilham@gmail.com";
             var yourAdminPassword = "Admin@123456!";
             var yourAdminName = "Ilham Boumlal";
@@ -81,6 +81,8 @@ namespace backend.Application.Services
 
             // Seed demo users and documentation for RBAC demonstration
             await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager, config);
+            await SeedControlesAsync(serviceProvider);
+
         }
 
         private static async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, string role)
@@ -358,5 +360,102 @@ namespace backend.Application.Services
 
             return user;
         }
+
+        // À AJOUTER dans la classe DbInitializer
+        public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
+        {
+            var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+
+            if (await dbContext.Controles.AnyAsync())
+            {
+                Console.WriteLine("ℹ️ Contrôles déjà présents. Seed ignoré.");
+                return;
+            }
+
+            // Chercher le fichier JSON à différents emplacements
+            var jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "controles.json");
+
+            if (!File.Exists(jsonPath))
+            {
+                jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "controles.json");
+            }
+
+            if (!File.Exists(jsonPath))
+            {
+                jsonPath = Path.Combine(Directory.GetCurrentDirectory(),"Infrastructure", "SeedData", "controles.json");
+            }
+
+            if (!File.Exists(jsonPath))
+            {
+                Console.WriteLine($"⚠️ Fichier controles.json non trouvé. Chemins testés: {AppDomain.CurrentDomain.BaseDirectory}, {Directory.GetCurrentDirectory()}");
+                return;
+            }
+
+            Console.WriteLine($"📁 Fichier trouvé: {jsonPath}");
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            };
+
+            try
+            {
+                var jsonContent = await File.ReadAllTextAsync(jsonPath);
+                var dtos = System.Text.Json.JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
+
+                if (dtos is null || dtos.Count == 0)
+                {
+                    Console.WriteLine("⚠️ Aucune donnée trouvée dans le fichier JSON");
+                    return;
+                }
+
+                var controles = new List<Controle>();
+
+                foreach (var dto in dtos)
+                {
+                    var controle = new Controle
+                    {
+                        Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                        Code = dto.Code,
+                        Titre = dto.Titre,
+                        Description = dto.Description,
+                        Domaine = dto.Domaine,
+                        Applicable = dto.Applicable,
+                        RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
+                            ? System.Text.Json.JsonSerializer.Serialize(dto.RaisonsApplicabilite)
+                            : null,
+                        RaisonExclusion = dto.RaisonExclusion,
+                        Statut = dto.Statut,
+                        JustificationConformite = dto.JustificationConformite,
+                        Remarque = dto.Remarque,
+                        Preuves = dto.Preuves,
+                        Steps = dto.Steps != null
+                            ? System.Text.Json.JsonSerializer.Serialize(dto.Steps)
+                            : null,
+                        Priorite = dto.Priorite,
+                        StatutPlan = dto.StatutPlan,
+                        ResponsablePlan = dto.ResponsablePlan,
+                        DateEcheance = dto.DateEcheance,
+                        DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
+                        DernierModificateurId = dto.DernierModificateurId,
+                        DernierModificateurNom = dto.DernierModificateurNom
+                    };
+
+                    controles.Add(controle);
+                }
+
+                await dbContext.Controles.AddRangeAsync(controles);
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés avec succès.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Erreur lors du seed des contrôles: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
     }
 }
