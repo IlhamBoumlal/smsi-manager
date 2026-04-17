@@ -1,6 +1,5 @@
 using backend.Domain.Entities;
-using Domain.Entities;
-using Domain.Enumerations;
+using backend.Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;

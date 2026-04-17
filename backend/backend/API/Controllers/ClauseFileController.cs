@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Application.DTOs.Clause;
-using Infrastructure.Services;
+using backend.Infrastructure.Services;
 
 namespace backend.API.Controllers;
 

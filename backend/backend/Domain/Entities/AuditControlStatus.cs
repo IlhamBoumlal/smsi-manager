@@ -1,4 +1,4 @@
-﻿namespace Domain.Entities;
+﻿namespace backend.Domain.Entities;
 
 /// <summary>
 /// Résultat d'un contrôle ISO 27001 dans le cadre d'un audit post-audit (C / NC / NA).

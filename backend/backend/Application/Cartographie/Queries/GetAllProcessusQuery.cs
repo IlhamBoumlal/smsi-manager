@@ -1,8 +1,8 @@
 ﻿using Application.DTOs.Cartographie;
 using backend.Domain.Entities;
-using Domain.Entities;
-using Domain.Interfaces;
-using Infrastructure.Repositories;
+using backend.Domain.Entities;
+using backend.Domain.Interfaces;
+using backend.Infrastructure.Repositories;
 using MediatR;
 
 namespace Application.Cartographie.Queries;

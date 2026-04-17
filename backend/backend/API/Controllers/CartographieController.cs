@@ -51,7 +51,6 @@ public class CartographieController : ControllerBase
 
     // ── Documents ──────────────────────────────────────────────
 
-    // Upload avec fichier binaire
     [HttpPost("processus/{processusId:guid}/documents")]
     public async Task<IActionResult> AddDocument(
         Guid processusId,
@@ -81,7 +80,6 @@ public class CartographieController : ControllerBase
         return Ok(result);
     }
 
-    // Téléchargement du fichier
     [HttpGet("documents/{documentId:guid}/fichier")]
     public async Task<IActionResult> DownloadFichier(Guid documentId, CancellationToken ct)
     {
@@ -89,8 +87,6 @@ public class CartographieController : ControllerBase
         if (doc?.FichierData == null) return NotFound();
         return File(doc.FichierData, doc.FichierType ?? "application/octet-stream", doc.FichierNom);
     }
-
-    public record AddDocumentBody(string Nom, string Type, string Reference, string Statut);
 
     [HttpDelete("processus/{processusId:guid}/documents/{documentId:guid}")]
     public async Task<IActionResult> DeleteDocument(Guid processusId, Guid documentId, CancellationToken ct)
@@ -100,6 +96,6 @@ public class CartographieController : ControllerBase
     }
 }
 
-// Request bodies (séparés de la Command pour éviter de binder l'Id depuis le body)
+// Request bodies — déclarés UNE SEULE FOIS, en dehors de la classe
 public record UpdateProcessusBody(string Categorie, string Nom, string Responsable, string Description);
 public record AddDocumentBody(string Nom, string Type, string Reference, string Statut);

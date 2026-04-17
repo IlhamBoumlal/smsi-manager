@@ -1,4 +1,4 @@
-namespace Domain.Entities;
+namespace backend.Domain.Entities;
 
 public class PlanStep
 {

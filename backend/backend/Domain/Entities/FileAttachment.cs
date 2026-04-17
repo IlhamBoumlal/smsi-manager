@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Domain.Entities
+namespace backend.Domain.Entities
 {
     /// <summary>
     /// Pièce jointe dont le contenu binaire est stocké directement en base de données.

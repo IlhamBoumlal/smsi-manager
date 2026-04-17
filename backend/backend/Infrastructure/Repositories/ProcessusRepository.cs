@@ -1,9 +1,9 @@
-﻿using Domain.Entities;
-using Domain.Interfaces;
+﻿using backend.Domain.Entities;
+using backend.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using backend.Infrastructure.Data;
 
-namespace Infrastructure.Repositories;
+namespace backend.Infrastructure.Repositories;
 
 public class ProcessusRepository : IProcessusRepository
 {

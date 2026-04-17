@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
-using Domain.Entities;
-namespace Infrastructure.Services
+using backend.Domain.Entities;
+namespace backend.Infrastructure.Services
 {
     public class ClauseService : IClauseService
     {

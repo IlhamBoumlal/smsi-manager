@@ -1,20 +1,15 @@
 using backend.Application.Services;
-using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
-using Domain.Interfaces;
-using Infrastructure.Repositories;
-using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,96 +74,13 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ─── DIAGNOSTIC TEMPORAIRE ────────────────────────────────────────────────────
-// ─── DIAGNOSTIC DÉTAILLÉ ────────────────────────────────────────────────────
-Console.WriteLine("=== DIAGNOSTIC DES ASSEMBLYS ===\n");
+// ─── MEDIATR - REGISTRATION MANUELLE (sans scanning d'assembly) ───────────────
 
-var assembliesToScan = new[]
-{
-    typeof(Program).Assembly,
-    typeof(ClauseService).Assembly,
-    typeof(AppDbContext).Assembly,
-    typeof(ApplicationUser).Assembly,
-    typeof(IClauseService).Assembly,
-}
-.Distinct()
-.ToArray();
+// ✅ Bon - spécifie l'assembly courant
+builder.Services.AddMediatR(cfg => {
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+}); ;
 
-foreach (var asm in assembliesToScan)
-{
-    try
-    {
-        Console.WriteLine($"\n📦 Assembly: {asm.FullName}");
-        Console.WriteLine($"   Location: {asm.Location}");
-
-        var types = asm.GetTypes();
-        Console.WriteLine($"   ✅ {types.Length} types chargés avec succès");
-
-        // Afficher les types qui posent problème
-        foreach (var type in types)
-        {
-            try
-            {
-                // Forcer l'initialisation du type
-                RuntimeHelpers.RunClassConstructor(type.TypeHandle);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"   ⚠️ Problème avec {type.FullName}: {ex.Message}");
-            }
-        }
-    }
-    catch (ReflectionTypeLoadException ex)
-    {
-        Console.WriteLine($"\n❌ ERREUR de chargement pour: {asm.FullName}");
-        Console.WriteLine($"   Location: {asm.Location}");
-
-        for (int i = 0; i < ex.LoaderExceptions.Length; i++)
-        {
-            if (ex.LoaderExceptions[i] != null)
-            {
-                Console.WriteLine($"   → Exception {i + 1}: {ex.LoaderExceptions[i]!.Message}");
-                if (ex.LoaderExceptions[i]!.InnerException != null)
-                {
-                    Console.WriteLine($"     Inner: {ex.LoaderExceptions[i]!.InnerException!.Message}");
-                }
-            }
-        }
-
-        // Afficher les types qui ont pu être chargés
-        if (ex.Types != null)
-        {
-            Console.WriteLine($"   Types chargés partiellement: {ex.Types.Length}");
-            foreach (var type in ex.Types.Where(t => t != null))
-            {
-                Console.WriteLine($"     - {type!.FullName}");
-            }
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"\n❌ Autre erreur pour {asm.FullName}: {ex.Message}");
-    }
-}
-
-Console.WriteLine("\n=== FIN DIAGNOSTIC ===\n");
-
-// ─── MEDIATR ──────────────────────────────────────────────────────────────────
-builder.Services.AddMediatR(cfg =>
-{
-    foreach (var asm in assembliesToScan)
-    {
-        try
-        {
-            cfg.RegisterServicesFromAssembly(asm);
-        }
-        catch (ReflectionTypeLoadException ex)
-        {
-            foreach (var loaderEx in ex.LoaderExceptions.Where(e => e != null))
-                Console.WriteLine($"[MediatR Load Warning] {loaderEx!.Message}");
-        }
-    }
-});
 
 // ─── REPOSITORIES ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -191,7 +103,27 @@ builder.Services.AddScoped<IClauseService, ClauseService>();
 // Email services
 builder.Services.AddScoped<IEmailService, FormationEmailService>();
 builder.Services.AddHostedService<RappelHostedService>();
-
+try
+{
+    // Your existing service registrations
+    builder.Services.AddMediatR(cfg => {
+        cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+        // or whatever your assembly registration is
+    });
+}
+catch (ReflectionTypeLoadException ex)
+{
+    Console.WriteLine("=== ReflectionTypeLoadException Details ===");
+    foreach (var loaderEx in ex.LoaderExceptions)
+    {
+        Console.WriteLine($"Loader Exception: {loaderEx?.Message}");
+        if (loaderEx is FileNotFoundException fileNotFound)
+        {
+            Console.WriteLine($"  Missing assembly: {fileNotFound.FileName}");
+        }
+    }
+    throw;
+}
 var app = builder.Build();
 
 // ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
@@ -211,12 +143,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
-//app.MapControllers();
+app.UseStaticFiles();
+app.MapControllers();
 
 app.Run();
 
