@@ -2,6 +2,7 @@ using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration; // ← Ajoutez ce using
 
 namespace backend.Application.Services
 {
@@ -12,6 +13,8 @@ namespace backend.Application.Services
         public static async Task InitializeAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+            var config = serviceProvider.GetRequiredService<IConfiguration>();
+
             try
             {
                 await dbContext.Database.MigrateAsync();
@@ -22,7 +25,6 @@ namespace backend.Application.Services
                 await dbContext.Database.EnsureCreatedAsync();
             }
 
-            var config = serviceProvider.GetRequiredService<IConfiguration>();
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
@@ -45,6 +47,7 @@ namespace backend.Application.Services
                 if (!await roleManager.RoleExistsAsync(role))
                 {
                     await roleManager.CreateAsync(new IdentityRole(role));
+                    Console.WriteLine($"✅ Rôle créé: {role}");
                 }
             }
 
@@ -59,11 +62,22 @@ namespace backend.Application.Services
             var standardName = config["SeedUsers:Standard:NomComplet"] ?? "Utilisateur Standard";
             var standardRole = config["SeedUsers:Standard:Role"] ?? "Utilisateur Standard";
 
+            // VOTRE ADMIN PERSONNALISÉ - AJOUTEZ CECI
+            var yourAdminEmail = "boumlalilham@gmail.com";
+            var yourAdminPassword = "Admin@123456!";
+            var yourAdminName = "Ilham Boumlal";
+
             await EnsureRoleExistsAsync(roleManager, adminRole);
             await EnsureRoleExistsAsync(roleManager, standardRole);
+            await EnsureRoleExistsAsync(roleManager, "Admin"); // Assure que le rôle Admin existe
 
+            // Créer les utilisateurs
             await SeedUserIfMissingAsync(userManager, adminEmail, adminPassword, adminName, adminRole);
             await SeedUserIfMissingAsync(userManager, standardEmail, standardPassword, standardName, standardRole);
+
+            // CRÉER VOTRE ADMIN SPÉCIFIQUE - AJOUTEZ CECI
+            await SeedUserIfMissingAsync(userManager, yourAdminEmail, yourAdminPassword, yourAdminName, "Admin");
+            Console.WriteLine($"✅ Vérification admin {yourAdminEmail} terminée");
 
             // Seed demo users and documentation for RBAC demonstration
             await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager, config);
@@ -74,6 +88,7 @@ namespace backend.Application.Services
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
+                Console.WriteLine($"✅ Rôle créé: {role}");
             }
         }
 
@@ -85,7 +100,11 @@ namespace backend.Application.Services
             string role)
         {
             var existing = await userManager.FindByEmailAsync(email);
-            if (existing is not null) return;
+            if (existing is not null)
+            {
+                Console.WriteLine($"ℹ️ L'utilisateur {email} existe déjà");
+                return;
+            }
 
             var user = new ApplicationUser
             {
@@ -101,6 +120,11 @@ namespace backend.Application.Services
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(user, role);
+                Console.WriteLine($"✅ Utilisateur créé: {email} avec le rôle {role}");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Erreur création utilisateur {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
         }
 
@@ -121,6 +145,7 @@ namespace backend.Application.Services
                 };
                 dbContext.Societes.Add(societe);
                 await dbContext.SaveChangesAsync();
+                Console.WriteLine($"✅ Société créée: {demoSocieteName}");
             }
 
             var demoUsers = new[]
@@ -237,6 +262,7 @@ namespace backend.Application.Services
             }
 
             await dbContext.SaveChangesAsync();
+            Console.WriteLine($"✅ Documentation seed terminée");
         }
 
         private static async Task<ApplicationUser> EnsureDemoUserAsync(
@@ -264,6 +290,7 @@ namespace backend.Application.Services
                     throw new InvalidOperationException(
                         $"Impossible de creer l'utilisateur demo {seed.Email}: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
                 }
+                Console.WriteLine($"✅ Utilisateur demo créé: {seed.Email}");
             }
             else
             {

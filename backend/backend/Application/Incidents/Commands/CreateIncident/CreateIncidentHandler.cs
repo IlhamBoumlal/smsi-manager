@@ -3,6 +3,7 @@ using backend.Domain.Entities;
 using backend.Domain.Enumerations;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
+using backend.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
 

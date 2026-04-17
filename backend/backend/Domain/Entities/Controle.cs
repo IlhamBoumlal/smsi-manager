@@ -2,48 +2,61 @@ using backend.Domain.Enumerations;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace backend.Domain.Entities
+namespace backend.Domain.Entities;
+
+public class Controle
 {
-    public class Controle
-    {
-        [Key]
-        public Guid Id { get; set; } = Guid.NewGuid(); //Guid: Génère un identifiant unique pour chaque contrôle
+    [Key]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-        [Required]
-        [StringLength(10)]
-        [Display(Name = "Code Annexe A")]
-        public string Code { get; set; } = string.Empty; // ex: A.5.1
+    [Required]
+    [StringLength(10)]
+    public string Code { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(255)]
-        public string Titre { get; set; } = string.Empty;
+    [Required]
+    [StringLength(255)]
+    public string Titre { get; set; } = string.Empty;
 
-        [Required]
-        public string Description { get; set; } = string.Empty;
+    public string? Description { get; set; }
 
-        [Required]
-        public DomaineControle Domaine { get; set; }
+    [Required]
+    public DomaineControle Domaine { get; set; }
 
-        public bool Applicable { get; set; } = true;
+    // ─── Applicabilité ───────────────────────────────────────────────────────
+    public bool Applicable { get; set; } = true;
 
-        public string JustificationApplicabilite { get; set; } = string.Empty;
+    // Stocké en JSON (ex: ["attenuation","legale"])
+    public String? RaisonsApplicabilite { get; set; }
 
-        [Required]
-        public Statut Statut { get; set; } = Statut.NonEvalue;
+    public string? RaisonExclusion { get; set; }
 
-        public string Preuves { get; set; } = string.Empty; // Chemin vers fichier ou description
+    // ─── Évaluation ──────────────────────────────────────────────────────────
+    [Required]
+    public Statut Statut { get; set; } = Statut.NonEvalue;
 
-        public string Responsable { get; set; } = string.Empty; // Nom ou ID de l'utilisateur
+    // Conforme : justification texte
+    public string? JustificationConformite { get; set; }
 
-        public string ReferenceDocument { get; set; } = string.Empty;
+    // Remarque : observation texte
+    public string? Remarque { get; set; }
 
+    // Preuves / documents joints (Conforme et Remarque)
+    public string? Preuves { get; set; }
 
-        [DataType(DataType.DateTime)]
-        public DateTime DateMiseAJour { get; set; } = DateTime.Now;
+    // ─── Plan d'action (NC Mineure / NC Majeure) ──────────────────────────────
+    // Stocké en JSON (tableau d'étapes sérialisé via PlanActionModal)
+    public string? Steps { get; set; }
 
-        // Lien avec une Société pour app est multi-société
-        public int? SocieteId { get; set; }
-        [ForeignKey("SocieteId")]
-        public virtual Societe? Societe { get; set; }
-    }
+    public string? Priorite { get; set; }
+
+    public StatutPlan? StatutPlan { get; set; }
+
+    public string? ResponsablePlan { get; set; }
+
+    public DateTime? DateEcheance { get; set; }
+
+    // ─── Traçabilité ──────────────────────────────────────────────────────────
+    public DateTime? DateMiseAJour { get; set; }
+    public string? DernierModificateurId { get; set; }
+    public string? DernierModificateurNom { get; set; }
 }

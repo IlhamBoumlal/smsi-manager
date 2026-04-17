@@ -31,6 +31,8 @@ const moreAxes = [
   { id: "audits", label: "Audits", path: "/audits", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", icon: <Database size={20} /> },
   { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", icon: <Network size={20} /> },
+  { id: "incidents", label: "Gestion Incidents", path: "/incidents", icon: <Network size={20} /> },
+
 ];
 
 const adminMenuItems = [

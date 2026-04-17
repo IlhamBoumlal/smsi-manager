@@ -4,7 +4,6 @@ import axiosInstance from '../api/axiosInstance';
 
 const API = 'http://localhost:5006/api';
 
-// ─── ENUMS ────────────────────────────────────────────────────────────────────
 const TypeActif = { Support: 'Support', Primaire: 'Primaire' };
 
 const CategorieActif = {
@@ -39,10 +38,9 @@ const EMPTY_FORM = {
   categorie: '', classification: 'NonClassé', proprietaireId: ''
 };
 
-// ─── COMPOSANT PRINCIPAL ──────────────────────────────────────────────────────
 export default function GestionActifs() {
   const [actifs,               setActifs]               = useState([]);
-  const [roles,                setRoles]                = useState([]);   // ← liste des rôles
+  const [roles,                setRoles]                = useState([]);
   const [search,               setSearch]               = useState('');
   const [typeFilter,           setTypeFilter]           = useState('');
   const [categorieFilter,      setCategorieFilter]      = useState('');
@@ -56,7 +54,6 @@ export default function GestionActifs() {
   const [showClassifDropdown,  setShowClassifDropdown]  = useState(false);
   const [form,                 setForm]                 = useState(EMPTY_FORM);
 
-  // ── Chargement initial ──────────────────────────────────────────────────────
   useEffect(() => {
     fetchAll();
   }, []);
@@ -66,13 +63,10 @@ export default function GestionActifs() {
     try {
       const [actifsRes, rolesRes] = await Promise.all([
         axiosInstance.get(`${API}/actifs`),
-        axiosInstance.get(`${API}/role`),   
-
-        axios.get(`${API}/actifs`),
-        axios.get(`${API}/role`),   
+        axiosInstance.get(`${API}/role`),
       ]);
       setActifs(actifsRes.data);
-      setRoles(rolesRes.data);          
+      setRoles(rolesRes.data);
     } catch (err) {
       console.error('Erreur chargement:', err);
     } finally {
@@ -80,7 +74,6 @@ export default function GestionActifs() {
     }
   };
 
-  // ── Stats ───────────────────────────────────────────────────────────────────
   const stats = {
     total:     actifs.length,
     sensibles: actifs.filter(a => a.classification === 'Secret' || a.classification === 'TopSecret').length,
@@ -88,10 +81,9 @@ export default function GestionActifs() {
     supports:  actifs.filter(a => a.type === 'Support').length,
   };
 
-  // ── Modal helpers ───────────────────────────────────────────────────────────
-  const reset     = () => { setForm(EMPTY_FORM); setEditing(null); };
+  const reset      = () => { setForm(EMPTY_FORM); setEditing(null); };
   const closeModal = () => { setModal(false); reset(); };
-  const openNew   = () => { reset(); setModal(true); };
+  const openNew    = () => { reset(); setModal(true); };
 
   const openEdit = (a) => {
     setEditing(a);
@@ -106,7 +98,6 @@ export default function GestionActifs() {
     setModal(true);
   };
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -119,16 +110,11 @@ export default function GestionActifs() {
         classification: form.classification,
         proprietaireId: form.proprietaireId || null,
       };
-
       if (editing) {
-        // PUT /api/actif/{id}
         await axiosInstance.put(`${API}/actifs/${editing.id}`, payload);
       } else {
-        // POST /api/actif
         await axiosInstance.post(`${API}/actifs`, payload);
-        await axios.put(`${API}/actifs/${editing.id}`, payload);
       }
-
       await fetchAll();
       closeModal();
     } catch (err) {
@@ -141,26 +127,22 @@ export default function GestionActifs() {
     }
   };
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer cet actif ?')) return;
     try {
       await axiosInstance.delete(`${API}/actifs/${id}`);
-      await axios.delete(`${API}/actifs/${id}`);
       await fetchAll();
     } catch (err) {
       alert('Erreur lors de la suppression');
     }
   };
 
-  // ── Affichage propriétaire : nom du rôle depuis l'id ────────────────────────
   const getProprietaireLabel = (proprietaireId) => {
     if (!proprietaireId || proprietaireId === '00000000-0000-0000-0000-000000000000') return '—';
     const role = roles.find(r => r.id === proprietaireId);
     return role ? role.nom : proprietaireId.substring(0, 8) + '...';
   };
 
-  // ── Filtre ──────────────────────────────────────────────────────────────────
   const filtered = actifs.filter(a => {
     const q = search.toLowerCase();
     return (
@@ -171,7 +153,6 @@ export default function GestionActifs() {
     );
   });
 
-  // ── Dropdown helper ─────────────────────────────────────────────────────────
   const Dropdown = ({ show, onToggle, label, children }) => (
     <div className="relative">
       <button onClick={onToggle}
@@ -186,7 +167,6 @@ export default function GestionActifs() {
     </div>
   );
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 p-8">
 
@@ -258,55 +238,51 @@ export default function GestionActifs() {
       {/* Tableau */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {fetchLoading ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Chargement…</div>
+          <div className="px-6 py-12 text-center text-slate-400 text-sm">Chargement…</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-left">
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {['Nom', 'Type', 'Catégorie', 'Classification', 'Propriétaire', 'Actions'].map(col => (
-                  <th key={col} style={{
-                    padding: '14px 20px', textAlign: col === 'Actions' ? 'center' : 'left',
-                    fontSize: 11, fontWeight: 700, color: '#1e3a5f',
-                    textTransform: 'uppercase', letterSpacing: '0.08em',
-                    borderBottom: '2px solid #e2e8f0', background: '#f8fafc', whiteSpace: 'nowrap',
-                  }}>{col}</th>
+                  <th key={col} className={`px-6 py-4 ${col === 'Actions' ? 'text-center' : 'text-left'}`}>
+                    {col}
+                  </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {filtered.map((actif, i) => {
                 const style = ClassificationStyle[actif.classification] || ClassificationStyle['NonClassé'];
                 return (
                   <tr key={actif.id}
-                    className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
-                    <td className="px-5 py-3">
-                      <div className="font-semibold text-slate-800">{actif.nom}</div>
+                    className={`hover:bg-slate-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-slate-800 text-sm">{actif.nom}</div>
                       <div className="text-xs text-slate-400 truncate max-w-48">{actif.description}</div>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${TypeBadgeStyle[actif.type] || 'bg-slate-100 text-slate-700'}`}>
                         <Layers size={10} />{TypeActif[actif.type]}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-slate-600 text-xs">{CategorieActif[actif.categorie] || actif.categorie}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-6 py-4 text-slate-600 text-sm">{CategorieActif[actif.categorie] || actif.categorie}</td>
+                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${style.badge}`}>
                         <Lock size={10} />{ClassificationActif[actif.classification]}
                       </span>
                     </td>
-                    {/* ← Affiche le nom du rôle au lieu de l'UUID */}
-                    <td className="px-5 py-3 text-xs text-slate-600 font-medium">
+                    <td className="px-6 py-4 text-sm text-slate-600 font-medium">
                       {getProprietaireLabel(actif.proprietaireId)}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => openEdit(actif)} title="Modifier"
-                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors">
-                          <Edit size={16} />
+                          className="p-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors">
+                          <Edit size={15} />
                         </button>
                         <button onClick={() => handleDelete(actif.id)} title="Supprimer"
-                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
-                          <Trash2 size={16} />
+                          className="p-2 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -317,7 +293,7 @@ export default function GestionActifs() {
           </table>
         )}
         {!fetchLoading && filtered.length === 0 && (
-          <div className="p-12 text-center text-slate-400 text-sm">Aucun actif trouvé</div>
+          <div className="px-6 py-12 text-center text-slate-400 text-sm">Aucun actif trouvé</div>
         )}
       </div>
 
@@ -335,7 +311,6 @@ export default function GestionActifs() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
-              {/* Nom */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Nom *</label>
                 <input type="text" required value={form.nom}
@@ -344,7 +319,6 @@ export default function GestionActifs() {
                   placeholder="Nom de l'actif" />
               </div>
 
-              {/* Description */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Description</label>
                 <textarea value={form.description}
@@ -353,7 +327,6 @@ export default function GestionActifs() {
                   placeholder="Description de l'actif" rows="3" />
               </div>
 
-              {/* Type */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Type *</label>
                 <select required value={form.type}
@@ -364,7 +337,6 @@ export default function GestionActifs() {
                 </select>
               </div>
 
-              {/* Catégorie */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Catégorie *</label>
                 <select required value={form.categorie}
@@ -375,7 +347,6 @@ export default function GestionActifs() {
                 </select>
               </div>
 
-              {/* Classification */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Classification</label>
                 <select value={form.classification}
@@ -385,7 +356,6 @@ export default function GestionActifs() {
                 </select>
               </div>
 
-              {/* Propriétaire — liste déroulante des rôles ← */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Propriétaire (Rôle)</label>
                 <select value={form.proprietaireId}
@@ -398,7 +368,6 @@ export default function GestionActifs() {
                 </select>
               </div>
 
-              {/* Boutons */}
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={closeModal}
                   className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
@@ -406,9 +375,7 @@ export default function GestionActifs() {
                 </button>
                 <button type="submit" disabled={loading}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#1e3a5f] text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">
-                  {loading
-                    ? 'Chargement…'
-                    : <><CheckCircle size={15} /> Enregistrer</>}
+                  {loading ? 'Chargement…' : <><CheckCircle size={15} /> Enregistrer</>}
                 </button>
               </div>
             </form>

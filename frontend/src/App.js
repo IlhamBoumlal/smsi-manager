@@ -23,7 +23,7 @@ import RiskStudyDetailPage from './components/risques/RiskStudyDetailPage';
 import RiskWorkshopPage from './components/risques/RiskWorkshopPage';
 import Audits from './components/Audits';
 import Sensibilisation from './components/sensibilisation';
-
+import GestionIncidents from './components/GestionIncidents';
 function LegacyClauseDetailRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -73,6 +73,7 @@ export default function App() {
         {/* Nouvelles routes */}
         <Route path="/audits" element={<Audits />} />
         <Route path="/sensibilisation" element={<Sensibilisation />} />
+        <Route path="/incidents" element={<GestionIncidents />} />
         
         {/* Pages admin séparées, protégées */}
         <Route path="/admin/stats" element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />

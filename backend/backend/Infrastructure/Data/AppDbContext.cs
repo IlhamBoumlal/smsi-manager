@@ -38,7 +38,9 @@ namespace backend.Infrastructure.Data
         public DbSet<FormationParticipant> FormationParticipants { get; set; }
         public DbSet<FormationDocument> FormationDocuments { get; set; }
         public DbSet<FormationNotification> FormationNotifications { get; set; }
-
+        public DbSet<Profil> Profils { get; set; }
+        public DbSet<ControleHistorique> ControleHistoriques { get; set; }
+        public DbSet<Incident> Incidents { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -342,74 +344,9 @@ namespace backend.Infrastructure.Data
             modelBuilder.Entity<FormationNotification>().HasKey(n => n.Id);
 
             // ── Seeding (UN SEUL appel) ────────────────────────────────────────
-            SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");
         }
 
-        private void SeedControles(ModelBuilder modelBuilder)
-        {
-            var basePath = AppContext.BaseDirectory;
-            var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", ".."));
-            var filePath = Path.Combine(projectPath, "Infrastructure", "SeedData", "controles.json");
-
-            if (!File.Exists(filePath))
-            {
-                filePath = Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json");
-            }
-
-            if (File.Exists(filePath))
-            {
-                try
-                {
-                    var jsonString = File.ReadAllText(filePath);
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        Converters = { new JsonStringEnumConverter() }
-                    };
-
-                    var controles = JsonSerializer.Deserialize<List<Controle>>(jsonString, options);
-
-                    if (controles != null)
-                    {
-                        var seedData = new List<Controle>();
-
-                        foreach (var c in controles)
-                        {
-                            var controle = new Controle
-                            {
-                                Id = GenerateGuidFromCode(c.Code),
-                                Code = c.Code,
-                                Titre = c.Titre,
-                                Description = c.Description,
-                                Domaine = c.Domaine,
-                                Applicable = c.Applicable,
-                                JustificationApplicabilite = c.JustificationApplicabilite ?? string.Empty,
-                                Statut = c.Statut,
-                                Preuves = c.Preuves ?? string.Empty,
-                                Responsable = c.Responsable ?? string.Empty,
-                                ReferenceDocument = c.ReferenceDocument ?? string.Empty,
-                                DateMiseAJour = DateTime.SpecifyKind(c.DateMiseAJour, DateTimeKind.Utc),
-                                SocieteId = c.SocieteId
-                            };
-
-                            seedData.Add(controle);
-                        }
-
-                        modelBuilder.Entity<Controle>().HasData(seedData);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Erreur lors du seeding JSON : {ex.Message}");
-                    throw;
-                }
-            }
-            else
-            {
-                throw new FileNotFoundException($"Le fichier de seed n'a pas été trouvé : {filePath}");
-            }
-        }
 
         private static Guid GenerateGuidFromCode(string code)
         {

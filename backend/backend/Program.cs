@@ -1,4 +1,7 @@
+using backend.Application.DTOs.Controles;
 using backend.Application.Services;
+using backend.Domain.Entities;
+using backend.Domain.Enumerations;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
@@ -10,6 +13,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using FluentEmail.Core;
+using FluentEmail.Smtp;
+using backend.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,13 +80,24 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ─── MEDIATR - REGISTRATION MANUELLE (sans scanning d'assembly) ───────────────
+// ─── CONFIGURATION FLUENTEMAIL ─────────────────────────────────────────────────
+var emailConfig = builder.Configuration.GetSection("Email");
+var smtpHost = emailConfig["SmtpHost"];
+var smtpPort = int.Parse(emailConfig["SmtpPort"] ?? "587");
+var smtpUser = emailConfig["SmtpUser"];
+var smtpPassword = emailConfig["SmtpPassword"];
+var fromEmail = emailConfig["FromAddress"];
+var fromName = emailConfig["FromName"];
 
-// ✅ Bon - spécifie l'assembly courant
+// Configuration de FluentEmail
+builder.Services
+    .AddFluentEmail(fromEmail, fromName)
+    .AddSmtpSender(smtpHost, smtpPort, smtpUser, smtpPassword);
+
+// ─── MEDIATR ──────────────────────────────────────────────────────────────────
 builder.Services.AddMediatR(cfg => {
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
-}); ;
-
+});
 
 // ─── REPOSITORIES ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -99,41 +116,29 @@ builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClauseService, ClauseService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
-// Email services
-builder.Services.AddScoped<IEmailService, FormationEmailService>();
+builder.Services.AddSignalR();
 builder.Services.AddHostedService<RappelHostedService>();
-try
-{
-    // Your existing service registrations
-    builder.Services.AddMediatR(cfg => {
-        cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
-        // or whatever your assembly registration is
-    });
-}
-catch (ReflectionTypeLoadException ex)
-{
-    Console.WriteLine("=== ReflectionTypeLoadException Details ===");
-    foreach (var loaderEx in ex.LoaderExceptions)
-    {
-        Console.WriteLine($"Loader Exception: {loaderEx?.Message}");
-        if (loaderEx is FileNotFoundException fileNotFound)
-        {
-            Console.WriteLine($"  Missing assembly: {fileNotFound.FileName}");
-        }
-    }
-    throw;
-}
+
 var app = builder.Build();
 
 // ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
-    await DbInitializer.InitializeAsync(scope.ServiceProvider);
-    await SeedAdminAsync(scope.ServiceProvider);
+    try
+    {
+        await DbInitializer.InitializeAsync(scope.ServiceProvider);
+        Console.WriteLine("✅ Initialisation de la base de données terminée avec succès");
 
-    var clauseService = scope.ServiceProvider.GetRequiredService<IClauseService>();
-    await clauseService.SeedClausesAsync();
+        // Appel du seed des contrôles APRÈS l'initialisation de la BDD
+        await SeedControlesAsync(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Erreur lors de l'initialisation: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+    }
 }
 
 // ─── PIPELINE ─────────────────────────────────────────────────────────────────
@@ -152,33 +157,156 @@ app.MapControllers();
 
 app.Run();
 
-// ─── SEED ADMIN ───────────────────────────────────────────────────────────────
-static async Task SeedAdminAsync(IServiceProvider services)
+// ─── FONCTION SEED DES CONTRÔLES ─────────────────────────────────────────────
+static async Task SeedControlesAsync(IServiceProvider services)
 {
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    using var scope = services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    const string adminEmail = "admin@alexsys.com";
-    const string adminPassword = "Admin@123456!";
-    const string adminRole = "Admin";
-
-    if (!await roleManager.RoleExistsAsync(adminRole))
-        await roleManager.CreateAsync(new IdentityRole(adminRole));
-
-    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
-    if (existingAdmin is null)
+    if (await dbContext.Controles.AnyAsync())
     {
-        var admin = new ApplicationUser
-        {
-            UserName = adminEmail,
-            Email = adminEmail,
-            NomComplet = "Administrateur",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var result = await userManager.CreateAsync(admin, adminPassword);
-        if (result.Succeeded)
-            await userManager.AddToRoleAsync(admin, adminRole);
+        Console.WriteLine("ℹ️ Contrôles déjà présents. Seed ignoré.");
+        return;
     }
+
+    // Chercher le fichier JSON à différents emplacements
+    var jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "controles.json");
+
+    if (!File.Exists(jsonPath))
+    {
+        jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "controles.json");
+    }
+
+    if (!File.Exists(jsonPath))
+    {
+        jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "controles.json");
+    }
+
+    if (!File.Exists(jsonPath))
+    {
+        Console.WriteLine($"⚠️ Fichier controles.json non trouvé. Chemins testés: {AppDomain.CurrentDomain.BaseDirectory}, {Directory.GetCurrentDirectory()}");
+        return;
+    }
+
+    Console.WriteLine($"📁 Fichier trouvé: {jsonPath}");
+
+    var options = new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    try
+    {
+        var jsonContent = await File.ReadAllTextAsync(jsonPath);
+        var dtos = System.Text.Json.JsonSerializer.Deserialize<List<ControleSeedDto>>(jsonContent, options);
+
+        if (dtos is null || dtos.Count == 0)
+        {
+            Console.WriteLine("⚠️ Aucune donnée trouvée dans le fichier JSON");
+            return;
+        }
+
+        var controles = new List<Controle>();
+
+        foreach (var d in dtos)
+        {
+            // Conversion du domaine (string -> DomaineControle)
+            var domaine = d.Domaine switch
+            {
+                "Organisationnel" => DomaineControle.Organisationnel,
+                "Personnes" => DomaineControle.Personnes,
+                "Physique" => DomaineControle.Physique,
+                "Technologique" => DomaineControle.Technologique,
+                _ => DomaineControle.Organisationnel
+            };
+
+            // Conversion du statut (string -> Statut)
+            var statut = d.Statut switch
+            {
+                "NonEvalue" => Statut.NonEvalue,
+                "Conforme" => Statut.Conforme,
+                "Remarque" => Statut.Remarque,
+                "NCMineure" => Statut.NCMineure,
+                "NCMajeure" => Statut.NCMajeure,
+                _ => Statut.NonEvalue
+            };
+
+            // Conversion de StatutPlan si présent
+            StatutPlan? statutPlan = null;
+            if (!string.IsNullOrEmpty(d.StatutPlan))
+            {
+                statutPlan = d.StatutPlan switch
+                {
+                    "NonDemarre" => StatutPlan.NonDemarre,
+                    "EnCours" => StatutPlan.EnCours,
+                    "Termine" => StatutPlan.Termine,
+                    _ => StatutPlan.NonDemarre
+                };
+            }
+
+            var controle = new Controle
+            {
+                Id = Guid.NewGuid(),
+                Code = d.Code,
+                Titre = d.Titre,
+                Description = d.Description,
+                Domaine = domaine,
+                Applicable = d.Applicable,
+                RaisonsApplicabilite = d.RaisonsApplicabilite != null
+                    ? System.Text.Json.JsonSerializer.Serialize(d.RaisonsApplicabilite)
+                    : null,
+                RaisonExclusion = d.RaisonExclusion,
+                Statut = statut,
+                JustificationConformite = d.JustificationConformite,
+                Remarque = d.Remarque,
+                Preuves = d.Preuves,
+                Steps = d.Steps != null
+                    ? System.Text.Json.JsonSerializer.Serialize(d.Steps)
+                    : null,
+                Priorite = d.Priorite,
+                StatutPlan = statutPlan,
+                ResponsablePlan = d.ResponsablePlan,
+                DateEcheance = d.DateEcheance,
+                DateMiseAJour = d.DateMiseAJour ?? DateTime.UtcNow,
+                DernierModificateurId = d.DernierModificateurId,
+                DernierModificateurNom = d.DernierModificateurNom
+            };
+
+            controles.Add(controle);
+        }
+
+        await dbContext.Controles.AddRangeAsync(controles);
+        await dbContext.SaveChangesAsync();
+        Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés avec succès.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Erreur lors du seed des contrôles: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+    }
+}
+
+// ─── DTO POUR LA DÉSÉRIALISATION (correspond au format JSON) ─────────────────
+public class ControleSeedDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Titre { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Domaine { get; set; } = string.Empty;
+    public bool Applicable { get; set; }
+    public List<string>? RaisonsApplicabilite { get; set; }
+    public string? RaisonExclusion { get; set; }
+    public string Statut { get; set; } = "NonEvalue";
+    public string? JustificationConformite { get; set; }
+    public string? Remarque { get; set; }
+    public string? Preuves { get; set; }
+    public object? Steps { get; set; }
+    public string? Priorite { get; set; }
+    public string? StatutPlan { get; set; }
+    public string? ResponsablePlan { get; set; }
+    public DateTime? DateEcheance { get; set; }
+    public DateTime? DateMiseAJour { get; set; }
+    public string? DernierModificateurId { get; set; }
+    public string? DernierModificateurNom { get; set; }
 }
