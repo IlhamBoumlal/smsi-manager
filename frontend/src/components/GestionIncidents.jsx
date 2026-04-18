@@ -3,7 +3,8 @@ import axios from 'axios';
 import * as signalR from '@microsoft/signalr';
 import {
   Search, Plus, Edit, Eye, CheckCircle, AlertTriangle, Ban,
-  Trash2, X, Clock, User, ShieldCheck, AlertCircle, Bell
+  Trash2, X, Clock, User, ShieldCheck, AlertCircle, Bell,
+  LayoutGrid, List, SlidersHorizontal
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5006/api/incidents';
@@ -26,16 +27,122 @@ const T = {
 };
 
 const PRIORITES = [
-  { key: 'BASSE',    label: 'Basse',    color: '#10B981', bg: '#ECFDF5', icon: <AlertCircle size={14} /> },
-  { key: 'MOYENNE',  label: 'Moyenne',  color: '#F59E0B', bg: '#FFFBEB', icon: <AlertTriangle size={14} /> },
-  { key: 'HAUTE',    label: 'Haute',    color: '#EF4444', bg: '#FEF2F2', icon: <AlertCircle size={14} /> },
-  { key: 'CRITIQUE', label: 'Critique', color: '#7F1D1D', bg: '#FEE2E2', icon: <Ban size={14} /> },
+  { key: 'BASSE',    label: 'Basse',    color: '#10B981', bg: '#ECFDF5', icon: <AlertCircle size={14} />, barColor: '#10B981' },
+  { key: 'MOYENNE',  label: 'Moyenne',  color: '#F59E0B', bg: '#FFFBEB', icon: <AlertTriangle size={14} />, barColor: '#F59E0B' },
+  { key: 'HAUTE',    label: 'Haute',    color: '#EF4444', bg: '#FEF2F2', icon: <AlertCircle size={14} />, barColor: '#EF4444' },
+  { key: 'CRITIQUE', label: 'Critique', color: '#7F1D1D', bg: '#FEE2E2', icon: <Ban size={14} />, barColor: '#DC2626' },
 ];
 
 const STATUTS_INCIDENT = [
   { key: 'EnCours', label: 'En cours', color: '#F59E0B', bg: '#FFFBEB', icon: <AlertTriangle size={14} /> },
   { key: 'Resolu',  label: 'Résolu',   color: '#10B981', bg: '#ECFDF5', icon: <CheckCircle size={14} /> },
 ];
+
+// ── KpiStrip ──
+function KpiStrip({ stats }) {
+  const kpis = [
+    {
+      label: 'Total incidents',
+      value: stats.total,
+      sub: `${stats.total} incident${stats.total > 1 ? 's' : ''} enregistré${stats.total > 1 ? 's' : ''}`,
+      bg: T.gradBlue,
+      light: false,
+    },
+    {
+      label: 'En cours',
+      value: stats.enCours,
+      sub: `${Math.round((stats.enCours / (stats.total || 1)) * 100)}% du total`,
+      bg: '#fff',
+      light: true,
+    },
+    {
+      label: 'Résolus',
+      value: stats.resolus,
+      sub: `${Math.round((stats.resolus / (stats.total || 1)) * 100)}% du total`,
+      bg: '#fff',
+      light: true,
+    },
+    {
+      label: 'Taux résolution',
+      value: `${Math.round((stats.resolus / (stats.total || 1)) * 100)}%`,
+      sub: `${stats.enCours} en attente`,
+      bg: '#fff',
+      light: true,
+    },
+  ];
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+      {kpis.map((k, i) => (
+        <div
+          key={i}
+          style={{
+            background: k.bg,
+            borderRadius: 14,
+            padding: '20px 22px',
+            boxShadow: k.light
+              ? '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)'
+              : '0 8px 24px rgba(29,78,216,.35)',
+            animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 800,
+              lineHeight: 1,
+              color: k.light ? '#111827' : '#fff',
+              fontFamily: "'Sora', sans-serif",
+              letterSpacing: '-1.5px',
+            }}
+          >
+            {k.value}
+          </div>
+          <div
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: k.light ? '#374151' : 'rgba(255,255,255,.9)',
+              marginTop: 6,
+            }}
+          >
+            {k.label}
+          </div>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: k.light ? '#9CA3AF' : 'rgba(255,255,255,.6)',
+              marginTop: 2,
+            }}
+          >
+            {k.sub}
+          </div>
+          {!k.light && (
+            <div
+              style={{
+                marginTop: 12,
+                height: 4,
+                borderRadius: 99,
+                background: 'rgba(255,255,255,.2)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${Math.min(100, (stats.resolus / (stats.total || 1)) * 100)}%`,
+                  background: 'rgba(255,255,255,.8)',
+                  borderRadius: 99,
+                  transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s',
+                }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Styles d'animation pour les toasts
 const animationStyles = `
@@ -82,6 +189,7 @@ const animationStyles = `
   }
 `;
 
+// MODIFIÉ : Badge de statut en niveaux de gris
 function StatutIncidentBadge({ statut }) {
   const s = STATUTS_INCIDENT.find(s => s.key === statut);
   if (!s) return <span>—</span>;
@@ -89,13 +197,16 @@ function StatutIncidentBadge({ statut }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
       fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99,
-      background: s.bg, color: s.color, border: `1px solid ${s.color}30`,
+      background: '#F3F4F6',
+      color: '#4B5563',
+      border: '1px solid #E5E7EB',
     }}>
       {s.icon} {s.label}
     </span>
   );
 }
 
+// MODIFIÉ : Badge de priorité en niveaux de gris
 function PrioriteBadge({ priorite }) {
   const p = PRIORITES.find(p => p.key === priorite);
   if (!p) return null;
@@ -103,7 +214,8 @@ function PrioriteBadge({ priorite }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
-      background: p.bg, color: p.color,
+      background: '#F3F4F6',
+      color: '#4B5563',
     }}>
       {p.icon} {p.label}
     </span>
@@ -123,7 +235,6 @@ function formatDateTime(dateStr) {
 function NotificationToast({ notification, onClose, onView }) {
   if (!notification) return null;
 
-  // Version avec bleu uniquement
   return (
     <div style={{
       position: 'fixed',
@@ -139,7 +250,6 @@ function NotificationToast({ notification, onClose, onView }) {
         boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05)',
         overflow: 'hidden',
       }}>
-        {/* Barre de progression bleue en haut */}
         <div style={{
           height: 4,
           background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)',
@@ -148,7 +258,6 @@ function NotificationToast({ notification, onClose, onView }) {
         }} />
         
         <div style={{ padding: '16px', display: 'flex', gap: 12 }}>
-          {/* Icône bleue */}
           <div style={{
             width: 40,
             height: 40,
@@ -162,7 +271,6 @@ function NotificationToast({ notification, onClose, onView }) {
             <AlertCircle size={20} color="#FFFFFF" />
           </div>
           
-          {/* Contenu */}
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
@@ -204,7 +312,6 @@ function NotificationToast({ notification, onClose, onView }) {
             </button>
           </div>
           
-          {/* Bouton fermer */}
           <button
             onClick={onClose}
             style={{
@@ -227,6 +334,7 @@ function NotificationToast({ notification, onClose, onView }) {
     </div>
   );
 }
+
 // Panneau Détails
 function DetailIncidentPanel({ incident, onClose }) {
   return (
@@ -362,16 +470,18 @@ export default function GestionIncidents() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterPriorite, setFilterPriorite] = useState('all');
+  const [viewMode, setViewMode] = useState('table');
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [traitementIncident, setTraitementIncident] = useState(null);
   const [detailsIncident, setDetailsIncident] = useState(null);
   
   // États pour SignalR et notifications
-  const [connection, setConnection] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [currentToast, setCurrentToast] = useState(null);
   const [isSignalRConnected, setIsSignalRConnected] = useState(false);
+
+  const connectionRef = useRef(null);
 
   // Demander la permission pour les notifications navigateur
   useEffect(() => {
@@ -381,76 +491,63 @@ export default function GestionIncidents() {
   }, []);
 
   // Connexion SignalR
- 
-  // Dans GestionIncidents, remplacez la partie SignalR par ceci :
-
-// Connexion SignalR
-// Dans GestionIncidents, modifiez le useEffect de SignalR
-const connectionRef = useRef(null);
-
-useEffect(() => {
-  // Éviter les connexions multiples
-  if (connectionRef.current) {
-    console.log('⚠️ Connexion déjà existante, annulation...');
-    return;
-  }
-
-  const token = localStorage.getItem('token');
-  
-  if (!token) {
-    console.error('❌ Pas de token JWT trouvé');
-    return;
-  }
-
-  console.log('🔑 Création d\'une nouvelle connexion SignalR...');
-  
-  const newConnection = new signalR.HubConnectionBuilder()
-    .withUrl(SIGNALR_HUB, {
-      accessTokenFactory: () => localStorage.getItem('token') || '',
-      transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
-    })
-    .withAutomaticReconnect([0, 2000, 5000, 10000])
-    .configureLogging(signalR.LogLevel.Information)
-    .build();
-
-  // NE PAS DUPLIQUER L'ÉCOUTEUR - Un seul 'on' par type d'événement
-  newConnection.on('ReceiveNotification', (notification) => {
-    console.log('📢 Notification reçue (unique):', notification);
-    
-    // Éviter les doublons en vérifiant l'ID
-    setNotifications(prev => {
-      // Vérifier si cette notification existe déjà
-      const exists = prev.some(n => n.incidentId === notification.incidentId);
-      if (exists) {
-        console.log('⚠️ Notification déjà présente, ignorée');
-        return prev;
-      }
-      console.log('✅ Nouvelle notification ajoutée');
-      return [notification, ...prev];
-    });
-  });
-
-  newConnection.start()
-    .then(() => {
-      console.log('✅ SignalR connecté avec ID:', newConnection.connectionId);
-      setIsSignalRConnected(true);
-      connectionRef.current = newConnection;
-    })
-    .catch(err => {
-      console.error('❌ Erreur SignalR:', err);
-      setIsSignalRConnected(false);
-    });
-
-  // Nettoyage propre
-  return () => {
+  useEffect(() => {
     if (connectionRef.current) {
-      console.log('🔌 Fermeture de la connexion SignalR...');
-      connectionRef.current.stop();
-      connectionRef.current = null;
+      console.log('⚠️ Connexion déjà existante, annulation...');
+      return;
     }
-  };
-}, []); // Dépendance vide pour un seul montage
-  
+
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      console.error('❌ Pas de token JWT trouvé');
+      return;
+    }
+
+    console.log('🔑 Création d\'une nouvelle connexion SignalR...');
+    
+    const newConnection = new signalR.HubConnectionBuilder()
+      .withUrl(SIGNALR_HUB, {
+        accessTokenFactory: () => localStorage.getItem('token') || '',
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+      })
+      .withAutomaticReconnect([0, 2000, 5000, 10000])
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
+
+    newConnection.on('ReceiveNotification', (notification) => {
+      console.log('📢 Notification reçue:', notification);
+      
+      setNotifications(prev => {
+        const exists = prev.some(n => n.incidentId === notification.incidentId);
+        if (exists) {
+          console.log('⚠️ Notification déjà présente, ignorée');
+          return prev;
+        }
+        console.log('✅ Nouvelle notification ajoutée');
+        return [notification, ...prev];
+      });
+    });
+
+    newConnection.start()
+      .then(() => {
+        console.log('✅ SignalR connecté avec ID:', newConnection.connectionId);
+        setIsSignalRConnected(true);
+        connectionRef.current = newConnection;
+      })
+      .catch(err => {
+        console.error('❌ Erreur SignalR:', err);
+        setIsSignalRConnected(false);
+      });
+
+    return () => {
+      if (connectionRef.current) {
+        console.log('🔌 Fermeture de la connexion SignalR...');
+        connectionRef.current.stop();
+        connectionRef.current = null;
+      }
+    };
+  }, []);
 
   // Gérer l'affichage du toast pour la notification la plus récente
   useEffect(() => {
@@ -565,6 +662,12 @@ useEffect(() => {
     }
   };
 
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterStatut('all');
+    setFilterPriorite('all');
+  };
+
   const filtered = incidents.filter(inc => {
     const matchSearch = inc.titre?.toLowerCase().includes(searchTerm.toLowerCase()) || inc.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatut = filterStatut === 'all' || inc.statut === filterStatut;
@@ -578,6 +681,11 @@ useEffect(() => {
     resolus: incidents.filter(i => i.statut === 'Resolu').length,
   };
 
+  // MODIFIÉ : Bordure grise uniforme
+  const getBarColor = (incident) => {
+    return 'linear-gradient(90deg, #E5E7EB, #D1D5DB)';
+  };
+
   const btnIcon = {
     display: 'inline-flex', alignItems: 'center', gap: 6,
     padding: '6px 14px', borderRadius: 40, border: '1.5px solid',
@@ -585,86 +693,196 @@ useEffect(() => {
     transition: 'all 0.15s',
   };
 
+  const renderIncidentCard = (incident, idx) => (
+    <div key={incident.id} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: T.shadow, transition: 'transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s', animation: `slideUp 0.5s cubic-bezier(.4,0,.2,1) ${idx * 60}ms both` }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadow; }}>
+      <div style={{ height: 4, background: getBarColor(incident) }} />
+      <div style={{ padding: '20px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{incident.titre}</h3>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: T.gray500, lineHeight: 1.5 }}>{incident.description?.substring(0, 150)}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <PrioriteBadge priorite={incident.priorite} />
+            <StatutIncidentBadge statut={incident.statut} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, fontSize: 12, color: T.gray400 }}>
+          <Clock size={14} /> {formatDateTime(incident.date)}
+        </div>
+        {/* MODIFIÉ : Bloc résolution en gris */}
+        {incident.statut === 'Resolu' && incident.resolution && (
+          <div style={{ marginTop: 12, padding: 10, background: '#F9FAFB', borderRadius: 8, borderLeft: '4px solid #D1D5DB' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563' }}>Résolution</div>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>{incident.resolution}</div>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+          <button onClick={() => setDetailsIncident(incident)} style={{ ...btnIcon, background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}><Eye size={15} /> Détails</button>
+          <button onClick={() => setEditingIncident(incident)} style={{ ...btnIcon, background: '#FFFBEB', color: '#D97706', borderColor: '#FDE68A' }}><Edit size={15} /> Modifier</button>
+          <button onClick={() => setTraitementIncident(incident)} style={{ ...btnIcon, background: '#ECFDF5', color: '#059669', borderColor: '#A7F3D0' }}>
+            <ShieldCheck size={15} /> {incident.resolution || incident.statut === 'Resolu' ? 'Modifier traitement' : 'Traiter'}
+          </button>
+          <button onClick={() => handleDelete(incident.id)} style={{ ...btnIcon, background: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}><Trash2 size={15} /> Supprimer</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
+    <div className="min-h-screen bg-[#f4f6fa] px-4 py-5 sm:px-6" style={{ fontFamily: T.font }}>
       <style>{animationStyles}</style>
       
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 36px 60px' }}>
-       
-       
+      <div className="mx-auto max-w-[1200px]">
 
-        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        {/* ── Header ── */}
+        <section className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.8px' }}>Gestion des incidents</h1>
-            <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0 }}>Suivi et traitement des événements de sécurité</p>
+            <h1 className="text-[24px] font-extrabold tracking-tight text-slate-900 sm:text-[26px]">
+              Gestion des incidents
+            </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              Suivi et traitement des événements de sécurité
+            </p>
           </div>
-          <button onClick={() => setShowCreatePanel(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 12, background: T.gradBlue, border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 12px rgba(29,78,216,.3)' }}>
-            <Plus size={18} /> Déclarer un incident
+          <button
+            type="button"
+            onClick={() => setShowCreatePanel(true)}
+            className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
+            style={{ background: T.gradBlue }}
+          >
+            <Plus size={18} className="mr-2" /> Déclarer un incident
           </button>
-        </div>
+        </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 28 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', boxShadow: T.shadow }}><div style={{ fontSize: 28, fontWeight: 800 }}>{stats.total}</div><div style={{ fontSize: 12, color: T.gray500 }}>Total incidents</div></div>
-          <div style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', boxShadow: T.shadow }}><div style={{ fontSize: 28, fontWeight: 800, color: '#F59E0B' }}>{stats.enCours}</div><div style={{ fontSize: 12, color: T.gray500 }}>En cours</div></div>
-          <div style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', boxShadow: T.shadow }}><div style={{ fontSize: 28, fontWeight: 800, color: '#10B981' }}>{stats.resolus}</div><div style={{ fontSize: 12, color: T.gray500 }}>Résolus</div></div>
-        </div>
+        {/* ── KPI Strip ── */}
+        <KpiStrip stats={stats} />
 
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.gray400 }} />
-            <input type="text" placeholder="Rechercher un incident..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '10px 40px', borderRadius: 40, border: `1.5px solid ${T.gray200}`, fontSize: 14 }} />
+        {/* ── Filters ── */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher un incident..."
+              className="h-12 w-full rounded-xl border border-slate-300 bg-slate-50 pl-11 pr-4 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-300 focus:outline-none"
+            />
           </div>
-          <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)} style={{ padding: '10px 16px', borderRadius: 40, border: `1.5px solid ${T.gray200}`, background: '#fff', fontSize: 13 }}>
-            <option value="all">Tous statuts</option>
-            {STATUTS_INCIDENT.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </select>
-          <select value={filterPriorite} onChange={e => setFilterPriorite(e.target.value)} style={{ padding: '10px 16px', borderRadius: 40, border: `1.5px solid ${T.gray200}`, background: '#fff', fontSize: 13 }}>
-            <option value="all">Toutes priorités</option>
-            {PRIORITES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-          </select>
-        </div>
 
-        <div style={{ display: 'grid', gap: 16 }}>
-          {loading && <div style={{ textAlign: 'center', padding: '80px 0' }}>⏳ Chargement...</div>}
-          {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', padding: '80px 0' }}><div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div><div style={{ fontSize: 15, fontWeight: 700 }}>Aucun incident trouvé</div></div>}
-          {!loading && filtered.map((incident, idx) => (
-            <div key={incident.id} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: T.shadow, transition: 'transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s', animation: `slideUp 0.5s cubic-bezier(.4,0,.2,1) ${idx * 60}ms both` }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = T.shadow; }}>
-              <div style={{ height: 4, background: 'linear-gradient(90deg, #1D4ED8, #60A5FA)' }} />
-              <div style={{ padding: '20px 22px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{incident.titre}</h3>
-                    <p style={{ margin: '6px 0 0', fontSize: 13, color: T.gray500, lineHeight: 1.5 }}>{incident.description}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                    <PrioriteBadge priorite={incident.priorite} />
-                    <StatutIncidentBadge statut={incident.statut} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, fontSize: 12, color: T.gray400 }}>
-                  <Clock size={14} /> {formatDateTime(incident.date)}
-                </div>
-                {incident.statut === 'Resolu' && incident.resolution && (
-                  <div style={{ marginTop: 12, padding: 10, background: '#F0FDF4', borderRadius: 8, borderLeft: '4px solid #10B981' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>Résolution</div>
-                    <div style={{ fontSize: 12, color: '#374151' }}>{incident.resolution}</div>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-                  <button onClick={() => setDetailsIncident(incident)} style={{ ...btnIcon, background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}><Eye size={15} /> Détails</button>
-                  <button onClick={() => setEditingIncident(incident)} style={{ ...btnIcon, background: '#FFFBEB', color: '#D97706', borderColor: '#FDE68A' }}><Edit size={15} /> Modifier</button>
-                  <button onClick={() => setTraitementIncident(incident)} style={{ ...btnIcon, background: '#ECFDF5', color: '#059669', borderColor: '#A7F3D0' }}>
-                    <ShieldCheck size={15} /> {incident.resolution || incident.statut === 'Resolu' ? 'Modifier traitement' : 'Traiter'}
-                  </button>
-                  <button onClick={() => handleDelete(incident.id)} style={{ ...btnIcon, background: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}><Trash2 size={15} /> Supprimer</button>
-                </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <select 
+                value={filterStatut} 
+                onChange={e => setFilterStatut(e.target.value)} 
+                className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 focus:border-blue-300 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Tous statuts</option>
+                {STATUTS_INCIDENT.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+              <select 
+                value={filterPriorite} 
+                onChange={e => setFilterPriorite(e.target.value)} 
+                className="h-10 rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 focus:border-blue-300 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Toutes priorités</option>
+                {PRIORITES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+              >
+                <SlidersHorizontal size={15} /> Réinitialiser
+              </button>
+            </div>
+
+            <div className="inline-flex h-10 overflow-hidden rounded-xl border border-slate-300 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`inline-flex w-10 items-center justify-center ${viewMode === 'grid' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}
+                title="Vue grille"
+              >
+                <LayoutGrid size={17} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`inline-flex w-10 items-center justify-center ${viewMode === 'table' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}
+                title="Vue liste"
+              >
+                <List size={17} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Results ── */}
+        <section className="mt-5">
+          {loading ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-400 shadow-sm">
+              Chargement...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-400 shadow-sm">
+              Aucun incident trouvé.
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-2">
+              {filtered.map((incident, idx) => renderIncidentCard(incident, idx))}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-6 py-4">Titre</th>
+                      <th className="px-6 py-4">Priorité</th>
+                      <th className="px-6 py-4">Statut</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filtered.map((incident, i) => (
+                      <tr key={incident.id} className={`transition-colors hover:bg-slate-50 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                        <td className="px-6 py-4">
+                          <div className="text-xs font-semibold text-slate-800">{incident.titre}</div>
+                          <div className="max-w-56 truncate text-xs text-slate-400">{incident.description?.substring(0, 60)}</div>
+                        </td>
+                        <td className="px-6 py-4"><PrioriteBadge priorite={incident.priorite} /></td>
+                        <td className="px-6 py-4"><StatutIncidentBadge statut={incident.statut} /></td>
+                        <td className="px-6 py-4 text-xs text-slate-600">{formatDateTime(incident.date)}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button type="button" onClick={() => setDetailsIncident(incident)} className="rounded-lg bg-blue-50 p-2 text-blue-600 hover:bg-blue-100" title="Détails">
+                              <Eye size={15} />
+                            </button>
+                            <button type="button" onClick={() => setEditingIncident(incident)} className="rounded-lg bg-amber-50 p-2 text-amber-600 hover:bg-amber-100" title="Modifier">
+                              <Edit size={15} />
+                            </button>
+                            <button type="button" onClick={() => setTraitementIncident(incident)} className="rounded-lg bg-green-50 p-2 text-green-600 hover:bg-green-100" title="Traiter">
+                              <ShieldCheck size={15} />
+                            </button>
+                            <button type="button" onClick={() => handleDelete(incident.id)} className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100" title="Supprimer">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          ))}
-        </div>
-      </main>
+          )}
+        </section>
+      </div>
 
       {currentToast && (
         <NotificationToast
