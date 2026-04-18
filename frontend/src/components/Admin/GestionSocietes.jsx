@@ -4,8 +4,15 @@ import axios from 'axios';
 
 const API = 'http://localhost:5006/api';
 
-// Composant GestionSocietes : Interface d'administration pour gérer les sociétés
-// Permet d'ajouter, modifier, supprimer des sociétés avec upload de logo et liaison à une holding
+// Fonction pour obtenir les headers d'authentification
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
 
 export default function GestionSocietes() {
   const [societes,  setSocietes]  = useState([]);
@@ -18,38 +25,101 @@ export default function GestionSocietes() {
   const [logoFile,    setLogoFile]    = useState(null);
   const [form, setForm] = useState({ nom: '', holdingId: '' });
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { 
+    // Vérifier si l'utilisateur est connecté
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+    } else {
+      fetchAll(); 
+    }
+  }, []);
 
   const fetchAll = async () => {
-    const [s, h] = await Promise.all([axios.get(`${API}/societe`), axios.get(`${API}/holding`)]);
-    setSocietes(s.data); setHoldings(h.data);
+    try {
+      const headers = getAuthHeaders();
+      const [s, h] = await Promise.all([
+        axios.get(`${API}/societe`, headers),
+        axios.get(`${API}/holding`, headers)
+      ]);
+      setSocietes(s.data); 
+      setHoldings(h.data);
+    } catch (error) {
+      console.error('Erreur fetchAll:', error);
+      if (error.response?.status === 401) {
+        alert('Session expirée, veuillez vous reconnecter');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    }
   };
 
-  const reset = () => { setForm({ nom: '', holdingId: '' }); setEditing(null); setLogoPreview(null); setLogoFile(null); };
+  const reset = () => { 
+    setForm({ nom: '', holdingId: '' }); 
+    setEditing(null); 
+    setLogoPreview(null); 
+    setLogoFile(null); 
+  };
+  
   const closeModal = () => { setModal(false); reset(); };
   const openNew    = () => { reset(); setModal(true); };
-  const openEdit   = (s) => { setEditing(s); setForm({ nom: s.nom, holdingId: s.holdingId?.toString() || '' }); setLogoPreview(null); setLogoFile(null); setModal(true); };
+  const openEdit   = (s) => { 
+    setEditing(s); 
+    setForm({ nom: s.nom, holdingId: s.holdingId?.toString() || '' }); 
+    setLogoPreview(null); 
+    setLogoFile(null); 
+    setModal(true); 
+  };
 
   const handleLogo = (e) => {
     const file = e.target.files[0];
-    if (file) { setLogoFile(file); const r = new FileReader(); r.onloadend = () => setLogoPreview(r.result); r.readAsDataURL(file); }
+    if (file) { 
+      setLogoFile(file); 
+      const r = new FileReader(); 
+      r.onloadend = () => setLogoPreview(r.result); 
+      r.readAsDataURL(file); 
+    }
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+    e.preventDefault(); 
+    setLoading(true);
     try {
-      const fd = new FormData(); fd.append('nom', form.nom); fd.append('holdingId', form.holdingId || ''); if (logoFile) fd.append('logo', logoFile);
-      if (editing) await axios.put(`${API}/societe/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      else         await axios.post(`${API}/societe`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      await fetchAll(); closeModal();
-    } catch (err) { alert(`Erreur: ${err.response?.data || "Une erreur est survenue"}`); }
-    finally { setLoading(false); }
+      const fd = new FormData(); 
+      fd.append('nom', form.nom); 
+      fd.append('holdingId', form.holdingId || ''); 
+      if (logoFile) fd.append('logo', logoFile);
+      
+      const headers = getAuthHeaders();
+      const config = {
+        headers: {
+          ...headers.headers,
+          'Content-Type': 'multipart/form-data'
+        }
+      };
+      
+      if (editing) {
+        await axios.put(`${API}/societe/${editing.id}`, fd, config);
+      } else {
+        await axios.post(`${API}/societe`, fd, config);
+      }
+      await fetchAll(); 
+      closeModal();
+    } catch (err) { 
+      alert(`Erreur: ${err.response?.data || "Une erreur est survenue"}`); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette société ?")) return;
-    try { await axios.delete(`${API}/societe/${id}`); await fetchAll(); }
-    catch (e) { alert(`Erreur: ${e.response?.data}`); }
+    try { 
+      await axios.delete(`${API}/societe/${id}`, getAuthHeaders()); 
+      await fetchAll(); 
+    } catch (e) { 
+      alert(`Erreur: ${e.response?.data}`); 
+    }
   };
 
   const getLogo = (s) => {
@@ -88,7 +158,7 @@ export default function GestionSocietes() {
               <th className="px-6 py-4">Nom</th>
               <th className="px-6 py-4">Holding</th>
               <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
+             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtered.map(s => (
@@ -102,8 +172,8 @@ export default function GestionSocietes() {
                     <button onClick={() => openEdit(s)} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Edit size={15}/></button>
                     <button onClick={() => handleDelete(s.id)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={15}/></button>
                   </div>
-                </td>
-              </tr>
+                 </td>
+               </tr>
             ))}
             {filtered.length === 0 && (
               <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">Aucune société trouvée</td></tr>

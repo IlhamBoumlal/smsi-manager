@@ -16,6 +16,8 @@ using System.Text.Json.Serialization;
 using FluentEmail.Core;
 using FluentEmail.Smtp;
 using backend.API.Hubs;
+using System.Net.Mail;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +58,21 @@ builder.Services.AddAuthentication(opt =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
+
+    // Configuration pour SignalR
+    opt.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
@@ -80,18 +97,53 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ─── CONFIGURATION FLUENTEMAIL ─────────────────────────────────────────────────
+// ─── CONFIGURATION EMAIL CORRIGÉE ─────────────────────────────────────────────
 var emailConfig = builder.Configuration.GetSection("Email");
-var smtpHost = emailConfig["SmtpHost"];
+var smtpServer = emailConfig["SmtpServer"] ?? "smtp.gmail.com";
 var smtpPort = int.Parse(emailConfig["SmtpPort"] ?? "587");
 var smtpUser = emailConfig["SmtpUser"];
-var smtpPassword = emailConfig["SmtpPassword"];
-var fromEmail = emailConfig["FromAddress"];
-var fromName = emailConfig["FromName"];
+var smtpPass = emailConfig["SmtpPass"];  // Note: c'est "SmtpPass" dans votre JSON
+var fromEmail = emailConfig["FromEmail"];
+var fromName = emailConfig["FromName"] ?? "SMSI Manager";
 
+// Logs pour déboguer
+Console.WriteLine($"📧 Configuration Email:");
+Console.WriteLine($"   SmtpServer: {smtpServer}");
+Console.WriteLine($"   SmtpPort: {smtpPort}");
+Console.WriteLine($"   SmtpUser: {smtpUser}");
+Console.WriteLine($"   SmtpPass length: {smtpPass?.Length ?? 0}");
+Console.WriteLine($"   FromEmail: {fromEmail}");
+Console.WriteLine($"   FromName: {fromName}");
+
+if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPass))
+{
+    Console.WriteLine("⚠️ ATTENTION: Les identifiants SMTP ne sont pas configurés!");
+}
+else
+{
+    Console.WriteLine("✅ Configuration SMTP trouvée");
+}
+
+// Création du client SMTP
+var smtpClient = new SmtpClient(smtpServer, smtpPort)
+{
+    EnableSsl = true,
+    UseDefaultCredentials = false,
+    Credentials = new NetworkCredential(smtpUser, smtpPass),
+    Timeout = 10000
+};
+
+// Enregistrement FluentEmail
 builder.Services
     .AddFluentEmail(fromEmail, fromName)
-    .AddSmtpSender(smtpHost, smtpPort, smtpUser, smtpPassword);
+    .AddSmtpSender(() => smtpClient);
+
+// ─── SIGNALR ──────────────────────────────────────────────────────────────────
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.MaximumReceiveMessageSize = 102400;
+});
 
 // ─── MEDIATR ──────────────────────────────────────────────────────────────────
 builder.Services.AddMediatR(cfg => {
@@ -115,9 +167,9 @@ builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClauseService, ClauseService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailServiceIncident, EmailServiceIncident>();
+builder.Services.AddScoped<IEmailServiceSens, FormationEmailService>();
 
-builder.Services.AddSignalR();
 builder.Services.AddHostedService<RappelHostedService>();
 
 var app = builder.Build();
@@ -150,5 +202,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseStaticFiles();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

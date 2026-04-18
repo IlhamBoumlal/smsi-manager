@@ -19,7 +19,6 @@ namespace backend.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Guid>> Create(IncidentDto dto)
         {
-            // Le client ne doit pas fournir d'Id ni de Date
             
             var id = await _mediator.Send(new CreateIncidentCommand(dto));
             return Ok(id);
