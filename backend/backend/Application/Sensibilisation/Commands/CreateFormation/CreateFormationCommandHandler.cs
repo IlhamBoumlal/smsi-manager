@@ -3,12 +3,13 @@ using MediatR;
 using backend.Domain.Entities;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using backend.Domain.Interfaces;
 
 namespace backend.Application.Sensibilisation.Commands.CreateFormation;
 
 public class CreateFormationCommandHandler(
     IFormationRepository repo,
-    IEmailService emailService)
+    IEmailServiceSens emailService)
     : IRequestHandler<CreateFormationCommand, Guid>
 {
     public async Task<Guid> Handle(CreateFormationCommand cmd, CancellationToken ct)

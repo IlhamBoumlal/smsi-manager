@@ -123,169 +123,110 @@ function formatDateTime(dateStr) {
 function NotificationToast({ notification, onClose, onView }) {
   if (!notification) return null;
 
-  const getPriorityInfo = (priorite) => {
-    switch (priorite) {
-      case 'CRITIQUE':
-        return { color: '#DC2626', bg: '#FEE2E2', icon: <AlertCircle size={20} />, label: 'Critique' };
-      case 'HAUTE':
-        return { color: '#EF4444', bg: '#FEF2F2', icon: <AlertTriangle size={20} />, label: 'Haute priorité' };
-      case 'MOYENNE':
-        return { color: '#F59E0B', bg: '#FFFBEB', icon: <AlertTriangle size={20} />, label: 'Priorité moyenne' };
-      default:
-        return { color: '#10B981', bg: '#ECFDF5', icon: <CheckCircle size={20} />, label: 'Priorité basse' };
-    }
-  };
-
-  const priorityInfo = getPriorityInfo(notification.priorite);
-  const timeAgo = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
+  // Version avec bleu uniquement
   return (
     <div style={{
       position: 'fixed',
-      top: 20,
-      right: 20,
+      bottom: 24,
+      right: 24,
       zIndex: 1300,
-      maxWidth: 380,
-      minWidth: 300,
-      animation: 'slideInRight 0.3s ease-out'
+      width: 360,
+      animation: 'slideInRight 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
     }}>
       <div style={{
         background: '#FFFFFF',
         borderRadius: 12,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        borderLeft: `4px solid ${priorityInfo.color}`,
-        overflow: 'hidden'
+        boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05)',
+        overflow: 'hidden',
       }}>
-        <div style={{ padding: '12px 16px' }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <div style={{
-              flexShrink: 0,
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: priorityInfo.bg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+        {/* Barre de progression bleue en haut */}
+        <div style={{
+          height: 4,
+          background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)',
+          width: '100%',
+          animation: 'progress 4s linear forwards'
+        }} />
+        
+        <div style={{ padding: '16px', display: 'flex', gap: 12 }}>
+          {/* Icône bleue */}
+          <div style={{
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <AlertCircle size={20} color="#FFFFFF" />
+          </div>
+          
+          {/* Contenu */}
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
+                Nouvel incident
+              </span>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: 12,
+                background: '#EFF6FF',
+                color: '#1D4ED8'
+              }}>
+                {notification.priorite || 'MOYENNE'}
+              </span>
+            </div>
+            <p style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 500,
+              color: '#374151',
+              marginBottom: 8
             }}>
-              <div style={{ color: priorityInfo.color }}>
-                {priorityInfo.icon}
-              </div>
-            </div>
-            
-            <div style={{ flex: 1 }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginBottom: 4
-              }}>
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#111827' }}>
-                  Nouvel incident
-                </span>
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 12,
-                  background: priorityInfo.bg,
-                  color: priorityInfo.color
-                }}>
-                  {priorityInfo.label}
-                </span>
-              </div>
-              
-              <div style={{ 
-                fontWeight: 600, 
-                fontSize: 13, 
-                color: '#374151',
-                marginBottom: 8
-              }}>
-                {notification.titre}
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                marginTop: 4
-              }}>
-                <div style={{
-                  fontSize: 10,
-                  color: '#9CA3AF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4
-                }}>
-                  <Clock size={10} />
-                  <span>{timeAgo}</span>
-                </div>
-                
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => onView(notification.incidentId)}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: priorityInfo.color,
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: 4
-                    }}
-                  >
-                    Voir
-                  </button>
-                  <button
-                    onClick={onClose}
-                    style={{
-                      fontSize: 11,
-                      color: '#9CA3AF',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: 4
-                    }}
-                  >
-                    Fermer
-                  </button>
-                </div>
-              </div>
-            </div>
-            
+              {notification.titre}
+            </p>
             <button
-              onClick={onClose}
+              onClick={() => { onView(notification.incidentId); onClose(); }}
               style={{
-                flexShrink: 0,
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#3B82F6',
                 background: 'none',
                 border: 'none',
-                borderRadius: 4,
-                width: 24,
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#9CA3AF'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#F3F4F6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'none';
+                padding: 0
               }}
             >
-              <X size={14} />
+              Voir
             </button>
           </div>
+          
+          {/* Bouton fermer */}
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#9CA3AF',
+              padding: 4,
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: 6
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#F3F4F6'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+          >
+            <X size={16} />
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 // Panneau Détails
 function DetailIncidentPanel({ incident, onClose }) {
   return (
@@ -440,47 +381,76 @@ export default function GestionIncidents() {
   }, []);
 
   // Connexion SignalR
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl(SIGNALR_HUB, {
-        accessTokenFactory: () => token || ''
-      })
-      .withAutomaticReconnect([0, 2000, 5000, 10000])
-      .build();
+ 
+  // Dans GestionIncidents, remplacez la partie SignalR par ceci :
 
-    newConnection.start()
-      .then(() => {
-        console.log('✅ SignalR connecté');
-        setIsSignalRConnected(true);
-        
-        newConnection.on('ReceiveNotification', (notification) => {
-          console.log('📢 Notification reçue:', notification);
-          setNotifications(prev => [notification, ...prev]);
-          
-          if (Notification.permission === 'granted') {
-            new Notification('Nouvel incident', {
-              body: notification.message,
-              icon: '/alert-icon.png',
-              silent: false,
-              requireInteraction: true
-            });
-          }
-        });
-      })
-      .catch(err => {
-        console.error('❌ Erreur SignalR:', err);
-        setIsSignalRConnected(false);
-      });
+// Connexion SignalR
+// Dans GestionIncidents, modifiez le useEffect de SignalR
+const connectionRef = useRef(null);
 
-    setConnection(newConnection);
+useEffect(() => {
+  // Éviter les connexions multiples
+  if (connectionRef.current) {
+    console.log('⚠️ Connexion déjà existante, annulation...');
+    return;
+  }
 
-    return () => {
-      if (newConnection) {
-        newConnection.stop();
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    console.error('❌ Pas de token JWT trouvé');
+    return;
+  }
+
+  console.log('🔑 Création d\'une nouvelle connexion SignalR...');
+  
+  const newConnection = new signalR.HubConnectionBuilder()
+    .withUrl(SIGNALR_HUB, {
+      accessTokenFactory: () => localStorage.getItem('token') || '',
+      transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+    })
+    .withAutomaticReconnect([0, 2000, 5000, 10000])
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+  // NE PAS DUPLIQUER L'ÉCOUTEUR - Un seul 'on' par type d'événement
+  newConnection.on('ReceiveNotification', (notification) => {
+    console.log('📢 Notification reçue (unique):', notification);
+    
+    // Éviter les doublons en vérifiant l'ID
+    setNotifications(prev => {
+      // Vérifier si cette notification existe déjà
+      const exists = prev.some(n => n.incidentId === notification.incidentId);
+      if (exists) {
+        console.log('⚠️ Notification déjà présente, ignorée');
+        return prev;
       }
-    };
-  }, []);
+      console.log('✅ Nouvelle notification ajoutée');
+      return [notification, ...prev];
+    });
+  });
+
+  newConnection.start()
+    .then(() => {
+      console.log('✅ SignalR connecté avec ID:', newConnection.connectionId);
+      setIsSignalRConnected(true);
+      connectionRef.current = newConnection;
+    })
+    .catch(err => {
+      console.error('❌ Erreur SignalR:', err);
+      setIsSignalRConnected(false);
+    });
+
+  // Nettoyage propre
+  return () => {
+    if (connectionRef.current) {
+      console.log('🔌 Fermeture de la connexion SignalR...');
+      connectionRef.current.stop();
+      connectionRef.current = null;
+    }
+  };
+}, []); // Dépendance vide pour un seul montage
+  
 
   // Gérer l'affichage du toast pour la notification la plus récente
   useEffect(() => {
@@ -620,26 +590,8 @@ export default function GestionIncidents() {
       <style>{animationStyles}</style>
       
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 36px 60px' }}>
-        {isSignalRConnected && (
-          <div style={{
-            position: 'fixed',
-            bottom: 20,
-            left: 20,
-            background: '#10B981',
-            color: '#fff',
-            padding: '6px 14px',
-            borderRadius: 99,
-            fontSize: 11,
-            zIndex: 1300,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1.5s infinite' }} />
-            Notifications temps réel actives
-          </div>
-        )}
+       
+       
 
         <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
           <div>

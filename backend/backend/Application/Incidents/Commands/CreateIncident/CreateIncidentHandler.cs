@@ -6,6 +6,7 @@ using backend.Infrastructure.Data;
 using backend.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Application.Incidents.Commands.CreateIncident
 {
@@ -13,19 +14,22 @@ namespace backend.Application.Incidents.Commands.CreateIncident
     {
         private readonly AppDbContext _context;
         private readonly IUserRepository _userRepository;
-        private readonly IEmailService _emailService;
+        private readonly IEmailServiceIncident _emailService;
         private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly ILogger<CreateIncidentHandler> _logger;
 
         public CreateIncidentHandler(
             AppDbContext context,
             IUserRepository userRepository,
-            IEmailService emailService,
-            IHubContext<NotificationHub> hubContext)
+            IEmailServiceIncident emailService,
+            IHubContext<NotificationHub> hubContext,
+            ILogger<CreateIncidentHandler> logger)
         {
             _context = context;
             _userRepository = userRepository;
             _emailService = emailService;
-            _hubContext = hubContext; 
+            _hubContext = hubContext;
+            _logger = logger;
         }
 
         public async Task<Guid> Handle(CreateIncidentCommand request, CancellationToken cancellationToken)
@@ -41,78 +45,76 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                 Resolution = null
             };
 
-            _context.Incidents.Add(incident);
+            await _context.Incidents.AddAsync(incident, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Attendre les notifications (mais avec un timeout)
-            await NotifyTraitants(incident).WaitAsync(TimeSpan.FromSeconds(5));
+            // Envoyer les notifications SANS attendre (fire and forget)
+            _ = Task.Run(async () => {
+                try
+                {
+                    await SendNotificationsDirectly(incident);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erreur lors de l'envoi des notifications");
+                }
+            });
 
             return incident.Id;
         }
 
-        private async Task NotifyTraitants(Incident incident)
+        private async Task SendNotificationsDirectly(Incident incident)
         {
             try
             {
-                Console.WriteLine($"=== DÉBUT NotifyTraitants pour incident {incident.Id} ===");
+                _logger.LogInformation($"=== ENVOI NOTIFICATIONS pour incident {incident.Id} ===");
 
-                var traitants = await _userRepository.GetUsersByRoleAsync("User");
-                Console.WriteLine($"Nombre de traitants trouvés: {traitants.Count()}");
+                var targetEmail = "boumlalilham@gmail.com";
+                var groupName = targetEmail.Replace("@", "_").Replace(".", "_");
 
-                foreach (var traitant in traitants)
+                var notification = new
                 {
-                    Console.WriteLine($"Traitement pour: {traitant.Email}");
+                    type = "NewIncident",
+                    incidentId = incident.Id,
+                    titre = incident.Titre,
+                    description = incident.Description,
+                    priorite = incident.Priorite?.ToString() ?? "MOYENNE",
+                    date = incident.Date,
+                    message = $"🚨 NOUVEL INCIDENT : {incident.Titre}",
+                    statut = "EnCours"
+                };
 
-                    // Notification par email
+                // ENVOYER UNIQUEMENT À L'UTILISATEUR SPÉCIFIQUE (pas de broadcast)
+                try
+                {
+                    await _hubContext.Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
+                    _logger.LogInformation($"✅ Notification envoyée à {targetEmail}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Erreur envoi notification");
+                }
+
+                // Email (optionnel, gardez-le ou supprimez-le selon vos besoins)
+                try
+                {
                     await _emailService.SendIncidentNotificationAsync(
-                        traitant.Email,
-                        traitant.NomComplet,
+                        targetEmail,
+                        "Ilham Boumlal",
                         incident.Titre,
                         incident.Description
                     );
-                    Console.WriteLine($" Email envoyé à {traitant.Email}");
-
-                    // Notification temps réel via SignalR
-                    var groupName = traitant.Email.Replace("@", "_").Replace(".", "_");
-                    Console.WriteLine($"Groupe SignalR cible: {groupName}");
-
-                    // Vérifier que _hubContext n'est pas null
-                    if (_hubContext == null)
-                    {
-                        Console.WriteLine($" _hubContext est NULL !");
-                        continue;
-                    }
-
-                    try
-                    {
-                        await _hubContext.Clients.Group(groupName).SendAsync(
-                            "ReceiveNotification",
-                            new
-                            {
-                                type = "NewIncident",
-                                incidentId = incident.Id,
-                                titre = incident.Titre,
-                                description = incident.Description,
-                                priorite = incident.Priorite?.ToString(),
-                                date = incident.Date,
-                                message = $"Nouvel incident : {incident.Titre}"
-                            }
-                        );
-                        Console.WriteLine($"SignalR envoyé avec succès à {traitant.Email} (groupe: {groupName})");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($" Erreur envoi SignalR: {ex.Message}");
-                        Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                    }
+                    _logger.LogInformation($"✅ Email envoyé à {targetEmail}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Erreur email");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($" Erreur notifications: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "❌ Erreur générale dans SendNotificationsDirectly");
             }
         }
-
     }
 }
