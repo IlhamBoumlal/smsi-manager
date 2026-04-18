@@ -2,10 +2,17 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Users, UserCheck, UserX, Building2, Factory, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
 import axios from 'axios';
 
-const API = 'http://localhost:5001/api';
+const API = 'http://localhost:5006/api';
 
-// Composant DashboardAdmin : Tableau de bord administrateur avec statistiques animées
-// Affiche des métriques sur utilisateurs, sociétés, holdings avec graphiques et animations
+// Fonction pour obtenir les headers d'authentification
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
 
 // Hook pour animer les chiffres
 function useCountUp(target, duration = 1200, delay = 0) {
@@ -118,59 +125,73 @@ export default function DashboardAdmin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [usersRes, societesRes, holdingsRes] = await Promise.all([
-          axios.get(`${API}/user`),
-          axios.get(`${API}/societe`),
-          axios.get(`${API}/holding`),
-        ]);
-        const users = usersRes.data;
-        const now = new Date();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(now.getDate() - 30);
-
-        const recentUsers = users.filter(u => {
-          const parts = u.dateCreation?.split('/');
-          if (!parts || parts.length !== 3) return false;
-          const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-          return date >= thirtyDaysAgo;
-        }).length;
-
-        // Répartition par rôle
-        const roleMap = {};
-        users.forEach(u => {
-          const r = u.role || 'Inconnu';
-          roleMap[r] = (roleMap[r] || 0) + 1;
-        });
-        const roles = Object.entries(roleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        // Répartition par société
-        const societeMap = {};
-        users.forEach(u => {
-          const s = u.societe || '—';
-          societeMap[s] = (societeMap[s] || 0) + 1;
-        });
-        const societes = Object.entries(societeMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        setData({
-          totalUsers: users.length,
-          activeUsers: users.filter(u => u.isActive).length,
-          inactiveUsers: users.filter(u => !u.isActive).length,
-          totalSocietes: societesRes.data.length,
-          totalHoldings: holdingsRes.data.length,
-          recentUsers,
-          roles,
-          societes,
-        });
-      } catch (e) {
-        console.error('Erreur stats:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Vérifier si l'utilisateur est connecté
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
     fetchAll();
   }, []);
+
+  const fetchAll = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const [usersRes, societesRes, holdingsRes] = await Promise.all([
+        axios.get(`${API}/user`, headers),
+        axios.get(`${API}/societe`, headers),
+        axios.get(`${API}/holding`, headers),
+      ]);
+      
+      const users = usersRes.data;
+      const now = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const recentUsers = users.filter(u => {
+        const parts = u.dateCreation?.split('/');
+        if (!parts || parts.length !== 3) return false;
+        const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        return date >= thirtyDaysAgo;
+      }).length;
+
+      // Répartition par rôle
+      const roleMap = {};
+      users.forEach(u => {
+        const r = u.role || 'Inconnu';
+        roleMap[r] = (roleMap[r] || 0) + 1;
+      });
+      const roles = Object.entries(roleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+      // Répartition par société
+      const societeMap = {};
+      users.forEach(u => {
+        const s = u.societe || '—';
+        societeMap[s] = (societeMap[s] || 0) + 1;
+      });
+      const societes = Object.entries(societeMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+      setData({
+        totalUsers: users.length,
+        activeUsers: users.filter(u => u.isActive).length,
+        inactiveUsers: users.filter(u => !u.isActive).length,
+        totalSocietes: societesRes.data.length,
+        totalHoldings: holdingsRes.data.length,
+        recentUsers,
+        roles,
+        societes,
+      });
+    } catch (e) {
+      console.error('Erreur stats:', e);
+      if (e.response?.status === 401) {
+        alert('Session expirée, veuillez vous reconnecter');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
