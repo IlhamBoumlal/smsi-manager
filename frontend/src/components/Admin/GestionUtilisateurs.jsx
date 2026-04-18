@@ -4,6 +4,16 @@ import axios from 'axios';
 
 const API = 'http://localhost:5006/api';
 
+// Fonction pour obtenir les headers d'authentification
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  };
+};
+
 export default function GestionUtilisateurs() {
   const [users,     setUsers]     = useState([]);
   const [societes,  setSocietes]  = useState([]);
@@ -15,18 +25,58 @@ export default function GestionUtilisateurs() {
   const [showPwd,   setShowPwd]   = useState(false);
   const [form, setForm] = useState({ nomComplet: '', email: '', societeId: '', roleId: '', password: '', confirmPassword: '', isActive: true });
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { 
+    // Vérifier si l'utilisateur est connecté
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+    } else {
+      fetchAll(); 
+    }
+  }, []);
 
   const fetchAll = async () => {
-    const [u, s, r] = await Promise.all([
-      axios.get(`${API}/user`),
-      axios.get(`${API}/societe`),
-      axios.get(`${API}/user/roles`),
-    ]);
-    setUsers(u.data); setSocietes(s.data); setRoles(r.data);
+    try {
+      const headers = getAuthHeaders();
+      const [u, s, r] = await Promise.all([
+        axios.get(`${API}/user`, headers),
+        axios.get(`${API}/societe`, headers),
+        axios.get(`${API}/user/roles`, headers),
+      ]);
+      
+      // Créer des maps pour retrouver facilement les noms
+      const societesMap = {};
+      s.data.forEach(soc => { societesMap[soc.id] = soc.nom; });
+      
+      const rolesMap = {};
+      r.data.forEach(role => { rolesMap[role.id] = role.nom; });
+      
+      // Enrichir les utilisateurs avec les noms des sociétés et rôles
+      const enrichedUsers = u.data.map(user => ({
+        ...user,
+        societe: societesMap[user.societeId] || user.societe || '—',
+        role: rolesMap[user.roleId] || user.role || '—'
+      }));
+      
+      setUsers(enrichedUsers);
+      setSocietes(s.data);
+      setRoles(r.data);
+    } catch (error) {
+      console.error('Erreur fetchAll:', error);
+      if (error.response?.status === 401) {
+        alert('Session expirée, veuillez vous reconnecter');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    }
   };
 
-  const reset = () => { setForm({ nomComplet: '', email: '', societeId: '', roleId: '', password: '', confirmPassword: '', isActive: true }); setEditing(null); setShowPwd(false); };
+  const reset = () => { 
+    setForm({ nomComplet: '', email: '', societeId: '', roleId: '', password: '', confirmPassword: '', isActive: true }); 
+    setEditing(null); 
+    setShowPwd(false); 
+  };
+  
   const closeModal = () => { setModal(false); reset(); };
   const openNew    = () => { reset(); setModal(true); };
 
@@ -34,39 +84,83 @@ export default function GestionUtilisateurs() {
     const s = societes.find(x => x.nom === user.societe);
     const r = roles.find(x => x.nom === user.role);
     setEditing(user);
-    setForm({ nomComplet: user.nomComplet, email: user.email, societeId: s?.id?.toString() || '', roleId: r?.id?.toString() || '', password: '', confirmPassword: '', isActive: user.isActive });
+    setForm({ 
+      nomComplet: user.nomComplet, 
+      email: user.email, 
+      societeId: s?.id?.toString() || '', 
+      roleId: r?.id?.toString() || '', 
+      password: '', 
+      confirmPassword: '', 
+      isActive: user.isActive 
+    });
     setModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password && form.password !== form.confirmPassword) { alert("Mots de passe différents !"); return; }
+    if (form.password && form.password !== form.confirmPassword) { 
+      alert("Mots de passe différents !"); 
+      return; 
+    }
     setLoading(true);
     try {
+      const headers = getAuthHeaders();
+      
       if (editing) {
-        await axios.put(`${API}/user/${editing.id}`, { nomComplet: form.nomComplet, email: form.email, societeId: parseInt(form.societeId), roleId: form.roleId, password: form.password || null, confirmPassword: form.confirmPassword || null, isActive: form.isActive });
+        await axios.put(`${API}/user/${editing.id}`, 
+          { 
+            nomComplet: form.nomComplet, 
+            email: form.email, 
+            societeId: parseInt(form.societeId), 
+            roleId: form.roleId, 
+            password: form.password || null, 
+            confirmPassword: form.confirmPassword || null, 
+            isActive: form.isActive 
+          }, 
+          headers
+        );
       } else {
-        if (!form.password) { alert("Mot de passe requis !"); setLoading(false); return; }
-        await axios.post(`${API}/user`, { nomComplet: form.nomComplet, email: form.email, password: form.password, confirmPassword: form.confirmPassword, societeId: parseInt(form.societeId), roleId: form.roleId });
+        if (!form.password) { 
+          alert("Mot de passe requis !"); 
+          setLoading(false); 
+          return; 
+        }
+        await axios.post(`${API}/user`, 
+          { 
+            nomComplet: form.nomComplet, 
+            email: form.email, 
+            password: form.password, 
+            confirmPassword: form.confirmPassword, 
+            societeId: parseInt(form.societeId), 
+            roleId: form.roleId 
+          }, 
+          headers
+        );
       }
-      await fetchAll(); closeModal();
+      await fetchAll(); 
+      closeModal();
     } catch (err) {
       const msg = typeof err.response?.data === 'object' ? JSON.stringify(err.response.data) : err.response?.data;
       alert(`Erreur: ${msg || "Une erreur est survenue"}`);
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cet utilisateur ?")) return;
-    await axios.delete(`${API}/user/${id}`);
-    await fetchAll();
+    try {
+      await axios.delete(`${API}/user/${id}`, getAuthHeaders());
+      await fetchAll();
+    } catch (e) {
+      alert(`Erreur: ${e.response?.data}`);
+    }
   };
 
   const filtered = users.filter(u => u.nomComplet?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      {/* Header de page */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Gestion des utilisateurs</h1>
@@ -76,7 +170,7 @@ export default function GestionUtilisateurs() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
             <input type="text" placeholder="Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-lg w-64 text-sm focus:outline-none focus:border-blue-300 transition-all"/>
+              className="pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-lg w-64 text-sm focus:outline-none focus:border-blue-300"/>
           </div>
           <button onClick={openNew} className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
             <Plus size={15}/> Ajouter un utilisateur
@@ -84,7 +178,6 @@ export default function GestionUtilisateurs() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead>
@@ -95,7 +188,7 @@ export default function GestionUtilisateurs() {
               <th className="px-6 py-4">Société</th>
               <th className="px-6 py-4">Statut</th>
               <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
+             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtered.map(user => (
@@ -110,7 +203,7 @@ export default function GestionUtilisateurs() {
                       <div className="text-xs text-slate-400">{user.email}</div>
                     </div>
                   </div>
-                </td>
+                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">{user.role || '—'}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{user.dateCreation || '—'}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{user.societe || '—'}</td>
@@ -119,14 +212,14 @@ export default function GestionUtilisateurs() {
                     <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
                     {user.isActive ? 'Actif' : 'Inactif'}
                   </span>
-                </td>
+                 </td>
                 <td className="px-6 py-4">
                   <div className="flex justify-end gap-2">
                     <button onClick={() => openEdit(user)} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Edit size={15}/></button>
                     <button onClick={() => handleDelete(user.id)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={15}/></button>
                   </div>
-                </td>
-              </tr>
+                 </td>
+               </tr>
             ))}
             {filtered.length === 0 && (
               <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">Aucun utilisateur trouvé</td></tr>
@@ -135,7 +228,6 @@ export default function GestionUtilisateurs() {
         </table>
       </div>
 
-      {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
