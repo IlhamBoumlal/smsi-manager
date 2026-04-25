@@ -5,7 +5,7 @@ import Accueil from './components/Accueil';
 import Dashboard from './components/Dashboard';
 import Controles from './components/Controles';
 import GestionActifs from './components/GestionActifs';
-import GestionUtilisateurs from './components/Admin/GestionUtilisateurs';
+import GestionUtilisateursAdmins from './components/Admin/GestionUtilisateursAdmins';
 import GestionSocietes from './components/Admin/GestionSocietes';
 import GestionHoldings from './components/Admin/GestionHoldings';
 import DashboardAdmin from './components/Admin/DashboardAdmin';
@@ -24,6 +24,7 @@ import RiskWorkshopPage from './components/risques/RiskWorkshopPage';
 import Audits from './components/Audits';
 import Sensibilisation from './components/sensibilisation';
 import GestionIncidents from './components/GestionIncidents';
+import SuperAdminSpace from './components/SuperAdminSpace';
 function LegacyClauseDetailRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -74,10 +75,11 @@ export default function App() {
         <Route path="/audits" element={<Audits />} />
         <Route path="/sensibilisation" element={<Sensibilisation />} />
         <Route path="/incidents" element={<GestionIncidents />} />
-        
+        <Route path="/superadmin" element={<SuperAdminSpace />} />
+
         {/* Pages admin séparées, protégées */}
         <Route path="/admin/stats" element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />
-        <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />
+        <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateursAdmins /></PrivateAdminRoute>} />
         <Route path="/admin/societes" element={<PrivateAdminRoute><GestionSocietes /></PrivateAdminRoute>} />
         <Route path="/admin/holdings" element={<PrivateAdminRoute><GestionHoldings /></PrivateAdminRoute>} />
       </Route>

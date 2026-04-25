@@ -1,304 +1,266 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Users, UserCheck, UserX, Building2, Factory, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
-import axios from 'axios';
+// components/DashboardAdmin.jsx
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, Shield, Building2, Factory, 
+  BarChart3, PieChart, Activity, ArrowUpRight, 
+  Eye, Edit3, Trash2, RefreshCw, Check, X,
+  ChevronRight, Layout
+} from 'lucide-react';
 
-const API = 'http://localhost:5006/api';
+// --- DATA MOCKS ---
+const MOCK_ROLES_PERMS = [
+  { 
+    id: 1, nom: "Super Admin", 
+    modules: [
+      { name: "Utilisateurs", r: true, w: true, u: true, d: true },
+      { name: "Holdings", r: true, w: true, u: true, d: true },
+      { name: "Sociétés", r: true, w: true, u: true, d: true },
+      { name: "Audit", r: true, w: true, u: true, d: true },
+    ]
+  },
+  { 
+    id: 2, nom: "Admin Holding", 
+    modules: [
+      { name: "Utilisateurs", r: true, w: true, u: true, d: false },
+      { name: "Holdings", r: true, w: false, u: true, d: false },
+      { name: "Sociétés", r: true, w: true, u: true, d: true },
+      { name: "Audit", r: true, w: false, u: false, d: false },
+    ]
+  },
+  { 
+    id: 3, nom: "Auditeur", 
+    modules: [
+      { name: "Utilisateurs", r: true, w: false, u: false, d: false },
+      { name: "Holdings", r: true, w: false, u: false, d: false },
+      { name: "Sociétés", r: true, w: false, u: false, d: false },
+      { name: "Audit", r: true, w: true, u: false, d: false },
+    ]
+  }
+];
 
-// Fonction pour obtenir les headers d'authentification
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  };
+const MOCK_SOCIETES = [
+  { id: 1, holding: "Groupe Nexalys" }, { id: 2, holding: "Groupe Nexalys" },
+  { id: 3, holding: "AlphaCorp" }, { id: 4, holding: "TechVentures" },
+  { id: 5, holding: "Groupe Nexalys" }, { id: 6, holding: "AlphaCorp" },
+];
+
+const MOCK_HOLDINGS = ["Groupe Nexalys", "AlphaCorp", "TechVentures", "Omega Holding"];
+
+// --- SOUS-COMPOSANTS ---
+
+const PermissionIcon = ({ active, icon: Icon, color }) => (
+  <div className={`p-1.5 rounded-md ${active ? color : 'bg-slate-50 text-slate-300'}`} title={active ? "Autorisé" : "Refusé"}>
+    <Icon size={14} strokeWidth={active ? 3 : 2} />
+  </div>
+);
+
+const HoldingBarChart = ({ data }) => {
+  const maxVal = Math.max(...data.map(d => d.count));
+  return (
+    <div className="flex items-end justify-between h-48 gap-2 pt-6">
+      {data.map((item, i) => (
+        <div key={i} className="flex flex-col items-center flex-1 group">
+          <div className="relative w-full flex justify-center">
+             {/* Tooltip */}
+             <div className="absolute -top-10 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+               {item.count} soc.
+             </div>
+             <div 
+                className="w-full max-w-[32px] bg-blue-500 rounded-t-lg transition-all duration-1000 group-hover:bg-blue-400 cursor-pointer"
+                style={{ height: `${(item.count / maxVal) * 140}px` }}
+             />
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 mt-3 rotate-[-45deg] origin-top-left whitespace-nowrap">
+            {item.name.substring(0, 10)}...
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
-// Hook pour animer les chiffres
-function useCountUp(target, duration = 1200, delay = 0) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (target === 0) return;
-    const timeout = setTimeout(() => {
-      const start = performance.now();
-      const tick = (now) => {
-        const elapsed = now - start;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setValue(Math.round(eased * target));
-        if (progress < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-    return () => clearTimeout(timeout);
-  }, [target, duration, delay]);
-  return value;
-}
-
-// Composant carte stat animée
-function StatCard({ icon: Icon, label, value, color, bg, delay = 0, badge, subtitle }) {
-  const animated = useCountUp(value, 1000, delay);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => { setTimeout(() => setVisible(true), delay); }, [delay]);
-
-  return (
-    <div className={`bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-lg transition-all duration-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-      style={{ transition: `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms, box-shadow 0.2s ease` }}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center`}>
-          <Icon className={color} size={22} />
-        </div>
-        {badge !== undefined && (
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${bg} ${color}`}>{badge}%</span>
-        )}
-      </div>
-      <div className={`text-4xl font-black ${color} mb-1 tabular-nums`}>{animated}</div>
-      <div className="text-sm font-medium text-slate-600">{label}</div>
-      {subtitle && <div className="text-xs text-slate-400 mt-1">{subtitle}</div>}
-    </div>
-  );
-}
-
-// Barre de progression animée
-function ProgressBar({ label, value, max, color, delay = 0 }) {
-  const [width, setWidth] = useState(0);
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  useEffect(() => {
-    const t = setTimeout(() => setWidth(pct), delay + 300);
-    return () => clearTimeout(t);
-  }, [pct, delay]);
-
-  return (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        <span className="text-sm font-bold text-slate-900">{value} <span className="text-slate-400 font-normal text-xs">({pct}%)</span></span>
-      </div>
-      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-        <div className={`h-2.5 rounded-full ${color} transition-all duration-1000 ease-out`} style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}
-
-// Mini graphique en cercle (donut)
-function DonutChart({ active, inactive, size = 120 }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => { setTimeout(() => setAnimated(true), 400); }, []);
-
-  const total = active + inactive;
-  if (total === 0) return null;
-
-  const r = 45;
-  const cx = 60;
-  const cy = 60;
-  const circumference = 2 * Math.PI * r;
-  const activePct = active / total;
-  const activeLen = animated ? activePct * circumference : 0;
-  const inactiveLen = animated ? (1 - activePct) * circumference : 0;
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size} viewBox="0 0 120 120">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth="14" />
-        {/* Inactifs */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#fca5a5" strokeWidth="14"
-          strokeDasharray={`${inactiveLen} ${circumference}`}
-          strokeDashoffset={-activeLen}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 1.2s ease 0.6s', transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }} />
-        {/* Actifs */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#34d399" strokeWidth="14"
-          strokeDasharray={`${activeLen} ${circumference}`}
-          strokeDashoffset="0"
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 1.2s ease 0.4s', transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }} />
-        <text x={cx} y={cy - 6} textAnchor="middle" className="text-xs" fill="#1e293b" fontWeight="800" fontSize="18">{active}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize="10">actifs</text>
-      </svg>
-    </div>
-  );
-}
+// --- MAIN COMPONENT ---
 
 export default function DashboardAdmin() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [activeRoleTab, setActiveRoleTab] = useState(MOCK_ROLES_PERMS[0]);
 
-  useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
-    try {
-      const headers = getAuthHeaders();
-      const [usersRes, societesRes, holdingsRes] = await Promise.all([
-        axios.get(`${API}/user`, headers),
-        axios.get(`${API}/societe`, headers),
-        axios.get(`${API}/holding`, headers),
-      ]);
-      
-      const users = usersRes.data;
-      const now = new Date();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-
-      const recentUsers = users.filter(u => {
-        const parts = u.dateCreation?.split('/');
-        if (!parts || parts.length !== 3) return false;
-        const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-        return date >= thirtyDaysAgo;
-      }).length;
-
-      // Répartition par rôle
-      const roleMap = {};
-      users.forEach(u => {
-        const r = u.role || 'Inconnu';
-        roleMap[r] = (roleMap[r] || 0) + 1;
-      });
-      const roles = Object.entries(roleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-      // Répartition par société
-      const societeMap = {};
-      users.forEach(u => {
-        const s = u.societe || '—';
-        societeMap[s] = (societeMap[s] || 0) + 1;
-      });
-      const societes = Object.entries(societeMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-      setData({
-        totalUsers: users.length,
-        activeUsers: users.filter(u => u.isActive).length,
-        inactiveUsers: users.filter(u => !u.isActive).length,
-        totalSocietes: societesRes.data.length,
-        totalHoldings: holdingsRes.data.length,
-        recentUsers,
-        roles,
-        societes,
-      });
-    } catch (e) {
-      console.error('Erreur stats:', e);
-      if (e.response?.status === 401) {
-        alert('Session expirée, veuillez vous reconnecter');
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-              <div className="w-12 h-12 bg-slate-200 rounded-xl mb-4" />
-              <div className="h-9 bg-slate-200 rounded w-16 mb-2" />
-              <div className="h-4 bg-slate-100 rounded w-28" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const roleColors = ['bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
+  // Calcul des données pour les bars
+  const holdingStats = MOCK_HOLDINGS.map(h => ({
+    name: h,
+    count: MOCK_SOCIETES.filter(s => s.holding === h).length
+  }));
 
   return (
-    <div className="p-8 overflow-y-auto">
-
-      {/* Titre */}
-      <div className="mb-8">
-        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <BarChart3 size={22} className="text-blue-600" /> Vue d'ensemble
-        </h3>
-        <p className="text-sm text-slate-500 mt-1">Statistiques en temps réel de votre plateforme</p>
+    <div className="min-h-screen bg-[#F4F7FE] p-4 md:p-8 font-['Sora',sans-serif] text-slate-800">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">Console d'Administration</h1>
+          <p className="text-slate-500 text-sm font-medium">Vue globale et gestion des accès</p>
+        </div>
+        <div className="flex gap-3">
+            <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2 px-4">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-600">Système Live</span>
+            </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <StatCard icon={Users} label="Total utilisateurs" value={data.totalUsers}
-          color="text-blue-600" bg="bg-blue-50" delay={0} subtitle="Tous comptes confondus" />
-        <StatCard icon={UserCheck} label="Comptes actifs" value={data.activeUsers}
-          color="text-emerald-600" bg="bg-emerald-50" delay={100}
-          badge={data.totalUsers > 0 ? Math.round((data.activeUsers / data.totalUsers) * 100) : 0} />
-        <StatCard icon={UserX} label="Comptes inactifs" value={data.inactiveUsers}
-          color="text-red-500" bg="bg-red-50" delay={200}
-          badge={data.totalUsers > 0 ? Math.round((data.inactiveUsers / data.totalUsers) * 100) : 0} />
-        <StatCard icon={TrendingUp} label="Nouveaux (30 jours)" value={data.recentUsers}
-          color="text-violet-600" bg="bg-violet-50" delay={300} subtitle="Comptes créés récemment" />
-        <StatCard icon={Factory} label="Sociétés" value={data.totalSocietes}
-          color="text-amber-600" bg="bg-amber-50" delay={400} />
-        <StatCard icon={Building2} label="Holdings" value={data.totalHoldings}
-          color="text-slate-600" bg="bg-slate-100" delay={500} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Total Admins", value: "24", icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
+          { label: "Holdings", value: MOCK_HOLDINGS.length, icon: Building2, color: "text-indigo-600", bg: "bg-indigo-100" },
+          { label: "Sociétés", value: MOCK_SOCIETES.length, icon: Factory, color: "text-amber-600", bg: "bg-amber-100" },
+          { label: "Nouveaux Roles", value: "3", icon: Shield, color: "text-emerald-600", bg: "bg-emerald-100" },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:translate-y-[-4px] transition-all">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">{kpi.label}</p>
+                <h4 className="text-2xl font-black mt-1">{kpi.value}</h4>
+              </div>
+              <div className={`${kpi.bg} ${kpi.color} p-2.5 rounded-xl`}>
+                <kpi.icon size={20} />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-md">
+              <ArrowUpRight size={12} className="mr-1" /> +12% ce mois
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Ligne du bas : Donut + Répartitions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Donut actifs/inactifs */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <PieChart size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Statut des comptes</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Graphique en Barres: Sociétés par Holding */}
+        <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-slate-50">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
+              <BarChart3 size={18} className="text-blue-500" /> Sociétés par Holding
+            </h3>
           </div>
-          <div className="flex items-center justify-around">
-            <DonutChart active={data.activeUsers} inactive={data.inactiveUsers} size={130} />
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span>
-                <span className="text-xs text-slate-600">Actifs <strong className="text-slate-900">{data.activeUsers}</strong></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-300 inline-block"></span>
-                <span className="text-xs text-slate-600">Inactifs <strong className="text-slate-900">{data.inactiveUsers}</strong></span>
-              </div>
+          <HoldingBarChart data={holdingStats} />
+          <div className="mt-12 pt-6 border-t border-slate-50 flex justify-between">
+            <div className="text-center flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Top Holding</p>
+              <p className="text-sm font-black">Nexalys (3)</p>
+            </div>
+            <div className="w-[1px] bg-slate-100 mx-4" />
+            <div className="text-center flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Taux d'occupation</p>
+              <p className="text-sm font-black">84%</p>
             </div>
           </div>
         </div>
 
-        {/* Répartition par rôle */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Activity size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Répartition par rôle</span>
+        {/* Matrice de Permissions Dynamique */}
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-50">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
+              <Shield size={18} className="text-indigo-500" /> Matrice des Permissions
+            </h3>
+            {/* Tabs Roles */}
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              {MOCK_ROLES_PERMS.map(role => (
+                <button
+                  key={role.id}
+                  onClick={() => setActiveRoleTab(role)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeRoleTab.id === role.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {role.nom}
+                </button>
+              ))}
+            </div>
           </div>
-          {data.roles.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucune donnée</p>
-          ) : (
-            data.roles.map(([role, count], i) => (
-              <ProgressBar key={role} label={role} value={count} max={data.totalUsers}
-                color={roleColors[i % roleColors.length]} delay={i * 100} />
-            ))
-          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                  <th className="text-left py-3 px-4 italic">Module</th>
+                  <th className="py-3 px-2">Read (R)</th>
+                  <th className="py-3 px-2">Write (W)</th>
+                  <th className="py-3 px-2">Update (U)</th>
+                  <th className="py-3 px-2">Delete (D)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {activeRoleTab.modules.map((mod, i) => (
+                  <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                        <span className="text-sm font-bold text-slate-700">{mod.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-2 text-center">
+                      <div className="flex justify-center">
+                        <PermissionIcon active={mod.r} icon={Eye} color="bg-blue-100 text-blue-600" />
+                      </div>
+                    </td>
+                    <td className="py-4 px-2 text-center">
+                      <div className="flex justify-center">
+                        <PermissionIcon active={mod.w} icon={Edit3} color="bg-emerald-100 text-emerald-600" />
+                      </div>
+                    </td>
+                    <td className="py-4 px-2 text-center">
+                      <div className="flex justify-center">
+                        <PermissionIcon active={mod.u} icon={RefreshCw} color="bg-amber-100 text-amber-600" />
+                      </div>
+                    </td>
+                    <td className="py-4 px-2 text-center">
+                      <div className="flex justify-center">
+                        <PermissionIcon active={mod.d} icon={Trash2} color="bg-rose-100 text-rose-600" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex items-center justify-center gap-6 text-[10px] font-bold uppercase text-slate-400 bg-slate-50 py-3 rounded-2xl">
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Lecture</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Création</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Modification</span>
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Suppression</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Row: Activities & Quick Link */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <div className="bg-rose-50 text-rose-500 p-3 rounded-2xl">
+                    <Activity size={24} />
+                </div>
+                <div>
+                    <h4 className="font-extrabold text-sm text-slate-800">Journal de Sécurité</h4>
+                    <p className="text-xs text-slate-500 font-medium">3 tentatives de connexion bloquées aujourd'hui</p>
+                </div>
+            </div>
+            <button className="text-blue-600 hover:bg-blue-50 p-2 rounded-xl transition-colors">
+                <ChevronRight size={20} />
+            </button>
         </div>
 
-        {/* Répartition par société */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Factory size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Utilisateurs par société</span>
-          </div>
-          {data.societes.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucune donnée</p>
-          ) : (
-            data.societes.map(([societe, count], i) => (
-              <ProgressBar key={societe} label={societe === '—' ? 'Sans société' : societe}
-                value={count} max={data.totalUsers}
-                color={roleColors[i % roleColors.length]} delay={i * 100} />
-            ))
-          )}
+        <div className="bg-indigo-600 p-6 rounded-3xl shadow-lg shadow-indigo-200 flex items-center justify-between text-white group cursor-pointer hover:bg-indigo-700 transition-all">
+            <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-2xl border border-white/10">
+                    <Layout size={24} />
+                </div>
+                <div>
+                    <h4 className="font-extrabold text-sm">Gestion des Modules</h4>
+                    <p className="text-indigo-100 text-xs font-medium">Configurer les permissions par défaut</p>
+                </div>
+            </div>
+            <div className="bg-white/10 group-hover:bg-white/20 p-2 rounded-xl">
+                <ChevronRight size={20} />
+            </div>
         </div>
-
       </div>
     </div>
   );
