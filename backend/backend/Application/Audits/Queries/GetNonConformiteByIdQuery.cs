@@ -10,10 +10,11 @@ namespace backend.Application.Audits.Queries
         private readonly AppDbContext _db;
         public GetNonConformiteByIdQuery(AppDbContext db) => _db = db;
 
-        public async Task<NonConformiteDto?> ExecuteAsync(Guid id)
+        public async Task<NonConformiteDto?> ExecuteAsync(Guid id, int? societeId)
         {
             var nc = await _db.NonConformites
                 .Include(n => n.CorrectiveActions)
+                .Where(n => societeId.HasValue ? n.SocieteId == societeId.Value || n.SocieteId == null : n.SocieteId == null)
                 .FirstOrDefaultAsync(n => n.Id == id);
 
             return nc is null ? null : CreateNonConformiteCommand.MapToDto(nc);

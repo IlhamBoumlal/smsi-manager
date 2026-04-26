@@ -6,6 +6,7 @@ namespace backend.Domain.Entities
     {
         public int Id { get; set; }
         public int IsoClauseId { get; set; }
+        public int? SocieteId { get; set; }
 
         // ── NOUVEAU : lien vers la sous-clause concernée ──────────────────────
         public int? SubClauseId { get; set; }
@@ -64,6 +65,7 @@ namespace backend.Domain.Entities
         // Navigation
         public IsoClause? Clause { get; set; }
         public IsoClause? SubClause { get; set; }
+        public Societe? Societe { get; set; }
         // In your ActionPlan entity class, add:
         public ICollection<PlanStep> PlanSteps { get; set; } = new List<PlanStep>();
     }

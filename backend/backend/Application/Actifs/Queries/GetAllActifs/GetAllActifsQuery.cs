@@ -4,5 +4,5 @@ using MediatR;
 namespace backend.Application.Actifs.Queries.GetAllActifs
 {
     
-    public record GetAllActifsQuery() : IRequest<IEnumerable<ActifResponseDto>>;
+    public record GetAllActifsQuery(int? SocieteId) : IRequest<IEnumerable<ActifResponseDto>>;
 }

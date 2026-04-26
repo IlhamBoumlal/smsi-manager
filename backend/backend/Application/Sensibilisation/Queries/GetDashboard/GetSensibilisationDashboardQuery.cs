@@ -4,5 +4,5 @@ using backend.Application.DTOs;
 
 namespace backend.Application.Sensibilisation.Queries.GetDashboard;
 
-public record GetSensibilisationDashboardQuery(Guid? SocieteId)
+public record GetSensibilisationDashboardQuery(int? SocieteId)
     : IRequest<DashboardSensibilisationDto>;

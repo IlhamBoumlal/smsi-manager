@@ -1564,24 +1564,26 @@ export function Audits() {
     <div className="min-h-screen w-full bg-gray-50" style={{fontFamily:"'Inter','DM Sans',system-ui,sans-serif"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
 
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Shield className="w-5 h-5 text-white"/>
-            </div>
-            <div>
-              <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Audit ISO 27001:2022</h1>
-              <p className="text-xs text-gray-400">4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI</p>
-            </div>
-          </div>
-          <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-            <RefreshCw className="w-4 h-4 text-gray-400"/>
-          </button>
-        </div>
-      </div>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
 
-      <div className="w-full px-6 py-6 space-y-5">
+        {/* Page header */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+            <div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+                Audit ISO 27001:2022
+              </h1>
+              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+                4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI
+              </p>
+            </div>
+            <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
+              <RefreshCw className="w-4 h-4 text-gray-400"/>
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-5">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
           {[
             { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
@@ -1635,7 +1637,8 @@ export function Audits() {
         {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits}/>}
         {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits}/>}
         {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits}/>}
-      </div>
+        </div>
+      </main>
 
       <style>{`
         body,html{margin:0;padding:0;width:100%;overflow-x:hidden}

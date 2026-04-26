@@ -9,7 +9,7 @@ public class DeleteFormationDocumentCommandHandler(IFormationRepository repo)
 {
     public async Task<bool> Handle(DeleteFormationDocumentCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.FormationId, ct);
+        var f = await repo.GetByIdAsync(cmd.FormationId, cmd.SocieteId, ct);
         if (f is null) return false;
 
         var doc = f.FormationDocuments.FirstOrDefault(d => d.Id == cmd.DocumentId);

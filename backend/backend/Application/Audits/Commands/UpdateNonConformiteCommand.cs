@@ -10,10 +10,11 @@ namespace backend.Application.Audits.Commands
         private readonly AppDbContext _db;
         public UpdateNonConformiteCommand(AppDbContext db) => _db = db;
 
-        public async Task<NonConformiteDto?> ExecuteAsync(Guid id, UpdateNonConformiteDto dto)
+        public async Task<NonConformiteDto?> ExecuteAsync(Guid id, UpdateNonConformiteDto dto, int? societeId)
         {
             var nc = await _db.NonConformites
                 .Include(n => n.CorrectiveActions)
+                .Where(n => societeId.HasValue ? n.SocieteId == societeId.Value || n.SocieteId == null : n.SocieteId == null)
                 .FirstOrDefaultAsync(n => n.Id == id);
 
             if (nc is null) return null;

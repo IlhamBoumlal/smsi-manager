@@ -3,6 +3,8 @@
 public class NonConformite
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public int? SocieteId { get; set; }
+    public Societe? Societe { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string ControlId { get; set; } = string.Empty; // ex: "8.3"

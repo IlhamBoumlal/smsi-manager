@@ -11,15 +11,17 @@ namespace backend.Infrastructure.Repositories
 
         public DocumentationRepository(AppDbContext context) => _context = context;
 
-        public async Task<IEnumerable<DocumentationDocument>> GetAllAsync() =>
+        public async Task<IEnumerable<DocumentationDocument>> GetAllAsync(int? societeId) =>
             await _context.DocumentationDocuments
                 .AsNoTracking()
+                .Where(d => societeId.HasValue ? d.SocieteId == societeId.Value || d.SocieteId == null : d.SocieteId == null)
                 .OrderByDescending(d => d.UpdatedAt)
                 .ToListAsync();
 
-        public async Task<DocumentationDocument?> GetByIdAsync(Guid id) =>
+        public async Task<DocumentationDocument?> GetByIdAsync(Guid id, int? societeId) =>
             await _context.DocumentationDocuments
                 .AsNoTracking()
+                .Where(d => societeId.HasValue ? d.SocieteId == societeId.Value || d.SocieteId == null : d.SocieteId == null)
                 .FirstOrDefaultAsync(d => d.Id == id);
 
         public async Task<DocumentationDocument> CreateAsync(DocumentationDocument document)
@@ -63,9 +65,11 @@ namespace backend.Infrastructure.Repositories
             return existing;
         }
 
-        public async Task<bool> DeleteAsync(Guid id)
+        public async Task<bool> DeleteAsync(Guid id, int? societeId)
         {
-            var existing = await _context.DocumentationDocuments.FindAsync(id);
+            var existing = await _context.DocumentationDocuments
+                .Where(d => societeId.HasValue ? d.SocieteId == societeId.Value || d.SocieteId == null : d.SocieteId == null)
+                .FirstOrDefaultAsync(d => d.Id == id);
             if (existing is null) return false;
 
             _context.DocumentationDocuments.Remove(existing);

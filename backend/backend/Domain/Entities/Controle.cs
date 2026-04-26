@@ -22,6 +22,10 @@ public class Controle
     [Required]
     public DomaineControle Domaine { get; set; }
 
+    // ─── Multi-sociétés ──────────────────────────────────────────────────────
+    public int? SocieteId { get; set; }
+    public Societe? Societe { get; set; }
+
     // ─── Applicabilité ───────────────────────────────────────────────────────
     public bool Applicable { get; set; } = true;
 

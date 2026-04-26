@@ -18,12 +18,9 @@ namespace backend.Application.Risques.Queries.GetRiskStudyById
             if (string.IsNullOrWhiteSpace(request.CurrentUserId) || !request.CurrentSocieteId.HasValue)
                 return (false, "FORBIDDEN:NO_ACCESS_SCOPE", null);
 
-            var study = await _repository.GetByIdAsync(request.Id);
+            var study = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (study is null)
                 return (false, "NOT_FOUND:RISK_STUDY", null);
-
-            if (study.SocieteId != request.CurrentSocieteId.Value)
-                return (false, "FORBIDDEN:FOREIGN_SOCIETE_SCOPE", null);
 
             return (true, null, RiskStudyMapper.ToDto(study));
         }

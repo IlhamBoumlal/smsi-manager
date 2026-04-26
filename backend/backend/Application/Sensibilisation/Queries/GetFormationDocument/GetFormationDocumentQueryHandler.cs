@@ -11,7 +11,7 @@ public class GetFormationDocumentQueryHandler(IFormationRepository repo)
     public async Task<FormationDocument?> Handle(
         GetFormationDocumentQuery query, CancellationToken ct)
     {
-        var formation = await repo.GetByIdAsync(query.FormationId, ct);
+        var formation = await repo.GetByIdAsync(query.FormationId, query.SocieteId, ct);
         return formation?.FormationDocuments
             .FirstOrDefault(d => d.Id == query.DocumentId);
     }

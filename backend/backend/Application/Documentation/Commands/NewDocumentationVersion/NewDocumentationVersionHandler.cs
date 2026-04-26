@@ -18,7 +18,7 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
 
         public async Task<(bool Success, string? Error, DocumentationResponseDto? Data)> Handle(NewDocumentationVersionCommand request, CancellationToken cancellationToken)
         {
-            var existing = await _repository.GetByIdAsync(request.Id);
+            var existing = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (existing is null)
                 return (false, "NOT_FOUND", null);
 

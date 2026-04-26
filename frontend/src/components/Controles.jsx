@@ -267,13 +267,13 @@ function readFileAsBase64(file) {
 function normalize(c) {
   console.log('[normalize] Entrée brute:', c);
 
-  let applicableValue = null;
+  let applicableValue = true; // Par défaut applicable
   if (c.applicable !== undefined)  applicableValue = c.applicable;
   else if (c.Applicable !== undefined) applicableValue = c.Applicable;
 
   let statutValue = 'NonEvalue';
-  if (c.statut)  statutValue = c.statut;
-  else if (c.Statut) statutValue = c.Statut;
+  if (c.statut != null)  statutValue = c.statut;      // != null vérifie null ET undefined
+  else if (c.Statut != null) statutValue = c.Statut;  // Gère les valeurs 0, false, ""
 
   let steps = null;
   const rawSteps = c.steps || c.Steps;
@@ -702,8 +702,11 @@ export default function Controles() {
   }, []);
 
   const fetchData = () => {
+    const token = localStorage.getItem('token');
     setLoading(true);
-    axios.get(API)
+    axios.get(API, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
       .then(r => {
         console.log('[API] Réponse brute:', r.data);
         const data = r.data.map(normalize);
@@ -715,7 +718,14 @@ export default function Controles() {
   };
 
   const updateLocalControle = (updatedControle) => {
-    setControles(prev => prev.map(ctrl => ctrl.id === updatedControle.id ? { ...ctrl, ...updatedControle } : ctrl));
+    setControles(prev => prev.map(ctrl => {
+      // Correspondance exacte par ID (cas normal)
+      if (ctrl.id === updatedControle.id) return { ...ctrl, ...updatedControle };
+      // Correspondance par code (cas fallback : l'ID local était l'ID global,
+      // l'API a retourné l'ID société → on met à jour le bon contrôle ET son ID)
+      if (ctrl.code === updatedControle.code) return { ...ctrl, ...updatedControle };
+      return ctrl;
+    }));
   };
 
   const handleSaveEvaluation = async (updated) => {
@@ -773,7 +783,9 @@ export default function Controles() {
       });
 
       if (response.status === 200 || response.status === 204) {
-        const savedData = normalize(response.data || updated);
+        // Toujours utiliser response.data qui contient le vrai ID société
+        // (l'API peut avoir fait un fallback code→ID différent de l'ID envoyé)
+        const savedData = response.data ? normalize(response.data) : normalize(updated);
         console.log('[Sauvegarde] Réponse normalisée:', savedData);
         updateLocalControle(savedData);
         setEvaluationCtrl(null);

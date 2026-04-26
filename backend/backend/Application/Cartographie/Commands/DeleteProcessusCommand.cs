@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Cartographie.Commands;
 
-public record DeleteProcessusCommand(Guid Id) : IRequest;
+public record DeleteProcessusCommand(Guid Id, int? SocieteId) : IRequest;
 
 public class DeleteProcessusCommandHandler : IRequestHandler<DeleteProcessusCommand>
 {
@@ -13,7 +13,7 @@ public class DeleteProcessusCommandHandler : IRequestHandler<DeleteProcessusComm
 
     public async Task Handle(DeleteProcessusCommand cmd, CancellationToken ct)
     {
-        var p = await _repo.GetByIdAsync(cmd.Id, ct)
+        var p = await _repo.GetByIdAsync(cmd.Id, cmd.SocieteId, ct)
                 ?? throw new KeyNotFoundException($"Processus {cmd.Id} introuvable.");
         _repo.Remove(p);
         await _repo.SaveChangesAsync(ct);

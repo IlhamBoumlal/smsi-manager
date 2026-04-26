@@ -1,4 +1,5 @@
 ﻿using backend.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Application.Audits.Commands
 {
@@ -7,9 +8,11 @@ namespace backend.Application.Audits.Commands
         private readonly AppDbContext _db;
         public DeleteSimulationCommand(AppDbContext db) => _db = db;
 
-        public async Task<bool> ExecuteAsync(Guid id)
+        public async Task<bool> ExecuteAsync(Guid id, int? societeId)
         {
-            var sim = await _db.SimulationAudits.FindAsync(id);
+            var sim = await _db.SimulationAudits
+                .Where(s => societeId.HasValue ? s.SocieteId == societeId.Value || s.SocieteId == null : s.SocieteId == null)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (sim is null) return false;
             _db.SimulationAudits.Remove(sim);
             await _db.SaveChangesAsync();

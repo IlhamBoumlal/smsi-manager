@@ -10,7 +10,7 @@ public class UpdateParticipantStatusCommandHandler(IFormationRepository repo)
 {
     public async Task<bool> Handle(UpdateParticipantStatusCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.FormationId, ct);
+        var f = await repo.GetByIdAsync(cmd.FormationId, cmd.SocieteId, ct);
         if (f is null) return false;
 
         var p = f.Participants.FirstOrDefault(x => x.Id == cmd.ParticipantId);

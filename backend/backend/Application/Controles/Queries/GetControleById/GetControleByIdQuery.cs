@@ -3,6 +3,6 @@ using MediatR;
 
 namespace backend.Application.Controles.Queries.GetControleById
 {
-    public record GetControleByIdQuery(Guid Id) : IRequest<ControleDto?>;
+    public record GetControleByIdQuery(Guid Id, int? SocieteId = null) : IRequest<ControleDto?>;
 
 }
