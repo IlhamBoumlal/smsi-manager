@@ -271,6 +271,27 @@ namespace backend.Migrations
                     b.ToTable("Actifs");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.Action", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Actions");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.ActionCorrective", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1256,6 +1277,33 @@ namespace backend.Migrations
                     b.ToTable("IsoClauses");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.Module", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Modules");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.NonConformite", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1380,6 +1428,37 @@ namespace backend.Migrations
                     b.HasIndex("SectionId");
 
                     b.ToTable("PdcaItems");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Permission", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ActionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ModuleId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionId");
+
+                    b.HasIndex("ModuleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("RoleId", "ModuleId", "ActionId")
+                        .IsUnique();
+
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Phase", b =>
@@ -2040,6 +2119,25 @@ namespace backend.Migrations
                     b.Navigation("Section");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.Permission", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Action", "Action")
+                        .WithMany()
+                        .HasForeignKey("ActionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Module", "Module")
+                        .WithMany("Permissions")
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Action");
+
+                    b.Navigation("Module");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Phase", b =>
                 {
                     b.HasOne("backend.Domain.Entities.PdcaCycle", "Cycle")
@@ -2164,6 +2262,11 @@ namespace backend.Migrations
                     b.Navigation("Conformities");
 
                     b.Navigation("SubClauses");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Module", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.NonConformite", b =>

@@ -1,284 +1,202 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Users, UserCheck, UserX, Building2, Factory, TrendingUp, BarChart3, PieChart, Activity } from 'lucide-react';
-import axios from 'axios';
+// components/GestionHoldings.jsx
+import React, { useState } from 'react';
+import { Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Building2, X, CheckCircle } from 'lucide-react';
 
-const API = 'http://localhost:5006/api';
+const MOCK_HOLDINGS = [
+  { id: 1, nom: "Groupe Nexalys" },
+  { id: 2, nom: "AlphaCorp Holdings" },
+  { id: 3, nom: "TechVentures SA" },
+];
 
-// Composant DashboardAdmin : Tableau de bord administrateur avec statistiques animées
-// Affiche des métriques sur utilisateurs, sociétés, holdings avec graphiques et animations
+const MOCK_SOCIETES = [
+  { id: 1, nom: "Nexalys Solutions", holdingId: 1 },
+  { id: 2, nom: "Nexalys Consulting", holdingId: 1 },
+  { id: 3, nom: "AlphaCloud", holdingId: 2 },
+  { id: 4, nom: "DataSecure Inc.", holdingId: 3 },
+  { id: 5, nom: "Nexalys Digital", holdingId: 1 },
+];
 
-// Hook pour animer les chiffres
-function useCountUp(target, duration = 1200, delay = 0) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (target === 0) return;
-    const timeout = setTimeout(() => {
-      const start = performance.now();
-      const tick = (now) => {
-        const elapsed = now - start;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setValue(Math.round(eased * target));
-        if (progress < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-    return () => clearTimeout(timeout);
-  }, [target, duration, delay]);
-  return value;
-}
+const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 
-// Composant carte stat animée
-function StatCard({ icon: Icon, label, value, color, bg, delay = 0, badge, subtitle }) {
-  const animated = useCountUp(value, 1000, delay);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => { setTimeout(() => setVisible(true), delay); }, [delay]);
+export default function GestionHoldings() {
+  const [holdings, setHoldings] = useState(MOCK_HOLDINGS);
+  const [societes] = useState(MOCK_SOCIETES);
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState("table");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [formNom, setFormNom] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  return (
-    <div className={`bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-lg transition-all duration-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-      style={{ transition: `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms, box-shadow 0.2s ease` }}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center`}>
-          <Icon className={color} size={22} />
-        </div>
-        {badge !== undefined && (
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${bg} ${color}`}>{badge}%</span>
-        )}
-      </div>
-      <div className={`text-4xl font-black ${color} mb-1 tabular-nums`}>{animated}</div>
-      <div className="text-sm font-medium text-slate-600">{label}</div>
-      {subtitle && <div className="text-xs text-slate-400 mt-1">{subtitle}</div>}
-    </div>
-  );
-}
+  const getSocCount = (id) => societes.filter(s => s.holdingId === id).length;
+  const filtered = holdings.filter(h => h.nom.toLowerCase().includes(search.toLowerCase()));
 
-// Barre de progression animée
-function ProgressBar({ label, value, max, color, delay = 0 }) {
-  const [width, setWidth] = useState(0);
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  useEffect(() => {
-    const t = setTimeout(() => setWidth(pct), delay + 300);
-    return () => clearTimeout(t);
-  }, [pct, delay]);
+  const stats = {
+    total: holdings.length,
+    societesCount: societes.length,
+    avgSocietes: holdings.length > 0 ? Math.round(societes.length / holdings.length) : 0,
+    activeHoldings: holdings.filter(h => getSocCount(h.id) > 0).length,
+  };
 
-  return (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        <span className="text-sm font-bold text-slate-900">{value} <span className="text-slate-400 font-normal text-xs">({pct}%)</span></span>
-      </div>
-      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-        <div className={`h-2.5 rounded-full ${color} transition-all duration-1000 ease-out`} style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}
-
-// Mini graphique en cercle (donut)
-function DonutChart({ active, inactive, size = 120 }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => { setTimeout(() => setAnimated(true), 400); }, []);
-
-  const total = active + inactive;
-  if (total === 0) return null;
-
-  const r = 45;
-  const cx = 60;
-  const cy = 60;
-  const circumference = 2 * Math.PI * r;
-  const activePct = active / total;
-  const activeLen = animated ? activePct * circumference : 0;
-  const inactiveLen = animated ? (1 - activePct) * circumference : 0;
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size} viewBox="0 0 120 120">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth="14" />
-        {/* Inactifs */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#fca5a5" strokeWidth="14"
-          strokeDasharray={`${inactiveLen} ${circumference}`}
-          strokeDashoffset={-activeLen}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 1.2s ease 0.6s', transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }} />
-        {/* Actifs */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#34d399" strokeWidth="14"
-          strokeDasharray={`${activeLen} ${circumference}`}
-          strokeDashoffset="0"
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dasharray 1.2s ease 0.4s', transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }} />
-        <text x={cx} y={cy - 6} textAnchor="middle" className="text-xs" fill="#1e293b" fontWeight="800" fontSize="18">{active}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize="10">actifs</text>
-      </svg>
-    </div>
-  );
-}
-
-export default function DashboardAdmin() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [usersRes, societesRes, holdingsRes] = await Promise.all([
-          axios.get(`${API}/user`),
-          axios.get(`${API}/societe`),
-          axios.get(`${API}/holding`),
-        ]);
-        const users = usersRes.data;
-        const now = new Date();
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(now.getDate() - 30);
-
-        const recentUsers = users.filter(u => {
-          const parts = u.dateCreation?.split('/');
-          if (!parts || parts.length !== 3) return false;
-          const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-          return date >= thirtyDaysAgo;
-        }).length;
-
-        // Répartition par rôle
-        const roleMap = {};
-        users.forEach(u => {
-          const r = u.role || 'Inconnu';
-          roleMap[r] = (roleMap[r] || 0) + 1;
-        });
-        const roles = Object.entries(roleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        // Répartition par société
-        const societeMap = {};
-        users.forEach(u => {
-          const s = u.societe || '—';
-          societeMap[s] = (societeMap[s] || 0) + 1;
-        });
-        const societes = Object.entries(societeMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        setData({
-          totalUsers: users.length,
-          activeUsers: users.filter(u => u.isActive).length,
-          inactiveUsers: users.filter(u => !u.isActive).length,
-          totalSocietes: societesRes.data.length,
-          totalHoldings: holdingsRes.data.length,
-          recentUsers,
-          roles,
-          societes,
-        });
-      } catch (e) {
-        console.error('Erreur stats:', e);
-      } finally {
-        setLoading(false);
+  const handleSave = () => {
+    setLoading(true);
+    setTimeout(() => {
+      if (editing) {
+        setHoldings(holdings.map(h => h.id === editing.id ? { ...h, nom: formNom } : h));
+      } else {
+        setHoldings([...holdings, { id: Date.now(), nom: formNom }]);
       }
-    };
-    fetchAll();
-  }, []);
+      setModalOpen(false);
+      setEditing(null);
+      setFormNom("");
+      setLoading(false);
+    }, 300);
+  };
 
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 animate-pulse">
-              <div className="w-12 h-12 bg-slate-200 rounded-xl mb-4" />
-              <div className="h-9 bg-slate-200 rounded w-16 mb-2" />
-              <div className="h-4 bg-slate-100 rounded w-28" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const handleDelete = (id, cnt) => {
+    if (cnt > 0) {
+      alert(`Impossible de supprimer : ${cnt} société(s) rattachée(s).`);
+      return;
+    }
+    if (window.confirm("Supprimer cette holding ?")) {
+      setHoldings(holdings.filter(h => h.id !== id));
+    }
+  };
 
-  if (!data) return null;
+  const initials = (name) => name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "?";
 
-  const roleColors = ['bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
+  const kpis = [
+    { label: 'Total holdings', value: stats.total, sub: `${stats.total} holding(s)`, primary: true },
+    { label: 'Sociétés', value: stats.societesCount, sub: 'réparties dans les holdings' },
+    { label: 'Moyenne sociétés', value: stats.avgSocietes, sub: 'par holding' },
+    { label: 'Holdings actives', value: stats.activeHoldings, sub: 'avec au moins 1 société' },
+  ];
 
   return (
-    <div className="p-8 overflow-y-auto">
-
-      {/* Titre */}
-      <div className="mb-8">
-        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <BarChart3 size={22} className="text-blue-600" /> Vue d'ensemble
-        </h3>
-        <p className="text-sm text-slate-500 mt-1">Statistiques en temps réel de votre plateforme</p>
+    <div className="p-6 max-w-[1280px] mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Gestion des holdings</h1>
+          <p className="text-sm text-slate-500">Administration des groupes et de leurs sociétés</p>
+        </div>
+        <button onClick={() => { setEditing(null); setFormNom(""); setModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+          <Plus size={18} /> Nouvelle holding
+        </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <StatCard icon={Users} label="Total utilisateurs" value={data.totalUsers}
-          color="text-blue-600" bg="bg-blue-50" delay={0} subtitle="Tous comptes confondus" />
-        <StatCard icon={UserCheck} label="Comptes actifs" value={data.activeUsers}
-          color="text-emerald-600" bg="bg-emerald-50" delay={100}
-          badge={data.totalUsers > 0 ? Math.round((data.activeUsers / data.totalUsers) * 100) : 0} />
-        <StatCard icon={UserX} label="Comptes inactifs" value={data.inactiveUsers}
-          color="text-red-500" bg="bg-red-50" delay={200}
-          badge={data.totalUsers > 0 ? Math.round((data.inactiveUsers / data.totalUsers) * 100) : 0} />
-        <StatCard icon={TrendingUp} label="Nouveaux (30 jours)" value={data.recentUsers}
-          color="text-violet-600" bg="bg-violet-50" delay={300} subtitle="Comptes créés récemment" />
-        <StatCard icon={Factory} label="Sociétés" value={data.totalSocietes}
-          color="text-amber-600" bg="bg-amber-50" delay={400} />
-        <StatCard icon={Building2} label="Holdings" value={data.totalHoldings}
-          color="text-slate-600" bg="bg-slate-100" delay={500} />
-      </div>
-
-      {/* Ligne du bas : Donut + Répartitions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Donut actifs/inactifs */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <PieChart size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Statut des comptes</span>
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-3 mb-7">
+        {kpis.map((k, i) => (
+          <div key={i} className="rounded-2xl p-5 shadow-sm" style={{ background: k.primary ? GRAD_BLUE : "#fff", boxShadow: k.primary ? "0 8px 24px rgba(29,78,216,.30)" : "0 2px 8px rgba(0,0,0,.06)" }}>
+            <div className="text-3xl font-bold" style={{ color: k.primary ? "#fff" : "#111827" }}>{k.value}</div>
+            <div className="text-xs font-semibold mt-1" style={{ color: k.primary ? "rgba(255,255,255,.9)" : "#374151" }}>{k.label}</div>
+            <div className="text-xs mt-0.5" style={{ color: k.primary ? "rgba(255,255,255,.6)" : "#9CA3AF" }}>{k.sub}</div>
           </div>
-          <div className="flex items-center justify-around">
-            <DonutChart active={data.activeUsers} inactive={data.inactiveUsers} size={130} />
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span>
-                <span className="text-xs text-slate-600">Actifs <strong className="text-slate-900">{data.activeUsers}</strong></span>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl border p-5 mb-5">
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une holding..." className="w-full h-12 pl-11 pr-4 rounded-xl border bg-slate-50 text-sm" />
+        </div>
+        <div className="flex justify-between items-center">
+          <button onClick={() => setSearch("")} className="flex items-center gap-2 px-4 py-2 border rounded-xl text-sm"><SlidersHorizontal size={15} /> Réinitialiser</button>
+          <div className="flex border rounded-xl overflow-hidden">
+            <button onClick={() => setViewMode("grid")} className={`px-3 py-2 ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white"}`}><LayoutGrid size={17} /></button>
+            <button onClick={() => setViewMode("table")} className={`px-3 py-2 ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-white"}`}><List size={17} /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border">Aucune holding trouvée.</div>
+      ) : viewMode === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map(h => {
+            const cnt = getSocCount(h.id);
+            return (
+              <div key={h.id} className="bg-white rounded-2xl border p-4 shadow-sm">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold">{initials(h.nom)}</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-800">{h.nom}</div>
+                    <div className="text-xs text-slate-400">HLD-{String(h.id).padStart(3, "0")}</div>
+                  </div>
+                </div>
+                <div className="mb-3"><span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">{cnt} société(s)</span></div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1"><Edit size={14} /> Modifier</button>
+                  <button onClick={() => handleDelete(h.id, cnt)} className="flex-1 py-2 bg-red-50 text-red-700 rounded-lg text-sm flex items-center justify-center gap-1"><Trash2 size={14} /> Supprimer</button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-300 inline-block"></span>
-                <span className="text-xs text-slate-600">Inactifs <strong className="text-slate-900">{data.inactiveUsers}</strong></span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b">
+              <tr className="text-xs font-bold text-slate-500">
+                <th className="px-6 py-4 text-left">Holding</th>
+                <th className="px-6 py-4 text-left">ID</th>
+                <th className="px-6 py-4 text-left">Sociétés</th>
+                <th className="px-6 py-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((h, i) => {
+                const cnt = getSocCount(h.id);
+                return (
+                  <tr key={h.id} className={`border-b hover:bg-slate-50 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center text-xs font-bold">{initials(h.nom)}</div>
+                        <span className="font-semibold text-slate-800 text-sm">{h.nom}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400">HLD-{String(h.id).padStart(3, "0")}</td>
+                    <td className="px-6 py-4"><span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">{cnt} société(s)</span></td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} className="p-2 bg-blue-50 rounded-lg text-blue-600"><Edit size={15} /></button>
+                        <button onClick={() => handleDelete(h.id, cnt)} className="p-2 bg-red-50 rounded-lg text-red-500"><Trash2 size={15} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl">
+            <div className="px-6 py-4 border-b flex justify-between items-center rounded-t-2xl" style={{ background: GRAD_BLUE }}>
+              <h3 className="font-bold text-white">{editing ? "Modifier la holding" : "Nouvelle holding"}</h3>
+              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-white/15 rounded-lg"><X size={16} className="text-white" /></button>
+            </div>
+            <div className="p-6">
+              <label className="text-sm font-medium text-slate-700">Nom de la holding</label>
+              <div className="relative mt-1">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input value={formNom} onChange={e => setFormNom(e.target.value)} type="text" placeholder="Nom de la holding" className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm" />
+              </div>
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button onClick={() => setModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Annuler</button>
+                <button onClick={handleSave} disabled={loading} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-2">
+                  {loading ? "Chargement…" : <><CheckCircle size={15} /> {editing ? "Enregistrer" : "Créer"}</>}
+                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Répartition par rôle */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Activity size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Répartition par rôle</span>
-          </div>
-          {data.roles.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucune donnée</p>
-          ) : (
-            data.roles.map(([role, count], i) => (
-              <ProgressBar key={role} label={role} value={count} max={data.totalUsers}
-                color={roleColors[i % roleColors.length]} delay={i * 100} />
-            ))
-          )}
-        </div>
-
-        {/* Répartition par société */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Factory size={16} className="text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">Utilisateurs par société</span>
-          </div>
-          {data.societes.length === 0 ? (
-            <p className="text-sm text-slate-400">Aucune donnée</p>
-          ) : (
-            data.societes.map(([societe, count], i) => (
-              <ProgressBar key={societe} label={societe === '—' ? 'Sans société' : societe}
-                value={count} max={data.totalUsers}
-                color={roleColors[i % roleColors.length]} delay={i * 100} />
-            ))
-          )}
-        </div>
-
-      </div>
+      )}
     </div>
   );
 }

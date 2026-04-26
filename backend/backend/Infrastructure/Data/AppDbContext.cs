@@ -2,8 +2,8 @@ using backend.Domain.Entities;
 using backend.Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using Action = backend.Domain.Entities.Action;
 
 namespace backend.Infrastructure.Data
 {
@@ -41,6 +41,9 @@ namespace backend.Infrastructure.Data
         public DbSet<Profil> Profils { get; set; }
         public DbSet<ControleHistorique> ControleHistoriques { get; set; }
         public DbSet<Incident> Incidents { get; set; }
+        public DbSet<Module> Modules { get; set; }
+        public DbSet<Action> Actions { get; set; }
+        public DbSet<Permission> Permissions { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -461,7 +464,38 @@ namespace backend.Infrastructure.Data
 
             // ── Seeding (UN SEUL appel) ────────────────────────────────────────
             modelBuilder.Entity<Controle>().ToTable("controles");
+            modelBuilder.Entity<Permission>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+
+                // NE METTEZ PAS de .HasDatabaseName(...) ici
+                entity.HasIndex(p => new { p.RoleId, p.ModuleId, p.ActionId })
+                      .IsUnique();
+
+                entity.HasOne(p => p.Module)
+                      .WithMany(m => m.Permissions)
+                      .HasForeignKey(p => p.ModuleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Action)
+                      .WithMany()
+                      .HasForeignKey(p => p.ActionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(p => p.RoleId);
+            });
+            // Index uniques
+            modelBuilder.Entity<Module>()
+                .HasIndex(m => m.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<Action>()
+                .HasIndex(a => a.Code)
+                .IsUnique();
+
         }
+
+        
 
 
         private static Guid GenerateGuidFromCode(string code)

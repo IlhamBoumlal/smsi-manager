@@ -1,3 +1,6 @@
+using backend.Application.Roles.Commands.CreateRole;
+using backend.Application.Roles.Commands.DeleteRole;
+using backend.Application.Roles.Commands.UpdateRole;
 using backend.Application.Roles.Queries.GetAllRoles;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -5,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class RoleController : ControllerBase
@@ -18,6 +20,43 @@ namespace backend.API.Controllers
         {
             var roles = await _mediator.Send(new GetAllRolesQuery());
             return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateRole([FromBody] CreateRoleCommand command)
+        {
+            var result = await _mediator.Send(command);
+
+            if (result.Succeeded)
+                return Ok(new { message = "Rôle créé avec succès" });
+
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateRoleCommand command)
+        {
+            if (id != command.RoleId)
+                return BadRequest(new { error = "L'ID dans l'URL ne correspond pas à l'ID du corps de la requête" });
+
+            var result = await _mediator.Send(command);
+
+            if (result.Succeeded)
+                return Ok(new { message = "Rôle mis à jour avec succès" });
+
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteRole(string id)
+        {
+            var command = new DeleteRoleCommand { RoleId = id };
+            var result = await _mediator.Send(command);
+
+            if (result.Succeeded)
+                return Ok(new { message = "Rôle supprimé avec succès" });
+
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
         }
     }
 }
