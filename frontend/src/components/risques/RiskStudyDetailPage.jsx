@@ -11,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useRiskStudies } from "./RiskStudiesContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   WORKSHOP_META,
   getEffectiveWorkshopStatus,
@@ -88,6 +89,9 @@ export default function RiskStudyDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { getStudyById, updateStudyMeta } = useRiskStudies();
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "risques";
+  const hasAccess = canRead(moduleCode);
   const study = getStudyById(id);
 
   const [editMeta, setEditMeta] = useState(false);
@@ -114,6 +118,20 @@ export default function RiskStudyDetailPage() {
     () => (study ? WORKSHOP_META.filter((workshop) => isWorkshopBlocked(study, workshop.id)).length : 0),
     [study],
   );
+
+  if (!hasAccess) {
+    return (
+      <div className="risk-page p-6">
+        <RiskCard className="mx-auto max-w-3xl p-8 text-center">
+          <h2 className="text-xl font-black text-red-600">Accès non autorisé</h2>
+          <p className="mt-2 text-sm text-slate-500">Vous n'avez pas les permissions nécessaires pour consulter cette étude.</p>
+          <button type="button" onClick={() => navigate("/risques")} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            Retour au portefeuille
+          </button>
+        </RiskCard>
+      </div>
+    );
+  }
 
   if (!study) {
     return (
@@ -176,16 +194,18 @@ export default function RiskStudyDetailPage() {
                   <CalendarDays size={13} /> Creation {study.createdAt || "-"}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditMeta((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
-              >
-                <Edit3 size={13} /> {editMeta ? "Fermer edition" : "Modifier fiche"}
-              </button>
+              {canEdit(moduleCode) && (
+                <button
+                  type="button"
+                  onClick={() => setEditMeta((prev) => !prev)}
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+                >
+                  <Edit3 size={13} /> {editMeta ? "Fermer edition" : "Modifier fiche"}
+                </button>
+              )}
             </div>
 
-            {editMeta ? (
+            {editMeta && canEdit(moduleCode) ? (
               <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
                 <input className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={metaDraft.name} placeholder="Nom" onChange={(event) => setMetaDraft((prev) => ({ ...prev, name: event.target.value }))} />
                 <input className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={metaDraft.organization} placeholder="Organisation" onChange={(event) => setMetaDraft((prev) => ({ ...prev, organization: event.target.value }))} />
@@ -220,6 +240,8 @@ export default function RiskStudyDetailPage() {
                 const accentByWorkshop = ["#2563eb", "#059669", "#0ea5e9", "#4f46e5", "#d97706"];
                 const accent = accentByWorkshop[(workshop.id - 1) % accentByWorkshop.length];
 
+                const isAccessible = !blocked && canRead(moduleCode);
+
                 return (
                   <RiskCard
                     key={workshop.id}
@@ -228,13 +250,13 @@ export default function RiskStudyDetailPage() {
                     role="button"
                     tabIndex={blocked ? -1 : 0}
                     onClick={() => {
-                      if (!blocked) navigate(`/risques/etudes/${study.id}/atelier/${workshop.id}`);
+                      if (isAccessible) navigate(`/risques/etudes/${study.id}/atelier/${workshop.id}`);
                     }}
                     onKeyDown={(event) => {
                       if (blocked) return;
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        navigate(`/risques/etudes/${study.id}/atelier/${workshop.id}`);
+                        if (isAccessible) navigate(`/risques/etudes/${study.id}/atelier/${workshop.id}`);
                       }
                     }}
                   >
@@ -262,7 +284,7 @@ export default function RiskStudyDetailPage() {
 
                     <div className="risk-workshop-footer mt-4 flex flex-wrap items-center gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        {status === "termine" ? (
+                        {status === "termine" && canExport(moduleCode) && (
                           <button
                             type="button"
                             onClick={(event) => {
@@ -273,7 +295,7 @@ export default function RiskStudyDetailPage() {
                           >
                             <FileText size={14} /> Livrable
                           </button>
-                        ) : null}
+                        )}
                         {blocked ? (
                           <span className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700">Atelier bloque</span>
                         ) : null}

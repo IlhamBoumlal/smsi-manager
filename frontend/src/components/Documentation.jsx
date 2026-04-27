@@ -272,7 +272,9 @@ function Modal({ open, children, onClose, panelClassName = "" }) {
 }
 
 export default function Documentation() {
-  const { user } = useAuth();
+  const { user, canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "documentation";
+  const hasAccess = canRead(moduleCode);
   const navigate = useNavigate();
   const importRef = useRef(null);
   const wizardFileRef = useRef(null);
@@ -391,6 +393,9 @@ export default function Documentation() {
   };
 
   const createDoc = async (payload) => {
+    if (!canWrite(moduleCode)) {
+      throw new Error("Vous n'avez pas la permission de creer un document.");
+    }
     const res = await axiosInstance.post(API, toFormData(payload));
     if (!res?.data) throw new Error("Reponse vide lors de la creation.");
     setDocs((prev) => [normalizeDoc(res.data), ...prev]);
@@ -398,6 +403,9 @@ export default function Documentation() {
   };
 
   const updateDoc = async (id, payload) => {
+    if (!canEdit(moduleCode)) {
+      throw new Error("Vous n'avez pas la permission de modifier ce document.");
+    }
     const res = await axiosInstance.put(`${API}/${id}`, toFormData(payload));
     if (!res?.data) throw new Error("Reponse vide lors de la mise a jour.");
     setDocs((prev) => prev.map((d) => (d.id === id ? normalizeDoc(res.data) : d)));
@@ -405,6 +413,9 @@ export default function Documentation() {
   };
 
   const createNewVersion = async (id, payload) => {
+    if (!canWrite(moduleCode)) {
+      throw new Error("Vous n'avez pas la permission de creer une nouvelle version.");
+    }
     const res = await axiosInstance.post(`${API}/${id}/new-version`, toFormData(payload));
     if (!res?.data) throw new Error("Reponse vide lors du versioning.");
     setDocs((prev) => prev.map((d) => (d.id === id ? normalizeDoc(res.data) : d)));
@@ -412,12 +423,18 @@ export default function Documentation() {
   };
 
   const removeDoc = async (id) => {
+    if (!canDelete(moduleCode)) {
+      throw new Error("Vous n'avez pas la permission de supprimer ce document.");
+    }
     await axiosInstance.delete(`${API}/${id}`);
     setDocs((prev) => prev.filter((d) => d.id !== id));
     showSuccess("Document supprime.");
   };
 
   const download = async (doc, format) => {
+    if (!canExport(moduleCode)) {
+      throw new Error("Vous n'avez pas la permission d'exporter ce document.");
+    }
     const res = await axiosInstance.get(`${API}/${doc.id}/download`, { params: { format }, responseType: "blob" });
     const blob = new Blob([res.data]);
     const url = URL.createObjectURL(blob);
@@ -440,6 +457,10 @@ export default function Documentation() {
   };
 
   const openDownloadModal = (doc) => {
+    if (!canExport(moduleCode)) {
+      setError("Vous n'avez pas la permission d'exporter ce document.");
+      return;
+    }
     setDownloadDoc(doc);
     resetDownloadState();
   };
@@ -469,6 +490,31 @@ export default function Documentation() {
       setDownloadProgress(0);
       setError(extractApiError(err, "Telechargement impossible."));
     }
+  };
+
+  const approveDoc = async (doc) => {
+    if (!doc?.canApprove) {
+      setError("Vous n'avez pas la permission d'approuver ce document.");
+      return;
+    }
+
+    await updateDoc(doc.id, {
+      name: doc.name,
+      type: doc.type,
+      category: doc.category,
+      status: "approuve",
+      version: doc.version,
+      classification: doc.classification,
+      author: doc.author,
+      approver:
+        (user?.nomComplet || user?.NomComplet || user?.email || user?.Email || "").trim()
+        || doc.approver,
+      clause: doc.clause === "-" ? "" : doc.clause,
+      controle: doc.controle === "-" ? "" : doc.controle,
+      description: doc.description,
+      removeFile: false,
+      file: null,
+    });
   };
 
   const filtered = useMemo(() => docs.filter((d) => {
@@ -600,7 +646,7 @@ export default function Documentation() {
   };
 
   const openCreate = () => {
-    if (!permissions.canCreate) {
+    if (!canWrite(moduleCode)) {
       setError("Vous n'avez pas l'autorisation de creer un document.");
       return;
     }
@@ -609,7 +655,7 @@ export default function Documentation() {
     setShowNew(true);
   };
   const openEdit = (doc) => {
-    if (!doc.canEdit) {
+    if (!doc.canEdit || !canEdit(moduleCode)) {
       setError("Vous n'avez pas l'autorisation de modifier ce document.");
       return;
     }
@@ -617,7 +663,7 @@ export default function Documentation() {
     setEditingDoc(doc);
   };
   const openNewVersion = (doc) => {
-    if (!doc.canCreateVersion) {
+    if (!doc.canCreateVersion || !canWrite(moduleCode)) {
       setError("Vous n'avez pas l'autorisation de proposer une nouvelle version.");
       return;
     }
@@ -631,35 +677,13 @@ export default function Documentation() {
   const closeCreate = () => { setShowNew(false); setNewStep(0); };
   const createSteps = ["Informations", "Liens ISO", "Fichier", "Confirmation"];
 
-  const approveDoc = async (doc) => {
-    if (!doc?.canApprove) return;
-
-    await updateDoc(doc.id, {
-      name: doc.name,
-      type: doc.type,
-      category: doc.category,
-      status: "approuve",
-      version: doc.version,
-      classification: doc.classification,
-      author: doc.author,
-      approver:
-        (user?.nomComplet || user?.NomComplet || user?.email || user?.Email || "").trim()
-        || doc.approver,
-      clause: doc.clause === "-" ? "" : doc.clause,
-      controle: doc.controle === "-" ? "" : doc.controle,
-      description: doc.description,
-      removeFile: false,
-      file: null,
-    });
-  };
-
   const buildDocActions = (doc) => {
     const actions = [
       [<Eye size={16} />, () => setViewDoc(doc), "Consulter", "text-blue-600 hover:bg-blue-50"],
       [<Download size={16} />, () => openDownloadModal(doc), "Telecharger", "text-emerald-600 hover:bg-emerald-50"],
     ];
 
-    if (doc.canApprove && doc.status !== "approuve") {
+    if (doc.canApprove && doc.status !== "approuve" && canEdit(moduleCode)) {
       actions.push([
         <Check size={16} />,
         async () => {
@@ -674,7 +698,7 @@ export default function Documentation() {
       ]);
     }
 
-    if (doc.canCreateVersion) {
+    if (doc.canCreateVersion && canWrite(moduleCode)) {
       actions.push([
         <GitBranchPlus size={16} />,
         () => openNewVersion(doc),
@@ -683,7 +707,7 @@ export default function Documentation() {
       ]);
     }
 
-    if (doc.canEdit) {
+    if (doc.canEdit && canEdit(moduleCode)) {
       actions.push([
         <SquarePen size={16} />,
         () => openEdit(doc),
@@ -692,7 +716,7 @@ export default function Documentation() {
       ]);
     }
 
-    if (doc.canDelete) {
+    if (doc.canDelete && canDelete(moduleCode)) {
       actions.push([
         <Trash2 size={16} />,
         () => {
@@ -706,6 +730,21 @@ export default function Documentation() {
 
     return actions;
   };
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-100 flex items-center justify-center">
+            <Lock size={40} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Accès non autorisé</h2>
+          <p className="text-slate-500">Vous n'avez pas les permissions nécessaires pour accéder à la documentation.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f9fb] px-4 py-5 sm:px-6" style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}>
@@ -722,6 +761,7 @@ export default function Documentation() {
                 if (!file) return;
                 const importCategory = allowedCategoryOptions[0] || "Technique";
                 try {
+                  if (!canWrite(moduleCode)) throw new Error("Permission refusee");
                   await createDoc({
                     name: file.name.replace(/\.[^/.]+$/, ""),
                     type: "Procedure",
@@ -735,7 +775,7 @@ export default function Documentation() {
                 }
                 e.target.value = "";
               }} />
-              {permissions.canCreate && (
+              {canWrite(moduleCode) && (
                 <>
                   <button onClick={() => importRef.current?.click()} className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
                     Importer
@@ -745,7 +785,7 @@ export default function Documentation() {
                   </button>
                 </>
               )}
-              {!permissions.canCreate && (
+              {!canWrite(moduleCode) && (
                 <button className="inline-flex h-11 cursor-default items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500">
                   <Lock size={15} />
                   Mode lecture seule
@@ -1360,7 +1400,7 @@ export default function Documentation() {
                 Annuler
               </button>
               <button
-                disabled={!form.name.trim()}
+                disabled={!form.name.trim() || !canEdit(moduleCode)}
                 onClick={async () => { try { await updateDoc(editingDoc.id, form); setEditingDoc(null); } catch (err) { setError(extractApiError(err, "Mise a jour impossible.")); } }}
                 className="h-10 px-5 rounded-xl bg-blue-600 text-white font-semibold text-[13px] inline-flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -1535,7 +1575,7 @@ export default function Documentation() {
                 Annuler
               </button>
               <button
-                disabled={!form.name.trim() || !form.author.trim() || !form.version.trim()}
+                disabled={!form.name.trim() || !form.author.trim() || !form.version.trim() || !canWrite(moduleCode)}
                 onClick={async () => {
                   try {
                     await createNewVersion(versioningDoc.id, {
@@ -1558,7 +1598,7 @@ export default function Documentation() {
       </Modal>
 
       <Modal open={Boolean(deleteDoc)} onClose={() => setDeleteDoc(null)} panelClassName="max-w-[500px] rounded-[20px]">
-        {deleteDoc && (
+        {deleteDoc && canDelete(moduleCode) && (
           <>
             <div className="p-6">
               <h3 className="text-[22px] font-bold text-red-600 mb-2 inline-flex items-center gap-2">
@@ -1800,6 +1840,7 @@ export default function Documentation() {
             </button>
           ) : (
             <button
+              disabled={!canWrite(moduleCode)}
               onClick={async () => {
                 try {
                   await createDoc({
@@ -1812,7 +1853,7 @@ export default function Documentation() {
                   setError(extractApiError(err, "Creation impossible."));
                 }
               }}
-              className="h-10 px-7 rounded-xl bg-blue-600 text-white font-semibold text-[15px] shadow"
+              className="h-10 px-7 rounded-xl bg-blue-600 text-white font-semibold text-[15px] shadow disabled:opacity-50"
             >
               + Creer le document
             </button>
@@ -1835,4 +1876,3 @@ export default function Documentation() {
     </div>
   );
 }
-

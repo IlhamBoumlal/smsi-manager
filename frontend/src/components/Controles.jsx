@@ -8,6 +8,7 @@ import {
   ArrowRight, Eye, Paperclip, Download
 } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -134,7 +135,6 @@ function humanizeChamps(champsStr) {
     .join(' · ');
 }
 
-// ✅ Fonction de parsing des preuves avec log
 function parsePreuves(preuves) {
   console.log('[parsePreuves] Input:', preuves, typeof preuves);
   if (!preuves) {
@@ -159,10 +159,6 @@ function parsePreuves(preuves) {
   console.log('[parsePreuves] Type non géré, retour []');
   return [];
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// OPEN PREUVE — ouvre dans un onglet avec prévisualisation + téléchargement
-// ─────────────────────────────────────────────────────────────────────────────
 
 function openPreuve(doc) {
   if (!doc || !doc.data) {
@@ -260,10 +256,6 @@ function readFileAsBase64(file) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NORMALISATION (avec logs)
-// ─────────────────────────────────────────────────────────────────────────────
-
 function normalize(c) {
   console.log('[normalize] Entrée brute:', c);
 
@@ -290,7 +282,6 @@ function normalize(c) {
     try { raisonsApplicabilite = JSON.parse(raw); } catch { raisonsApplicabilite = []; }
   }
 
-  // Parse des preuves
   let rawPreuves = c.preuves || c.Preuves || null;
   let preuvesArray = parsePreuves(rawPreuves);
 
@@ -327,7 +318,7 @@ function normalize(c) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SOUS-COMPOSANTS (DocumentChip, DocumentsSection, etc.) inchangés
+// SOUS-COMPOSANTS (DocumentChip, DocumentsSection, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RaisonsApplicabilite({ value = [], onChange }) {
@@ -421,8 +412,6 @@ function StatutBadge({ statut, applicable }) {
 }
 
 function DocumentChip({ doc, onRemove, showRemove = false }) {
- 
-
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -685,6 +674,10 @@ function HistoriquePanel({ controleId, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Controles() {
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "controles";
+  const hasAccess = canRead(moduleCode);
+  
   const [controles, setControles]           = useState([]);
   const [loading, setLoading]               = useState(true);
   const [searchTerm, setSearchTerm]         = useState('');
@@ -721,13 +714,11 @@ export default function Controles() {
   const handleSaveEvaluation = async (updated) => {
     const token = localStorage.getItem('token');
     
-    // 🔥 Correction cruciale : éviter le double stringify des preuves
     let preuvesToSend = updated.preuves;
     if (Array.isArray(updated.preuves)) {
       preuvesToSend = JSON.stringify(updated.preuves);
       console.log('[Sauvegarde] Preuves tableau -> stringifié:', preuvesToSend);
     } else if (typeof updated.preuves === 'string') {
-      // Déjà une chaîne JSON, on la garde telle quelle
       preuvesToSend = updated.preuves;
       console.log('[Sauvegarde] Preuves déjà string, conservation:', preuvesToSend);
     } else {
@@ -783,6 +774,17 @@ export default function Controles() {
       alert("Erreur lors de la sauvegarde.");
     }
   };
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, fontFamily: T.font }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>⛔</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#374151' }}>Accès non autorisé</div>
+        <p style={{ fontSize: 13, color: '#6B7280' }}>Vous n'avez pas les permissions nécessaires pour accéder aux contrôles.</p>
+      </div>
+    );
+  }
 
   const totalControles    = controles.length;
   const conformeCount     = controles.filter(c => c.statut === 'Conforme').length;
@@ -915,7 +917,6 @@ export default function Controles() {
 
                 <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 14, lineHeight: 1.5 }}>{ctrl.description}</p>
 
-                {/* Justification de conformité */}
                 {ctrl.statut === 'Conforme' && ctrl.justificationConformite && (
                   <div style={{ marginBottom: 12, padding: '12px 14px', background: '#F0FDF4', borderRadius: 10, borderLeft: '4px solid #10B981' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -926,7 +927,6 @@ export default function Controles() {
                   </div>
                 )}
 
-                {/* Remarque */}
                 {ctrl.statut === 'Remarque' && ctrl.remarque && (
                   <div style={{ marginBottom: 12, padding: '12px 14px', background: '#EFF6FF', borderRadius: 10, borderLeft: '4px solid #2563EB' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -937,7 +937,6 @@ export default function Controles() {
                   </div>
                 )}
 
-                {/* Raison d'exclusion */}
                 {ctrl.applicable === false && ctrl.raisonExclusion && (
                   <div style={{ marginBottom: 12, padding: '12px 14px', background: '#FEF2F2', borderRadius: 10, borderLeft: '4px solid #EF4444' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -948,7 +947,6 @@ export default function Controles() {
                   </div>
                 )}
 
-                {/* Documents justificatifs */}
                 <DocumentsSection preuves={ctrl.preuves} />
 
                 {ctrl.dateMiseAJour && (
@@ -970,23 +968,25 @@ export default function Controles() {
                 )}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button
-                    onClick={() => setEvaluationCtrl(ctrl)}
-                    style={{
-                      flex: 1, padding: '11px 16px', borderRadius: 10,
-                      border: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '1.5px solid #1D4ED8' : 'none',
-                      background: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '#fff' : 'linear-gradient(135deg,#1D4ED8,#1E40AF)',
-                      color: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '#1D4ED8' : '#fff',
-                      fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s',
-                    }}
-                  >
-                    {(ctrl.applicable === false || ctrl.statut !== 'NonEvalue')
-                      ? <><FileText size={15} /> Modifier l'évaluation</>
-                      : <><ShieldCheck size={15} /> Évaluer le contrôle</>
-                    }
-                  </button>
-                  {ctrl.dateMiseAJour && (
+                  {canWrite(moduleCode) && (
+                    <button
+                      onClick={() => setEvaluationCtrl(ctrl)}
+                      style={{
+                        flex: 1, padding: '11px 16px', borderRadius: 10,
+                        border: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '1.5px solid #1D4ED8' : 'none',
+                        background: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '#fff' : 'linear-gradient(135deg,#1D4ED8,#1E40AF)',
+                        color: (ctrl.applicable === false || ctrl.statut !== 'NonEvalue') ? '#1D4ED8' : '#fff',
+                        fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s',
+                      }}
+                    >
+                      {(ctrl.applicable === false || ctrl.statut !== 'NonEvalue')
+                        ? <><FileText size={15} /> Modifier l'évaluation</>
+                        : <><ShieldCheck size={15} /> Évaluer le contrôle</>
+                      }
+                    </button>
+                  )}
+                  {ctrl.dateMiseAJour && canRead(moduleCode) && (
                     <button
                       onClick={() => setHistoriqueCtrl(ctrl)}
                       title="Voir l'historique des modifications"
@@ -1038,10 +1038,12 @@ export default function Controles() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PANNEAU D'ÉVALUATION (corrigé avec logs et gestion des preuves)
+// PANNEAU D'ÉVALUATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
+  const { canWrite } = useAuth();
+  const moduleCode = "controles";
 
   const [form, setForm] = useState(() => ({
     ...ctrl,
@@ -1079,7 +1081,6 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     return [];
   });
 
-  // Synchronisation si ctrl change (ex: re-ouverture du panneau)
   useEffect(() => {
     console.log('[EvaluationPanel] ctrl.preuves reçu:', ctrl.preuves);
     const p = ctrl.preuves;
@@ -1122,7 +1123,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     return Array.isArray(form.steps) && form.steps.length > 0;
   };
 
-  const canSave =
+  const canSaveForm =
     (isNotApplicable && (form.raisonExclusion?.trim().length ?? 0) > 0) ||
     (isApplicable && isStatusSelected);
 
@@ -1153,6 +1154,10 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
   };
 
   const handleSaveClick = async () => {
+    if (!canWrite(moduleCode)) {
+      alert("Vous n'avez pas la permission de modifier ce contrôle");
+      return;
+    }
     setSaving(true);
     await onSave(form);
     setSaving(false);
@@ -1335,8 +1340,8 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
           <button onClick={onClose} style={btnSecondary}>Annuler</button>
           <button
             onClick={handleSaveClick}
-            disabled={!canSave || saving}
-            style={{ ...btnPrimary, background: canSave && !saving ? T.gradBlue : T.gray200, cursor: canSave && !saving ? 'pointer' : 'not-allowed', color: canSave && !saving ? '#fff' : T.gray400 }}
+            disabled={!canSaveForm || saving || !canWrite(moduleCode)}
+            style={{ ...btnPrimary, background: canSaveForm && !saving && canWrite(moduleCode) ? T.gradBlue : T.gray200, cursor: canSaveForm && !saving && canWrite(moduleCode) ? 'pointer' : 'not-allowed', color: canSaveForm && !saving && canWrite(moduleCode) ? '#fff' : T.gray400 }}
           >
             {saving ? <>⏳ Sauvegarde...</> : <><Save size={16} /> Enregistrer l'évaluation</>}
           </button>

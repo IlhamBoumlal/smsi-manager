@@ -1,8 +1,8 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { useRiskStudies } from "./RiskStudiesContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   G_LABELS,
   MEASURE_CATEGORIES,
@@ -1103,6 +1103,10 @@ export default function RiskWorkshopPage() {
   const workshopId = Number(atelierId);
 
   const { getStudyById, updateWorkshopContext, upsertWorkshopItem, deleteWorkshopItem } = useRiskStudies();
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "risques";
+  const hasAccess = canRead(moduleCode);
+  
   const study = getStudyById(id);
   const workshopMeta = getWorkshopMeta(workshopId);
   const visibleSteps = useMemo(() => getVisibleWorkshopSteps(study, workshopMeta), [study, workshopMeta]);
@@ -1120,6 +1124,21 @@ export default function RiskWorkshopPage() {
       return visibleSteps[0].id;
     });
   }, [visibleSteps]);
+
+  // Vérification d'accès à l'étude
+  if (!hasAccess) {
+    return (
+      <div className="risk-page p-6">
+        <RiskCard className="mx-auto max-w-3xl p-8 text-center">
+          <h2 className="text-xl font-black text-red-600">Accès non autorisé</h2>
+          <p className="mt-2 text-sm text-slate-500">Vous n'avez pas les permissions nécessaires pour accéder aux ateliers.</p>
+          <button type="button" onClick={() => navigate("/risques")} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            Retour
+          </button>
+        </RiskCard>
+      </div>
+    );
+  }
 
   if (!study || !workshopMeta) {
     return (
@@ -1143,6 +1162,11 @@ export default function RiskWorkshopPage() {
   const prevStep = stepIndex > 0 ? visibleSteps[stepIndex - 1] : null;
   const nextStep = stepIndex < visibleSteps.length - 1 ? visibleSteps[stepIndex + 1] : null;
   const stepPathPct = Math.round(((stepIndex + 1) / stepCount) * 100);
+  
+  // L'utilisateur peut-il éditer ? (non bloqué ET a la permission d'écriture)
+  const canEditWorkshop = !blocked && canWrite(moduleCode);
+  // L'utilisateur peut-il visualiser le livrable ?
+  const canViewLivrable = status === "termine" && canExport(moduleCode);
 
   return (
     <div className="risk-page risk-fade-up">
@@ -1160,7 +1184,7 @@ export default function RiskWorkshopPage() {
               >
                 <ArrowLeft size={14} /> Retour etude
               </button>
-              {status === "termine" ? (
+              {canViewLivrable ? (
                 <button
                   type="button"
                   onClick={() => printWorkshopLivrable(study, workshopId)}
@@ -1282,7 +1306,7 @@ export default function RiskWorkshopPage() {
               upsert: (wid, key, item) => upsertWorkshopItem(study.id, wid, key, item),
               remove: (wid, key, itemId) => deleteWorkshopItem(study.id, wid, key, itemId),
               updateContext: (wid, payload) => updateWorkshopContext(study.id, wid, payload),
-              readOnly: blocked,
+              readOnly: !canEditWorkshop,
             })}
         </main>
       </div>

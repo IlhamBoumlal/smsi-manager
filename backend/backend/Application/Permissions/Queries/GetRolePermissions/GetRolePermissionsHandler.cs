@@ -4,7 +4,7 @@ using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace backend.Application.Permissions.Queries.GetRolePermissionsWithModules
+namespace backend.Application.Permissions.Queries.GetRolePermissions
 {
     public class GetRolePermissionsHandler : IRequestHandler<GetRolePermissionsQuery, List<RolePermissionsDto>>
     {
@@ -14,44 +14,29 @@ namespace backend.Application.Permissions.Queries.GetRolePermissionsWithModules
         {
             _context = context;
         }
-
-        public async Task<List<RolePermissionsDto>> Handle(
-            GetRolePermissionsQuery request,
-            CancellationToken cancellationToken)
+        public async Task<List<RolePermissionsDto>> Handle(GetRolePermissionsQuery request, CancellationToken cancellationToken)
         {
-            // Charger uniquement les permissions accordées pour ce rôle,
-            // avec les données du module et de l'action
+            var allModules = await _context.Modules.ToListAsync(cancellationToken);
+            var allActions = await _context.Actions.ToListAsync(cancellationToken);
             var grantedPermissions = await _context.Permissions
                 .Where(p => p.RoleId == request.RoleId)
-                .Include(p => p.Module)
-                .Include(p => p.Action)
                 .ToListAsync(cancellationToken);
 
-            // Si aucune permission → retourner liste vide
-            // (le frontend affichera l'état vide avec le bouton "Ajouter des permissions")
-            if (!grantedPermissions.Any())
-                return new List<RolePermissionsDto>();
-
-            // Grouper par module et construire le DTO
-            // Chaque entrée = un module avec ses actions accordées (isGranted toujours true ici)
-            var result = grantedPermissions
-                .GroupBy(p => new { p.ModuleId, p.Module.Name })
-                .Select(g => new RolePermissionsDto
+            var result = allModules.Select(module => new RolePermissionsDto
+            {
+                ModuleId = module.Id,
+                ModuleCode = module.Code,  // ← DOIT être module.Code, PAS module.Id !
+                ModuleName = module.Name,
+                Permissions = allActions.Select(action => new ActionPermissionDto
                 {
-                    ModuleId = g.Key.ModuleId,
-                    ModuleName = g.Key.Name,
-                    Permissions = g.Select(p => new ActionPermissionDto
-                    {
-                        ActionId = p.ActionId,
-                        ActionName = p.Action.Name,
-                        IsGranted = true   // toujours true : on ne retourne que ce qui est accordé
-                    }).ToList()
-                })
-                .OrderBy(m => m.ModuleName)
-                .ToList();
+                    ActionId = action.Id,
+                    ActionCode = action.Code,  // ← DOIT être action.Code
+                    ActionName = action.Name,
+                    IsGranted = grantedPermissions.Any(p => p.ModuleId == module.Id && p.ActionId == action.Id)
+                }).ToList()
+            }).ToList();
 
             return result;
         }
     }
-
 }

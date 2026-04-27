@@ -4,8 +4,9 @@ import * as signalR from '@microsoft/signalr';
 import {
   Search, Plus, Edit, Eye, CheckCircle, AlertTriangle, Ban,
   Trash2, X, Clock, User, ShieldCheck, AlertCircle, Bell,
-  LayoutGrid, List, SlidersHorizontal
+  LayoutGrid, List, SlidersHorizontal,Shield
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const API_BASE = 'http://localhost:5006/api/incidents';
 const SIGNALR_HUB = 'http://localhost:5006/notificationHub';
@@ -189,7 +190,7 @@ const animationStyles = `
   }
 `;
 
-// MODIFIÉ : Badge de statut en niveaux de gris
+// Badge de statut
 function StatutIncidentBadge({ statut }) {
   const s = STATUTS_INCIDENT.find(s => s.key === statut);
   if (!s) return <span>—</span>;
@@ -206,7 +207,6 @@ function StatutIncidentBadge({ statut }) {
   );
 }
 
-// MODIFIÉ : Badge de priorité en niveaux de gris
 function PrioriteBadge({ priorite }) {
   const p = PRIORITES.find(p => p.key === priorite);
   if (!p) return null;
@@ -465,6 +465,10 @@ function TraitementPanel({ incident, onClose, onSave }) {
 
 // Composant principal
 export default function GestionIncidents() {
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "incidents";
+  const hasAccess = canRead(moduleCode);
+  
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -605,6 +609,10 @@ export default function GestionIncidents() {
   }, [fetchData]);
 
   const handleCreate = async (formData) => {
+    if (!canWrite(moduleCode)) {
+      alert('Vous n\'avez pas la permission de créer des incidents');
+      return;
+    }
     try {
       await axios.post(API_BASE, formData);
       await fetchData();
@@ -617,6 +625,10 @@ export default function GestionIncidents() {
 
   const handleUpdate = async (formData) => {
     if (!editingIncident) return;
+    if (!canEdit(moduleCode)) {
+      alert('Vous n\'avez pas la permission de modifier cet incident');
+      return;
+    }
     try {
       await axios.put(`${API_BASE}/${editingIncident.id}`, { ...formData, id: editingIncident.id });
       await fetchData();
@@ -628,6 +640,10 @@ export default function GestionIncidents() {
   };
 
   const handleDelete = async (id) => {
+    if (!canDelete(moduleCode)) {
+      alert('Vous n\'avez pas la permission de supprimer des incidents');
+      return;
+    }
     if (!window.confirm("Supprimer définitivement cet incident ?")) return;
     try {
       await axios.delete(`${API_BASE}/${id}`);
@@ -640,6 +656,10 @@ export default function GestionIncidents() {
 
   const handleTraitement = async (data) => {
     if (!traitementIncident) return;
+    if (!canWrite(moduleCode)) {
+      alert('Vous n\'avez pas la permission de traiter des incidents');
+      return;
+    }
     try {
       const payload = {
         titre:       traitementIncident.titre,
@@ -681,7 +701,6 @@ export default function GestionIncidents() {
     resolus: incidents.filter(i => i.statut === 'Resolu').length,
   };
 
-  // MODIFIÉ : Bordure grise uniforme
   const getBarColor = (incident) => {
     return 'linear-gradient(90deg, #E5E7EB, #D1D5DB)';
   };
@@ -712,7 +731,6 @@ export default function GestionIncidents() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, fontSize: 12, color: T.gray400 }}>
           <Clock size={14} /> {formatDateTime(incident.date)}
         </div>
-        {/* MODIFIÉ : Bloc résolution en gris */}
         {incident.statut === 'Resolu' && incident.resolution && (
           <div style={{ marginTop: 12, padding: 10, background: '#F9FAFB', borderRadius: 8, borderLeft: '4px solid #D1D5DB' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563' }}>Résolution</div>
@@ -721,15 +739,34 @@ export default function GestionIncidents() {
         )}
         <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
           <button onClick={() => setDetailsIncident(incident)} style={{ ...btnIcon, background: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}><Eye size={15} /> Détails</button>
-          <button onClick={() => setEditingIncident(incident)} style={{ ...btnIcon, background: '#FFFBEB', color: '#D97706', borderColor: '#FDE68A' }}><Edit size={15} /> Modifier</button>
-          <button onClick={() => setTraitementIncident(incident)} style={{ ...btnIcon, background: '#ECFDF5', color: '#059669', borderColor: '#A7F3D0' }}>
-            <ShieldCheck size={15} /> {incident.resolution || incident.statut === 'Resolu' ? 'Modifier traitement' : 'Traiter'}
-          </button>
-          <button onClick={() => handleDelete(incident.id)} style={{ ...btnIcon, background: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}><Trash2 size={15} /> Supprimer</button>
+          {canEdit(moduleCode) && (
+            <button onClick={() => setEditingIncident(incident)} style={{ ...btnIcon, background: '#FFFBEB', color: '#D97706', borderColor: '#FDE68A' }}><Edit size={15} /> Modifier</button>
+          )}
+          {canWrite(moduleCode) && (
+            <button onClick={() => setTraitementIncident(incident)} style={{ ...btnIcon, background: '#ECFDF5', color: '#059669', borderColor: '#A7F3D0' }}>
+              <ShieldCheck size={15} /> {incident.resolution || incident.statut === 'Resolu' ? 'Modifier traitement' : 'Traiter'}
+            </button>
+          )}
+          {canDelete(moduleCode) && (
+            <button onClick={() => handleDelete(incident.id)} style={{ ...btnIcon, background: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}><Trash2 size={15} /> Supprimer</button>
+          )}
         </div>
       </div>
     </div>
   );
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-[#f4f6fa] flex items-center justify-center px-4">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion des incidents.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f6fa] px-4 py-5 sm:px-6" style={{ fontFamily: T.font }}>
@@ -747,14 +784,16 @@ export default function GestionIncidents() {
               Suivi et traitement des événements de sécurité
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreatePanel(true)}
-            className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
-            style={{ background: T.gradBlue }}
-          >
-            <Plus size={18} className="mr-2" /> Déclarer un incident
-          </button>
+          {canWrite(moduleCode) && (
+            <button
+              type="button"
+              onClick={() => setShowCreatePanel(true)}
+              className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
+              style={{ background: T.gradBlue }}
+            >
+              <Plus size={18} className="mr-2" /> Déclarer un incident
+            </button>
+          )}
         </section>
 
         {/* ── KPI Strip ── */}
@@ -863,15 +902,21 @@ export default function GestionIncidents() {
                             <button type="button" onClick={() => setDetailsIncident(incident)} className="rounded-lg bg-blue-50 p-2 text-blue-600 hover:bg-blue-100" title="Détails">
                               <Eye size={15} />
                             </button>
-                            <button type="button" onClick={() => setEditingIncident(incident)} className="rounded-lg bg-amber-50 p-2 text-amber-600 hover:bg-amber-100" title="Modifier">
-                              <Edit size={15} />
-                            </button>
-                            <button type="button" onClick={() => setTraitementIncident(incident)} className="rounded-lg bg-green-50 p-2 text-green-600 hover:bg-green-100" title="Traiter">
-                              <ShieldCheck size={15} />
-                            </button>
-                            <button type="button" onClick={() => handleDelete(incident.id)} className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100" title="Supprimer">
-                              <Trash2 size={15} />
-                            </button>
+                            {canEdit(moduleCode) && (
+                              <button type="button" onClick={() => setEditingIncident(incident)} className="rounded-lg bg-amber-50 p-2 text-amber-600 hover:bg-amber-100" title="Modifier">
+                                <Edit size={15} />
+                              </button>
+                            )}
+                            {canWrite(moduleCode) && (
+                              <button type="button" onClick={() => setTraitementIncident(incident)} className="rounded-lg bg-green-50 p-2 text-green-600 hover:bg-green-100" title="Traiter">
+                                <ShieldCheck size={15} />
+                              </button>
+                            )}
+                            {canDelete(moduleCode) && (
+                              <button type="button" onClick={() => handleDelete(incident.id)} className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100" title="Supprimer">
+                                <Trash2 size={15} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -892,9 +937,9 @@ export default function GestionIncidents() {
         />
       )}
 
-      {showCreatePanel && <IncidentFormPanel isCreating onClose={() => setShowCreatePanel(false)} onSave={handleCreate} />}
-      {editingIncident && <IncidentFormPanel incident={editingIncident} isCreating={false} onClose={() => setEditingIncident(null)} onSave={handleUpdate} />}
-      {traitementIncident && <TraitementPanel incident={traitementIncident} onClose={() => setTraitementIncident(null)} onSave={handleTraitement} />}
+      {showCreatePanel && canWrite(moduleCode) && <IncidentFormPanel isCreating onClose={() => setShowCreatePanel(false)} onSave={handleCreate} />}
+      {editingIncident && canEdit(moduleCode) && <IncidentFormPanel incident={editingIncident} isCreating={false} onClose={() => setEditingIncident(null)} onSave={handleUpdate} />}
+      {traitementIncident && canWrite(moduleCode) && <TraitementPanel incident={traitementIncident} onClose={() => setTraitementIncident(null)} onSave={handleTraitement} />}
       {detailsIncident && <DetailIncidentPanel incident={detailsIncident} onClose={() => setDetailsIncident(null)} />}
     </div>
   );

@@ -24,6 +24,7 @@ import {
   createSimulation,
   deleteSimulation,
 } from '../api/audits';
+import { useAuth } from '../context/AuthContext';
 
 // ─── ISO 27001:2022 — 93 contrôles ───────────────────────────────────────────
 const ISO_THEMES = [
@@ -305,7 +306,7 @@ function ActionBar({ active, onChange }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 1 — PLANIFIER
 // ═══════════════════════════════════════════════════════════════════════════════
-function PlanModule({ audits, saving, onSave, onDelete }) {
+function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDelete }) {
   const EMPTY = { title:'', type:'external_cert', startDate:'', endDate:'', auditor:'', org:'', scope:'Tous les contrôles ISO 27001:2022', objectives:'', rssi:'', approver:'', status:'planned' };
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
@@ -340,7 +341,7 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
       </div>
 
       <div className="flex justify-end">
-        {!showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit </Btn>}
+        {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit </Btn>}
       </div>
 
       {showForm && (
@@ -407,8 +408,8 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
                     {a.scope && <p className="text-xs text-gray-400 mt-1">{a.scope}</p>}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-gray-400 hover:text-indigo-600"/></button>
-                    <button onClick={()=>onDelete(a.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>
+                    {canEdit && <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-gray-400 hover:text-indigo-600"/></button>}
+                    {canDelete && <button onClick={()=>onDelete(a.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
               </Card>
@@ -423,7 +424,7 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 2 — SIMULER
 // ═══════════════════════════════════════════════════════════════════════════════
-function SimulateModule({ simHistory, onSaveSimulation }) {
+function SimulateModule({ simHistory, onSaveSimulation, canWrite, canExport }) {
   const [view, setView] = useState('list');
   const [simName, setSimName] = useState('');
   const [simAuthor, setSimAuthor] = useState('');
@@ -442,6 +443,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
   const score = totalAnswered > 0 ? Math.round((totalOui / totalAnswered) * 100) : 0;
 
   const handleSave = () => {
+    if (!canWrite) return;
     const sim = { id:`sim-${Date.now()}`, name:simName, author:simAuthor, date:simDate, answers:{...answers}, comments:{...comments}, score, totalAnswered, oui:totalOui, non:totalNon };
     onSaveSimulation(sim);
     setSavedToast(true);
@@ -500,7 +502,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
           <h3 className="font-bold text-gray-900">Historique des simulations</h3>
           <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full border border-gray-200">{simHistory.length}</span>
         </div>
-        <Btn icon={Plus} onClick={()=>setView('setup')}>Nouvelle simulation</Btn>
+        {canWrite && <Btn icon={Plus} onClick={()=>setView('setup')}>Nouvelle simulation</Btn>}
       </div>
 
       {simHistory.length === 0 && (
@@ -582,9 +584,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
                 <CheckCircle2 className="w-3.5 h-3.5"/>Simulation enregistrée !
               </span>
             )}
-            <Btn variant="save" icon={Save} size="sm" onClick={handleSave} disabled={savedToast}>
-              {savedToast ? 'Enregistré ✓' : 'Enregistrer'}
-            </Btn>
+            {canWrite && <Btn variant="save" icon={Save} size="sm" onClick={handleSave} disabled={savedToast}>{savedToast ? 'Enregistré ✓' : 'Enregistrer'}</Btn>}
             <Btn variant="outline" icon={RefreshCw} size="sm" onClick={handleReset}>Nouvelle simulation</Btn>
           </div>
         </div>
@@ -635,10 +635,8 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
               <span className="text-red-500">{totalNon} Non</span>
               <span className="text-gray-300">{TOTAL_CONTROLS-totalAnswered} sans réponse</span>
             </div>
-            {totalAnswered > 0 && (
-              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>
-                {savedToast ? '✓ Enregistré' : 'Enregistrer'}
-              </Btn>
+            {totalAnswered > 0 && canWrite && (
+              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
             )}
             {totalAnswered===TOTAL_CONTROLS && (
               <Btn size="sm" icon={BarChart3} onClick={()=>setView('results')}>Résultats</Btn>
@@ -707,16 +705,14 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
         })}
       </div>
 
-      {totalAnswered > 0 && (
+      {totalAnswered > 0 && canWrite && (
         <div className="sticky bottom-4 z-20">
           <div className="bg-gray-900 rounded-2xl shadow-2xl p-4 flex items-center justify-between gap-4">
             <div className="text-sm text-white font-medium">
               <span className="font-bold">{totalAnswered}/{TOTAL_CONTROLS}</span> répondus · <span className="text-gray-300">{score}% conforme</span>
             </div>
             <div className="flex gap-2">
-              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>
-                {savedToast ? '✓ Enregistré' : 'Enregistrer'}
-              </Btn>
+              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
               {totalAnswered === TOTAL_CONTROLS && (
                 <Btn size="sm" variant="outline" icon={BarChart3} onClick={()=>setView('results')}>Résultats</Btn>
               )}
@@ -731,7 +727,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 3 — POST-AUDIT
 // ═══════════════════════════════════════════════════════════════════════════════
-function PostAuditModule({ onToast, onNCCreated, allAudits }) {
+function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   const [view, setView] = useState('list');
   const [localAudits, setLocalAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
@@ -830,6 +826,10 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
         <div className="flex-1 p-3.5 bg-gray-50 border border-gray-200 rounded-xl">
           <p className="text-xs text-gray-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+        {canWrite && <Btn icon={Plus} onClick={()=>setView('create')}>Créer un audit</Btn>}
       </div>
 
       {mergedAudits.length===0 && (
@@ -1039,7 +1039,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 4 — NC
 // ═══════════════════════════════════════════════════════════════════════════════
-function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
+function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite, canEdit, canDelete }) {
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAudit, setFilterAudit] = useState('');
@@ -1099,7 +1099,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
           <option value="">Tous les statuts</option>
           {Object.entries(NC_STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
-        <Btn icon={Plus} variant="danger" onClick={()=>setShowForm(true)}>Nouvelle NC</Btn>
+        {canWrite && <Btn icon={Plus} variant="danger" onClick={()=>setShowForm(true)}>Nouvelle NC</Btn>}
       </div>
 
       {showForm && (
@@ -1160,7 +1160,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
                     <button onClick={()=>setExpandedNC(isExp?null:nc.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
                       {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
                     </button>
-                    <button onClick={()=>onDelete(nc.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>
+                    {canDelete && <button onClick={()=>onDelete(nc.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{nc.description}</p>
@@ -1212,11 +1212,11 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
                           }}><Plus className="w-3.5 h-3.5"/>Ajouter</Btn>
                         </div>
                       </div>
-                    ):(
+                    ) : (canEdit && (
                       <button onClick={()=>setShowActionFor(nc.id)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100 transition-colors w-fit">
                         <Plus className="w-3.5 h-3.5"/>Ajouter une action corrective
                       </button>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
@@ -1231,7 +1231,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 5 — ÉCART / SoA
 // ═══════════════════════════════════════════════════════════════════════════════
-function GapSoAModule({ ncs, onToast, allAudits }) {
+function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   const [activeTab, setActiveTab] = useState('soa');
   const [themeFilter, setThemeFilter] = useState(null);
   const [filterAudit, setFilterAudit] = useState('');
@@ -1263,7 +1263,7 @@ function GapSoAModule({ ncs, onToast, allAudits }) {
             <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500"/>Statement of Applicability (SoA)</h3>
             <p className="text-xs text-gray-400 mt-0.5">ISO/IEC 27001:2022 · Clause 6.1.3d · Mis à jour depuis les NC enregistrées</p>
           </div>
-          <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>
+          {canExport && <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>}
         </div>
         <div className="mb-4">
           <label className="text-xs font-semibold text-gray-600 mb-1 block">Filtrer par audit</label>
@@ -1380,6 +1380,10 @@ const CircleIcon = ({ className }) => (
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 export function Audits() {
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "audits";
+  const hasAccess = canRead(moduleCode);
+  
   const [audits,     setAudits]     = useState([]);
   const [ncs,        setNcs]        = useState([]);
   const [simHistory, setSimHistory] = useState([]);
@@ -1411,6 +1415,10 @@ export function Audits() {
   useEffect(()=>{ load(); },[load]);
 
   const handleSaveSimulation = useCallback(async (sim) => {
+    if (!canWrite(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de créer des simulations', 'error');
+      return;
+    }
     try {
       const saved = await createSimulation({
         name:          sim.name,
@@ -1428,7 +1436,7 @@ export function Audits() {
     } catch {
       showToast('Erreur lors de la sauvegarde de la simulation');
     }
-  }, [showToast]);
+  }, [showToast, canWrite, moduleCode]);
 
   const stats = useMemo(()=>({
     total:    audits.length,
@@ -1440,6 +1448,10 @@ export function Audits() {
   }),[audits,ncs,simHistory]);
 
   const handleSavePlan = async (data, editId) => {
+    if (!canWrite(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de créer des audits', 'error');
+      return;
+    }
     setSaving(true);
     try {
       if (editId) {
@@ -1459,6 +1471,10 @@ export function Audits() {
   };
 
   const handleDeletePlan = async (id) => {
+    if (!canDelete(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de supprimer des audits', 'error');
+      return;
+    }
     if (!window.confirm('Supprimer cet audit ?')) return;
     try {
       await deleteAudit(id);
@@ -1470,6 +1486,10 @@ export function Audits() {
   };
 
   const handleAddNC = async (data) => {
+    if (!canWrite(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de créer des NC', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const c = await createNC({ ...data, correctiveActions: [] });
@@ -1483,6 +1503,10 @@ export function Audits() {
   };
 
   const handleUpdateNC = async (id, data) => {
+    if (!canEdit(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de modifier des NC', 'error');
+      return;
+    }
     try {
       const u = await updateNC(id, data);
       setNcs(p => p.map(n => n.id === id ? u : n));
@@ -1492,6 +1516,10 @@ export function Audits() {
   };
 
   const handleDeleteNC = async (id) => {
+    if (!canDelete(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de supprimer des NC', 'error');
+      return;
+    }
     if (!window.confirm('Supprimer cette NC ?')) return;
     try {
       await deleteNC(id);
@@ -1549,6 +1577,19 @@ export function Audits() {
       setNcs(p => p.filter(n => n.id !== localId));
     }
   };
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder aux audits.</p>
+        </div>
+      </div>
+    );
+  }
 
   if(loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -1630,11 +1671,11 @@ export function Audits() {
 
         <ActionBar active={module} onChange={setModule}/>
 
-        {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan}/>}
-        {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation}/>}
-        {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits}/>}
-        {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits}/>}
-        {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits}/>}
+        {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+        {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)} canExport={canExport(moduleCode)}/>}
+        {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
+        {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+        {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}
       </div>
 
       <style>{`

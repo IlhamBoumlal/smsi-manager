@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDashboard, getGlobalStats } from "../api/clauses";
+import { useAuth } from "../context/AuthContext";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faRotateRight, faTriangleExclamation, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 /* ═══════════════════════════════════════════════════════════
    CLAUSE CONFIG
@@ -22,45 +25,23 @@ const PDCA_COLORS = {
   A: { bg: "#FDF2F8", text: "#86198F", label: "Act"   },
 };
 
-/* ═══════════════════════════════════════════════════════════
-   HELPERS — calcul local des stats à partir du dashboard
-═══════════════════════════════════════════════════════════ */
-
-/**
- * Calcule averageConformity localement depuis les items du dashboard.
- * Seules les clauses ayant au moins une sous-clause évaluée participent
- * à la moyenne — les clauses "non-évaluées" ne biaisent pas le score vers 0.
- */
 function computeAverageConformity(dashboard) {
   if (!Array.isArray(dashboard) || dashboard.length === 0) return 0;
-
-  let totalSubs     = 0;
+  let totalSubs = 0;
   let totalConforme = 0;
-
   for (const item of dashboard) {
     const subs = Object.values(item.subConformities || {});
     totalSubs += subs.length;
     totalConforme += subs.filter(s => s.status === "conforme").length;
   }
-
   if (totalSubs === 0) return 0;
   return Math.round((totalConforme / totalSubs) * 100);
 }
 
-/**
- * Fusionne les stats reçues de l'API avec les valeurs recalculées localement.
- * La valeur locale prend le dessus sur averageConformity si celle de l'API vaut 0
- * ou est absente — ce qui corrige le bug d'affichage.
- */
 function mergeStats(apiStats, dashboard) {
   const localAvg = computeAverageConformity(dashboard);
-
-  // Si l'API renvoie une valeur valide (> 0), on la garde ; sinon on utilise le calcul local.
-  const averageConformity =
-    apiStats?.averageConformity > 0 ? apiStats.averageConformity : localAvg;
-
-  // Calcul local des autres compteurs comme filet de sécurité
-  const conformeClauses    = dashboard.filter(i => i.isFullyCompliant).length;
+  const averageConformity = apiStats?.averageConformity > 0 ? apiStats.averageConformity : localAvg;
+  const conformeClauses = dashboard.filter(i => i.isFullyCompliant).length;
   const nonConformeClauses = dashboard.filter(i => {
     const hasEval = Object.values(i.subConformities || {}).some(c => c.status !== "non-évalué");
     return !i.isFullyCompliant && hasEval;
@@ -390,6 +371,10 @@ function Skeleton() {
 ═══════════════════════════════════════════════════════════ */
 export default function ClausesDashboard() {
   const navigate = useNavigate();
+  const { canRead, canExport } = useAuth();
+  const moduleCode = "clauses";
+  const hasAccess = canRead(moduleCode);
+  
   const [dashboard, setDashboard] = useState([]);
   const [stats,     setStats]     = useState(null);
   const [filter,    setFilter]    = useState("all");
@@ -407,12 +392,7 @@ export default function ClausesDashboard() {
 
       const safeData = Array.isArray(dashboardData) ? dashboardData : [];
       setDashboard(safeData);
-
-      // ── CORRECTIF : fusion des stats API avec calcul local ──
-      // Si averageConformity vaut 0 ou est absente (bug backend courant),
-      // on le recalcule directement depuis les scores des clauses du dashboard.
       setStats(mergeStats(statsData, safeData));
-
     } catch (e) {
       setError(e.message || "Erreur de chargement des données");
       setDashboard([]);
@@ -441,6 +421,17 @@ export default function ClausesDashboard() {
     }).length,
     ok: dashboard.filter(i => i.isFullyCompliant).length,
   };
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div style={{minHeight: "100vh", background: "#F8F9FB", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12}}>
+        <FontAwesomeIcon icon={faTriangleExclamation} style={{fontSize: 48, color: "#EF4444"}}/>
+        <div style={{fontSize: 18, fontWeight: 700, color: "#374151"}}>Accès non autorisé</div>
+        <p style={{fontSize: 13, color: "#64748B"}}>Vous n'avez pas les permissions nécessaires pour accéder à cette page.</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -476,25 +467,21 @@ export default function ClausesDashboard() {
         {/* Controls */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <FilterBar active={filter} onChange={setFilter} counts={counts} />
-          <button onClick={load} style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "8px 16px", borderRadius: 99,
-            border: "1.5px solid #E5E7EB", background: "#fff",
-            color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer",
-            fontFamily: "'Sora', sans-serif",
-            transition: "all .15s",
-          }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#1D4ED8"; e.currentTarget.style.color = "#1D4ED8"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#E5E7EB"; e.currentTarget.style.color = "#374151"; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-              <path d="M8 16H3v5"/>
-            </svg>
-            Actualiser
-          </button>
+          {canExport(moduleCode) && (
+            <button onClick={load} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "8px 16px", borderRadius: 99,
+              border: "1.5px solid #E5E7EB", background: "#fff",
+              color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "'Sora', sans-serif",
+              transition: "all .15s",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#1D4ED8"; e.currentTarget.style.color = "#1D4ED8"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#E5E7EB"; e.currentTarget.style.color = "#374151"; }}
+            >
+              <FontAwesomeIcon icon={faRotateRight} /> Actualiser
+            </button>
+          )}
         </div>
 
         {/* Error */}
@@ -505,7 +492,7 @@ export default function ClausesDashboard() {
             color: "#991B1B", fontSize: 13, marginBottom: 16,
             display: "flex", alignItems: "center", gap: 8,
           }}>
-            ⚠️ {error}
+            <FontAwesomeIcon icon={faTriangleExclamation} /> {error}
           </div>
         )}
 

@@ -8,6 +8,7 @@ import {
   deleteDocument,
   downloadFichier,
 } from "../api/cartographie";
+import { useAuth } from "../context/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════
    FONT AWESOME (CDN via useEffect)
@@ -101,6 +102,9 @@ function useProcesses() {
 ═══════════════════════════════════════════════════════════ */
 export default function CartographieProcessus() {
   useFontAwesome();
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "cartographie";
+  const hasAccess = canRead(moduleCode);
 
   const { procs, setProcs, loading, error, refresh } = useProcesses();
 
@@ -134,6 +138,10 @@ export default function CartographieProcessus() {
 
   /* ── CRUD Processus ── */
   const saveProc = async () => {
+    if (!canWrite(moduleCode)) {
+      alert("Vous n'avez pas la permission d'ajouter ou modifier des processus");
+      return;
+    }
     const { editId, form } = procModal;
     if (!form.name.trim()) return;
     setSaving(true);
@@ -149,6 +157,10 @@ export default function CartographieProcessus() {
   };
 
   const deleteProc = async (id) => {
+    if (!canDelete(moduleCode)) {
+      alert("Vous n'avez pas la permission de supprimer des processus");
+      return;
+    }
     if (!window.confirm("Supprimer ce processus et tous ses documents ?")) return;
     await deleteProcessus(id);
     await refresh();
@@ -157,13 +169,16 @@ export default function CartographieProcessus() {
 
   /* ── CRUD Documents ── */
   const saveDoc = async () => {
+    if (!canWrite(moduleCode)) {
+      alert("Vous n'avez pas la permission d'ajouter des documents");
+      return;
+    }
     const { form } = docModal;
     if (!form.name.trim() || !activeId) return;
     setSaving(true);
     try {
       const body = { nom: form.name, type: form.type, reference: form.ref, statut: form.status };
       const newDoc = await addDocument(activeId, body, form.fichier ?? null);
-      // Mise à jour locale optimiste
       setProcs(prev => prev.map(p =>
         p.id === activeId
           ? { ...p, docs: [...p.docs, {
@@ -185,6 +200,10 @@ export default function CartographieProcessus() {
   };
 
   const deleteDoc = async (pid, did) => {
+    if (!canDelete(moduleCode)) {
+      alert("Vous n'avez pas la permission de supprimer des documents");
+      return;
+    }
     await deleteDocument(pid, did);
     setProcs(prev => prev.map(p =>
       p.id === pid ? { ...p, docs: p.docs.filter(d => d.id !== did) } : p
@@ -192,6 +211,17 @@ export default function CartographieProcessus() {
   };
 
   const activeProc = procs.find(p => p.id === activeId) || null;
+
+  /* ── Vérification d'accès ── */
+  if (!hasAccess) {
+    return (
+      <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", gap:12, flexDirection:"column" }}>
+        <i className="fa-solid fa-ban" style={{ fontSize:48, color:"#e74c3c" }}/>
+        <div style={{ fontSize:18, fontWeight:600, color:"#0d2b3e" }}>Accès non autorisé</div>
+        <p style={{ fontSize:13, color:"#4a7a95" }}>Vous n'avez pas les permissions nécessaires pour accéder à la cartographie.</p>
+      </div>
+    );
+  }
 
   /* ── États chargement / erreur ── */
   if (loading) return (
@@ -262,9 +292,11 @@ export default function CartographieProcessus() {
                         </div>
                         <div className={`cx-layer-title cx-title-${cat}`}>{TITLES[cat]}</div>
                         <span className={`cx-layer-cnt cx-cnt-${cat}`}>{items.length} processus</span>
-                        <button className={`cx-add-proc cx-add-${cat}`} onClick={() => openAddProc(cat)}>
-                          <i className="fa-solid fa-plus"/> Ajouter
-                        </button>
+                        {canWrite(moduleCode) && (
+                          <button className={`cx-add-proc cx-add-${cat}`} onClick={() => openAddProc(cat)}>
+                            <i className="fa-solid fa-plus"/> Ajouter
+                          </button>
+                        )}
                       </div>
                       <div className="cx-proc-row">
                         {items.map((p, ci) => (
@@ -281,6 +313,8 @@ export default function CartographieProcessus() {
                               onClick={() => selectProc(p.id)}
                               onEdit={() => openEditProc(p.id)}
                               onDelete={() => deleteProc(p.id)}
+                              canEdit={canEdit(moduleCode)}
+                              canDelete={canDelete(moduleCode)}
                             />
                           </div>
                         ))}
@@ -403,20 +437,24 @@ export default function CartographieProcessus() {
                             <i className="fa-solid fa-download"/>
                           </button>
                         )}
-                        <button className="cx-del-btn" onClick={() => deleteDoc(activeProc.id, d.id)} title="Supprimer">
-                          <i className="fa-solid fa-trash-can"/>
-                        </button>
+                        {canDelete(moduleCode) && (
+                          <button className="cx-del-btn" onClick={() => deleteDoc(activeProc.id, d.id)} title="Supprimer">
+                            <i className="fa-solid fa-trash-can"/>
+                          </button>
+                        )}
                       </div>
                     ))
                   }
                 </div>
-                <button
-                  className="cx-add-doc-btn"
-                  style={{ "--ac":meta.color }}
-                  onClick={() => setDocModal({ open:true, form:EMPTY_DOC })}
-                >
-                  <i className="fa-solid fa-circle-plus"/> Ajouter un document
-                </button>
+                {canWrite(moduleCode) && (
+                  <button
+                    className="cx-add-doc-btn"
+                    style={{ "--ac":meta.color }}
+                    onClick={() => setDocModal({ open:true, form:EMPTY_DOC })}
+                  >
+                    <i className="fa-solid fa-circle-plus"/> Ajouter un document
+                  </button>
+                )}
               </div>
             </>
           );
@@ -451,15 +489,17 @@ export default function CartographieProcessus() {
               <button className="cx-btn-cancel" onClick={()=>setProcModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              <button
-                className="cx-btn-save"
-                style={{ background:CAT_META[procModal.form.cat].gradient }}
-                onClick={saveProc}
-                disabled={saving}
-              >
-                <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
-                {procModal.editId?"Modifier":"Ajouter"}
-              </button>
+              {canWrite(moduleCode) && (
+                <button
+                  className="cx-btn-save"
+                  style={{ background:CAT_META[procModal.form.cat].gradient }}
+                  onClick={saveProc}
+                  disabled={saving}
+                >
+                  <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
+                  {procModal.editId?"Modifier":"Ajouter"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -554,10 +594,12 @@ export default function CartographieProcessus() {
               <button className="cx-btn-cancel" onClick={()=>setDocModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              <button className="cx-btn-save" onClick={saveDoc} disabled={saving}>
-                <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
-                Ajouter
-              </button>
+              {canWrite(moduleCode) && (
+                <button className="cx-btn-save" onClick={saveDoc} disabled={saving}>
+                  <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
+                  Ajouter
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -569,7 +611,7 @@ export default function CartographieProcessus() {
 /* ═══════════════════════════════════════════════════════════
    SOUS-COMPOSANTS
 ═══════════════════════════════════════════════════════════ */
-function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete }) {
+function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, canEdit, canDelete }) {
   const CAT_ICONS = {
     mgmt: "fa-solid fa-building-columns",
     real: "fa-solid fa-bolt",
@@ -578,12 +620,16 @@ function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete }) {
   return (
     <div className={`cx-card cx-card-${cat} ${isActive?"cx-card-on":""}`} onClick={onClick}>
       <div className="cx-card-acts">
-        <button className="cx-act cx-act-e" title="Modifier" onClick={e=>{e.stopPropagation();onEdit();}}>
-          <i className="fa-solid fa-pen"/>
-        </button>
-        <button className="cx-act cx-act-d" title="Supprimer" onClick={e=>{e.stopPropagation();onDelete();}}>
-          <i className="fa-solid fa-trash-can"/>
-        </button>
+        {canEdit && (
+          <button className="cx-act cx-act-e" title="Modifier" onClick={e=>{e.stopPropagation();onEdit();}}>
+            <i className="fa-solid fa-pen"/>
+          </button>
+        )}
+        {canDelete && (
+          <button className="cx-act cx-act-d" title="Supprimer" onClick={e=>{e.stopPropagation();onDelete();}}>
+            <i className="fa-solid fa-trash-can"/>
+          </button>
+        )}
       </div>
       <div className="cx-card-num">
         <i className={`${CAT_ICONS[cat]} cx-card-cat-ico`}/>P{index}
@@ -614,7 +660,7 @@ function Fg({ label, icon, children }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CSS
+   CSS (inchangé)
 ═══════════════════════════════════════════════════════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');

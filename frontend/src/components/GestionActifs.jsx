@@ -4,6 +4,7 @@ import {
   CheckCircle, Upload, Database, LayoutGrid, List, ChevronDown, SlidersHorizontal, Download,
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
 
 const T = {
   font: "'Sora', 'Segoe UI', sans-serif",
@@ -130,6 +131,10 @@ function DropdownFilter({ label, value, onChange, options }) {
 }
 
 export default function GestionActifs() {
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "actifs";
+  const hasAccess = canRead(moduleCode);
+  
   const [actifs, setActifs] = useState([]);
   const [roles, setRoles] = useState([]);
 
@@ -175,13 +180,15 @@ export default function GestionActifs() {
 
   // Fonction d'export des actifs
   const handleExport = async () => {
+    if (!canExport(moduleCode)) {
+      alert('Vous n\'avez pas la permission d\'exporter les actifs');
+      return;
+    }
     setExportLoading(true);
     try {
-      // Récupérer tous les actifs avec leurs informations complètes
       const response = await axiosInstance.get('/api/actifs');
       const actifsData = response.data;
       
-      // Enrichir les données avec les noms des propriétaires
       const actifsEnriched = actifsData.map(actif => {
         const proprietaire = roles.find(r => r.id === actif.proprietaireId);
         return {
@@ -198,7 +205,6 @@ export default function GestionActifs() {
         };
       });
 
-      // Créer le fichier CSV
       const headers = ['ID', 'Nom', 'Description', 'Type', 'Catégorie', 'Classification', 'Propriétaire', 'Date Création', 'Date Modification'];
       const csvRows = [headers];
       
@@ -268,12 +274,20 @@ export default function GestionActifs() {
   const closeModal = () => { setModal(false); reset(); };
 
   const openNew = () => {
+    if (!canWrite(moduleCode)) {
+      alert('Vous n\'avez pas la permission de créer des actifs');
+      return;
+    }
     reset();
     setForm((prev) => ({ ...prev, proprietaireId: roles[0]?.id || '' }));
     setModal(true);
   };
 
   const openEdit = (a) => {
+    if (!canEdit(moduleCode)) {
+      alert('Vous n\'avez pas la permission de modifier cet actif');
+      return;
+    }
     setEditing(a);
     setForm({
       nom: a.nom,
@@ -288,6 +302,10 @@ export default function GestionActifs() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canWrite(moduleCode)) {
+      alert('Vous n\'avez pas la permission de créer ou modifier des actifs');
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -314,6 +332,10 @@ export default function GestionActifs() {
   };
 
   const handleDelete = async (id) => {
+    if (!canDelete(moduleCode)) {
+      alert('Vous n\'avez pas la permission de supprimer des actifs');
+      return;
+    }
     if (!window.confirm('Supprimer cet actif ?')) return;
     try {
       await axiosInstance.delete(`/api/actifs/${id}`);
@@ -362,24 +384,41 @@ export default function GestionActifs() {
           Proprietaire: <span className="font-semibold text-slate-700">{getProprietaireLabel(actif.proprietaireId)}</span>
         </p>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openEdit(actif)}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
-          >
-            <Edit size={14} /> Modifier
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(actif.id)}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100"
-          >
-            <Trash2 size={14} /> Supprimer
-          </button>
+          {canEdit(moduleCode) && (
+            <button
+              type="button"
+              onClick={() => openEdit(actif)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              <Edit size={14} /> Modifier
+            </button>
+          )}
+          {canDelete(moduleCode) && (
+            <button
+              type="button"
+              onClick={() => handleDelete(actif.id)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+            >
+              <Trash2 size={14} /> Supprimer
+            </button>
+          )}
         </div>
       </div>
     );
   };
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-[#f4f6fa] flex items-center justify-center px-4">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion des actifs.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f6fa] px-4 py-5 sm:px-6" style={{ fontFamily: T.font }}>
@@ -392,27 +431,31 @@ export default function GestionActifs() {
             <p className="mt-1 text-xs text-slate-500">Pilotage inventaire ISO 27001 - suivi des actifs et proprietaires.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={exportLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-            >
-              {exportLoading ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-              ) : (
-                <Download size={18} />
-              )}
-              {exportLoading ? 'Export...' : 'Exporter CSV'}
-            </button>
-            <button
-              type="button"
-              onClick={openNew}
-              className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
-              style={{ background: T.gradBlue }}
-            >
-              <Plus size={22} className="mr-2" /> Nouveau actif
-            </button>
+            {canExport(moduleCode) && (
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {exportLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                ) : (
+                  <Download size={18} />
+                )}
+                {exportLoading ? 'Export...' : 'Exporter CSV'}
+              </button>
+            )}
+            {canWrite(moduleCode) && (
+              <button
+                type="button"
+                onClick={openNew}
+                className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
+                style={{ background: T.gradBlue }}
+              >
+                <Plus size={22} className="mr-2" /> Nouveau actif
+              </button>
+            )}
           </div>
         </section>
 
@@ -532,12 +575,16 @@ export default function GestionActifs() {
                           <td className="px-6 py-4 text-xs font-medium text-slate-600">{getProprietaireLabel(actif.proprietaireId)}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-2">
-                              <button type="button" onClick={() => openEdit(actif)} className="rounded-lg bg-blue-50 p-2 text-blue-600 hover:bg-blue-100" title="Modifier">
-                                <Edit size={15} />
-                              </button>
-                              <button type="button" onClick={() => handleDelete(actif.id)} className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100" title="Supprimer">
-                                <Trash2 size={15} />
-                              </button>
+                              {canEdit(moduleCode) && (
+                                <button type="button" onClick={() => openEdit(actif)} className="rounded-lg bg-blue-50 p-2 text-blue-600 hover:bg-blue-100" title="Modifier">
+                                  <Edit size={15} />
+                                </button>
+                              )}
+                              {canDelete(moduleCode) && (
+                                <button type="button" onClick={() => handleDelete(actif.id)} className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100" title="Supprimer">
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -612,11 +659,13 @@ export default function GestionActifs() {
                   className="h-11 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                   Annuler
                 </button>
-                <button type="submit" disabled={loading}
-                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
-                  style={{ background: T.gradBlue }}>
-                  {loading ? 'Chargement...' : <><CheckCircle size={15} /> Enregistrer</>}
-                </button>
+                {canWrite(moduleCode) && (
+                  <button type="submit" disabled={loading}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white hover:opacity-95 disabled:opacity-60"
+                    style={{ background: T.gradBlue }}>
+                    {loading ? 'Chargement...' : <><CheckCircle size={15} /> Enregistrer</>}
+                  </button>
+                )}
               </div>
             </form>
           </div>

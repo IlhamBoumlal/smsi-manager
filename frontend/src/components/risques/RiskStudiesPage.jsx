@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useRiskStudies } from "./RiskStudiesContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   ANSSI_BASE,
   MITRE_TACTICS,
@@ -176,6 +177,10 @@ function studyStatus(study) {
 
 export default function RiskStudiesPage() {
   const navigate = useNavigate();
+  const { canRead, canWrite, canDelete, canExport } = useAuth();
+  const moduleCode = "risques";
+  const hasAccess = canRead(moduleCode);
+  
   const { studies, createStudy, deleteStudy, refreshStudies } = useRiskStudies();
   const [createOpen, setCreateOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
@@ -238,6 +243,19 @@ export default function RiskStudiesPage() {
     },
   };
 
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="risk-page p-6">
+        <RiskCard className="mx-auto max-w-3xl p-8 text-center">
+          <ShieldCheck size={48} className="mx-auto text-red-500" />
+          <h2 className="mt-4 text-xl font-black text-slate-900">Accès non autorisé</h2>
+          <p className="mt-2 text-sm text-slate-500">Vous n'avez pas les permissions nécessaires pour accéder aux études de risques.</p>
+        </RiskCard>
+      </div>
+    );
+  }
+
   return (
     <div className="risk-page risk-fade-up">
       <div className="risk-app-shell space-y-4">
@@ -249,9 +267,11 @@ export default function RiskStudiesPage() {
               <button onClick={() => setKnowledgeOpen(true)} type="button" className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 <BookOpen size={15} /> MITRE / ANSSI
               </button>
-              <button onClick={() => setCreateOpen(true)} type="button" className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700">
-                <Plus size={15} /> Nouvelle etude
-              </button>
+              {canWrite(moduleCode) && (
+                <button onClick={() => setCreateOpen(true)} type="button" className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700">
+                  <Plus size={15} /> Nouvelle etude
+                </button>
+              )}
             </>
           )}
         />
@@ -300,14 +320,16 @@ export default function RiskStudiesPage() {
                   );
                 })}
               </div>
-              <button
-                type="button"
-                onClick={refreshStudies}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                <RefreshCw size={14} />
-                Actualiser
-              </button>
+              {canExport(moduleCode) && (
+                <button
+                  type="button"
+                  onClick={refreshStudies}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <RefreshCw size={14} />
+                  Actualiser
+                </button>
+              )}
             </div>
 
             <div className="relative">
@@ -344,9 +366,11 @@ export default function RiskStudiesPage() {
                 <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
                   {studies.length ? "Change les filtres ou lance une nouvelle etude." : "Cree ta premiere etude de risque EBIOS RM pour lancer le workflow complet sur les 5 ateliers."}
                 </p>
-                <button onClick={() => setCreateOpen(true)} type="button" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-                  <Plus size={14} /> Creer une etude
-                </button>
+                {canWrite(moduleCode) && (
+                  <button onClick={() => setCreateOpen(true)} type="button" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                    <Plus size={14} /> Creer une etude
+                  </button>
+                )}
               </RiskCard>
             ) : (
               <div className="risk-study-grid">
@@ -421,19 +445,21 @@ export default function RiskStudiesPage() {
                       </div>
 
                       <div className="mt-3 flex justify-end">
-                        <button
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            const confirmed = window.confirm(`Supprimer l'etude "${study.name || "sans nom"}" ? Cette action est irreversible.`);
-                            if (!confirmed) return;
-                            deleteStudy(study.id);
-                          }}
-                          type="button"
-                          aria-label="Supprimer l'etude"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {canDelete(moduleCode) && (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const confirmed = window.confirm(`Supprimer l'etude "${study.name || "sans nom"}" ? Cette action est irreversible.`);
+                              if (!confirmed) return;
+                              deleteStudy(study.id);
+                            }}
+                            type="button"
+                            aria-label="Supprimer l'etude"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </RiskCard>
                   );
@@ -447,6 +473,7 @@ export default function RiskStudiesPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onSubmit={(payload) => {
+          if (!canWrite(moduleCode)) return;
           const created = createStudy(payload);
           setCreateOpen(false);
           navigate(`/risques/etudes/${created.id}`);

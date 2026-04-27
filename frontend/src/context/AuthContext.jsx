@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -19,6 +19,10 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+
+  // Nouveaux états pour les permissions
+  const [permissions, setPermissions] = useState({ modules: [] });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   const refreshTimerRef = useRef(null);
 
@@ -63,6 +67,9 @@ export function AuthProvider({ children }) {
 
       // Replanifie le prochain refresh
       scheduleRefresh(token);
+      
+      // Recharge les permissions avec le nouveau token
+      await loadUserPermissions(token);
     } catch (err) {
       console.warn('Refresh token échoué, déconnexion.', err);
       logoutUser();
@@ -85,8 +92,60 @@ export function AuthProvider({ children }) {
     }, delay);
   };
 
+  /* ─── Charger les permissions de l'utilisateur ──────────────── */
+ const loadUserPermissions = useCallback(async (token = null) => {
+  const authToken = token || localStorage.getItem('token');
+  if (!authToken) {
+    setPermissions({ modules: [] });
+    setPermissionsLoaded(false);
+    return;
+  }
+
+  try {
+    const response = await axios.get(`${API}/api/User/me/permissions`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    
+    if (response.data) {
+      console.log('[Permissions] Chargées avec succès:', response.data);
+      setPermissions(response.data);
+      setPermissionsLoaded(true);
+    }
+  } catch (error) {
+    console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
+    setPermissions({ modules: [] });
+    setPermissionsLoaded(false);
+  }
+}, []);
+  /* ─── Vérifier si l'utilisateur a une permission ───────────── */
+  const can = useCallback((moduleCode, actionCode) => {
+    if (!permissions.modules || permissions.modules.length === 0) return false;
+    
+    const module = permissions.modules.find(m => m.moduleCode === moduleCode);
+    if (!module) return false;
+    
+    return module.actions.some(a => a.actionCode === actionCode);
+  }, [permissions]);
+
+  /* ─── Vérifier si l'utilisateur peut lire un module ─────────── */
+  const canRead = useCallback((moduleCode) => can(moduleCode, 'view'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut écrire ─────────────────── */
+  const canWrite = useCallback((moduleCode) => can(moduleCode, 'create'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut modifier ───────────────── */
+  const canEdit = useCallback((moduleCode) => can(moduleCode, 'edit'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut supprimer ──────────────── */
+  const canDelete = useCallback((moduleCode) => can(moduleCode, 'delete'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut exporter ───────────────── */
+  const canExport = useCallback((moduleCode) => can(moduleCode, 'export'), [can]);
+
   /* ─── Login ─────────────────────────────────────────────────── */
-  const loginUser = (data) => {
+  const loginUser = async (data) => {
     if (!data?.token) return;
     
     localStorage.setItem('token', data.token);
@@ -96,6 +155,9 @@ export function AuthProvider({ children }) {
     }
     setUser(data);
     scheduleRefresh(data.token);
+    
+    // Charger les permissions après connexion
+    await loadUserPermissions(data.token);
   };
 
   /* ─── Logout ────────────────────────────────────────────────── */
@@ -105,9 +167,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setUser(null);
+    setPermissions({ modules: [] });
+    setPermissionsLoaded(false);
   };
 
-  /* ─── Au démarrage : si token déjà en storage, planifie refresh */
+  /* ─── Au démarrage : si token déjà en storage, planifie refresh et charge permissions */
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -117,6 +181,8 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('token');
       }
       setUser(null);
+      setPermissions({ modules: [] });
+      setPermissionsLoaded(false);
       return;
     }
 
@@ -131,6 +197,8 @@ export function AuthProvider({ children }) {
           refreshToken();
         } else {
           scheduleRefresh(token);
+          // Charger les permissions au démarrage
+          loadUserPermissions(token);
         }
       }
     } catch {
@@ -144,7 +212,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loginUser, logoutUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loginUser, 
+      logoutUser,
+      permissions,
+      permissionsLoaded,
+      can,
+      canRead,
+      canWrite,
+      canEdit,
+      canDelete,
+      canExport
+    }}>
       {children}
     </AuthContext.Provider>
   );

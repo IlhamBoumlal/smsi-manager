@@ -4,7 +4,7 @@ using backend.Application.Permissions;
 using backend.Application.Permissions.Commands.AssignPermission;
 using backend.Application.Permissions.Commands.RemovePermission;
 using backend.Application.Permissions.Commands.RevokeAllModulePermissions;
-using backend.Application.Permissions.Queries.GetRolePermissionsWithModules;
+using backend.Application.Permissions.Queries.GetRolePermissions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

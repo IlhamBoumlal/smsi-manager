@@ -4,13 +4,14 @@ using backend.Application.Roles.Queries.GetAllRoles;
 using backend.Application.Users.Commands.DeleteUser;
 using backend.Application.Users.Commands.UpdateUser;
 using backend.Application.Users.Queries.GetAllUsers;
+using backend.Application.Users.Queries.GetUserPermissions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
@@ -59,5 +60,20 @@ namespace backend.API.Controllers
             var roles = await _mediator.Send(new GetAllRolesQuery());
             return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
         }
+
+        [HttpGet("me/permissions")]
+        [Authorize]
+        public async Task<IActionResult> GetMyPermissions()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Utilisateur non authentifié" });
+
+            var result = await _mediator.Send(new GetUserPermissionsQuery { UserId = userId });
+            return Ok(result);
+        }
     }
 }
+
+

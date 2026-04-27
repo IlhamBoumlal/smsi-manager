@@ -12,7 +12,7 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <SuperAdminSpace    />
+        <App    />
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
