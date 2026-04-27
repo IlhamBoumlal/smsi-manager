@@ -4,6 +4,7 @@ using backend.Application.Audits.Commands;
 using backend.Application.Audits.Queries;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.API.Controllers;
 
@@ -16,13 +17,27 @@ public class AuditsController : ControllerBase
 
     public AuditsController(AppDbContext db) => _db = db;
 
+    private string CurrentUserId =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue("sub")
+        ?? string.Empty;
+
+    private int? CurrentSocieteId
+    {
+        get
+        {
+            var value = User.FindFirstValue("SocieteId");
+            return int.TryParse(value, out var parsed) ? parsed : null;
+        }
+    }
+
     // ─── AUDITS ───────────────────────────────────────────────────────────────
 
     /// <summary>Retourne tous les audits avec leurs statuts de contrôles.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await new GetAllAuditsQuery(_db).ExecuteAsync();
+        var result = await new GetAllAuditsQuery(_db).ExecuteAsync(CurrentSocieteId);
         return Ok(result);
     }
 
@@ -30,7 +45,7 @@ public class AuditsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var result = await new GetAuditByIdQuery(_db).ExecuteAsync(id);
+        var result = await new GetAuditByIdQuery(_db).ExecuteAsync(id, CurrentSocieteId);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -39,7 +54,7 @@ public class AuditsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateAuditDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var result = await new CreateAuditCommand(_db).ExecuteAsync(dto);
+        var result = await new CreateAuditCommand(_db).ExecuteAsync(dto, CurrentSocieteId);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -48,7 +63,7 @@ public class AuditsController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAuditDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var result = await new UpdateAuditCommand(_db).ExecuteAsync(id, dto);
+        var result = await new UpdateAuditCommand(_db).ExecuteAsync(id, dto, CurrentSocieteId);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -56,7 +71,7 @@ public class AuditsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var ok = await new DeleteAuditCommand(_db).ExecuteAsync(id);
+        var ok = await new DeleteAuditCommand(_db).ExecuteAsync(id, CurrentSocieteId);
         return ok ? NoContent() : NotFound();
     }
 
@@ -66,7 +81,7 @@ public class AuditsController : ControllerBase
     [HttpGet("ncs")]
     public async Task<IActionResult> GetAllNCs()
     {
-        var result = await new GetAllNonConformitesQuery(_db).ExecuteAsync();
+        var result = await new GetAllNonConformitesQuery(_db).ExecuteAsync(CurrentSocieteId);
         return Ok(result);
     }
 
@@ -74,7 +89,7 @@ public class AuditsController : ControllerBase
     [HttpGet("ncs/{id:guid}")]
     public async Task<IActionResult> GetNCById(Guid id)
     {
-        var result = await new GetNonConformiteByIdQuery(_db).ExecuteAsync(id);
+        var result = await new GetNonConformiteByIdQuery(_db).ExecuteAsync(id, CurrentSocieteId);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -83,7 +98,7 @@ public class AuditsController : ControllerBase
     public async Task<IActionResult> CreateNC([FromBody] CreateNonConformiteDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var result = await new CreateNonConformiteCommand(_db).ExecuteAsync(dto);
+        var result = await new CreateNonConformiteCommand(_db).ExecuteAsync(dto, CurrentSocieteId);
         return CreatedAtAction(nameof(GetNCById), new { id = result.Id }, result);
     }
 
@@ -92,7 +107,7 @@ public class AuditsController : ControllerBase
     public async Task<IActionResult> UpdateNC(Guid id, [FromBody] UpdateNonConformiteDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var result = await new UpdateNonConformiteCommand(_db).ExecuteAsync(id, dto);
+        var result = await new UpdateNonConformiteCommand(_db).ExecuteAsync(id, dto, CurrentSocieteId);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -100,7 +115,7 @@ public class AuditsController : ControllerBase
     [HttpDelete("ncs/{id:guid}")]
     public async Task<IActionResult> DeleteNC(Guid id)
     {
-        var ok = await new DeleteNonConformiteCommand(_db).ExecuteAsync(id);
+        var ok = await new DeleteNonConformiteCommand(_db).ExecuteAsync(id, CurrentSocieteId);
         return ok ? NoContent() : NotFound();
     }
 
@@ -110,7 +125,7 @@ public class AuditsController : ControllerBase
     [HttpGet("simulations")]
     public async Task<IActionResult> GetAllSimulations()
     {
-        var result = await new GetAllSimulationsQuery(_db).ExecuteAsync();
+        var result = await new GetAllSimulationsQuery(_db).ExecuteAsync(CurrentSocieteId);
         return Ok(result);
     }
 
@@ -119,7 +134,7 @@ public class AuditsController : ControllerBase
     public async Task<IActionResult> CreateSimulation([FromBody] CreateSimulationAuditDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var result = await new CreateSimulationCommand(_db).ExecuteAsync(dto);
+        var result = await new CreateSimulationCommand(_db).ExecuteAsync(dto, CurrentSocieteId);
         return CreatedAtAction(nameof(GetAllSimulations), new { id = result.Id }, result);
     }
 
@@ -127,7 +142,7 @@ public class AuditsController : ControllerBase
     [HttpDelete("simulations/{id:guid}")]
     public async Task<IActionResult> DeleteSimulation(Guid id)
     {
-        var ok = await new DeleteSimulationCommand(_db).ExecuteAsync(id);
+        var ok = await new DeleteSimulationCommand(_db).ExecuteAsync(id, CurrentSocieteId);
         return ok ? NoContent() : NotFound();
     }
 }

@@ -15,10 +15,11 @@ public class CreateAuditCommand
     private readonly AppDbContext _db;
     public CreateAuditCommand(AppDbContext db) => _db = db;
 
-    public async Task<AuditDto> ExecuteAsync(CreateAuditDto dto)
+    public async Task<AuditDto> ExecuteAsync(CreateAuditDto dto, int? societeId)
     {
         var audit = new Audit
         {
+            SocieteId = societeId,
             Title = dto.Title,
             Type = dto.Type,
             Status = dto.Status,

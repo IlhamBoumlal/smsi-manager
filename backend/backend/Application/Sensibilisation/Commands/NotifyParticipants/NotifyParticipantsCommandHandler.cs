@@ -14,7 +14,7 @@ public class NotifyParticipantsCommandHandler(
 {
     public async Task<bool> Handle(NotifyParticipantsCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.FormationId, ct);
+        var f = await repo.GetByIdAsync(cmd.FormationId, cmd.SocieteId, ct);
         if (f is null) return false;
 
         // Envoi email à chaque participant

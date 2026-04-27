@@ -3,6 +3,6 @@ using MediatR;
 
 namespace backend.Application.Incidents.Queries.GetIncidentById
 {
-    public record GetIncidentByIdQuery(Guid Id) : IRequest<IncidentDto?>;
+    public record GetIncidentByIdQuery(Guid Id, int? SocieteId) : IRequest<IncidentDto?>;
 
 }

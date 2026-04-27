@@ -23,10 +23,11 @@ namespace backend.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<RiskStudy?> GetByIdAsync(Guid id)
+        public async Task<RiskStudy?> GetByIdAsync(Guid id, int? societeId)
         {
             return await _context.RiskStudies
                 .AsNoTracking()
+                .Where(s => societeId.HasValue ? s.SocieteId == societeId.Value || s.SocieteId == null : s.SocieteId == null)
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
@@ -59,9 +60,11 @@ namespace backend.Infrastructure.Repositories
             return existing;
         }
 
-        public async Task<bool> DeleteAsync(Guid id)
+        public async Task<bool> DeleteAsync(Guid id, int? societeId)
         {
-            var existing = await _context.RiskStudies.FindAsync(id);
+            var existing = await _context.RiskStudies
+                .Where(s => societeId.HasValue ? s.SocieteId == societeId.Value || s.SocieteId == null : s.SocieteId == null)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (existing is null) return false;
 
             _context.RiskStudies.Remove(existing);

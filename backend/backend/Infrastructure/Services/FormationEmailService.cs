@@ -11,12 +11,12 @@ namespace backend.Infrastructure.Services
         // Crée un sender FluentEmail via Gmail SMTP
         private IFluentEmail BuildEmail(string toEmail, string toName)
         {
-            var smtpClient = new SmtpClient(config["Email:SmtpHost"])
+            var smtpClient = new SmtpClient(config["Email:SmtpServer"])
             {
                 Port = int.Parse(config["Email:SmtpPort"]!),
                 Credentials = new NetworkCredential(
                     config["Email:SmtpUser"],
-                    config["Email:SmtpPassword"]),
+                    config["Email:SmtpPass"]),
                 EnableSsl = true,
             };
 
@@ -24,7 +24,7 @@ namespace backend.Infrastructure.Services
             Email.DefaultSender = sender;
 
             return Email
-                .From(config["Email:FromAddress"], config["Email:FromName"])
+                .From(config["Email:FromEmail"], config["Email:FromName"])
                 .To(toEmail, toName);
         }
 

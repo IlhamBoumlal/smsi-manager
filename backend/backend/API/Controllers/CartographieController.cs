@@ -3,6 +3,7 @@ using Application.Cartographie.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace backend.API.Controllers;
 
@@ -14,38 +15,41 @@ public class CartographieController : ControllerBase
     private readonly IMediator _mediator;
     public CartographieController(IMediator mediator) => _mediator = mediator;
 
+    private int? CurrentSocieteId => int.TryParse(User.FindFirstValue("SocieteId"), out var id) ? id : null;
+
 
     // ── Processus ──────────────────────────────────────────────
 
     [HttpGet("processus")]
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
-        Ok(await _mediator.Send(new GetAllProcessusQuery(), ct));
+        Ok(await _mediator.Send(new GetAllProcessusQuery(CurrentSocieteId), ct));
 
     [HttpGet("processus/{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetProcessusByIdQuery(id), ct);
+        var result = await _mediator.Send(new GetProcessusByIdQuery(id, CurrentSocieteId), ct);
         return result is null ? NotFound() : Ok(result);
     }
 
     [HttpPost("processus")]
     public async Task<IActionResult> Create([FromBody] CreateProcessusCommand cmd, CancellationToken ct)
     {
-        var result = await _mediator.Send(cmd, ct);
+        var command = cmd with { SocieteId = CurrentSocieteId };
+        var result = await _mediator.Send(command, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     [HttpPut("processus/{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProcessusBody body, CancellationToken ct)
     {
-        await _mediator.Send(new UpdateProcessusCommand(id, body.Categorie, body.Nom, body.Responsable, body.Description), ct);
+        await _mediator.Send(new UpdateProcessusCommand(id, body.Categorie, body.Nom, body.Responsable, body.Description, CurrentSocieteId), ct);
         return NoContent();
     }
 
     [HttpDelete("processus/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _mediator.Send(new DeleteProcessusCommand(id), ct);
+        await _mediator.Send(new DeleteProcessusCommand(id, CurrentSocieteId), ct);
         return NoContent();
     }
 
@@ -75,7 +79,7 @@ public class CartographieController : ControllerBase
         var result = await _mediator.Send(
             new AddDocumentCommand(processusId, body.Nom, body.Type,
                                    body.Reference, body.Statut,
-                                   fichierNom, fichierType, fichierData), ct);
+                                   fichierNom, fichierType, fichierData, CurrentSocieteId), ct);
 
         return Ok(result);
     }
@@ -83,7 +87,7 @@ public class CartographieController : ControllerBase
     [HttpGet("documents/{documentId:guid}/fichier")]
     public async Task<IActionResult> DownloadFichier(Guid documentId, CancellationToken ct)
     {
-        var doc = await _mediator.Send(new GetDocumentFichierQuery(documentId), ct);
+        var doc = await _mediator.Send(new GetDocumentFichierQuery(documentId, CurrentSocieteId), ct);
         if (doc?.FichierData == null) return NotFound();
         return File(doc.FichierData, doc.FichierType ?? "application/octet-stream", doc.FichierNom);
     }
@@ -91,7 +95,7 @@ public class CartographieController : ControllerBase
     [HttpDelete("processus/{processusId:guid}/documents/{documentId:guid}")]
     public async Task<IActionResult> DeleteDocument(Guid processusId, Guid documentId, CancellationToken ct)
     {
-        await _mediator.Send(new DeleteDocumentCommand(processusId, documentId), ct);
+        await _mediator.Send(new DeleteDocumentCommand(processusId, documentId, CurrentSocieteId), ct);
         return NoContent();
     }
 }

@@ -9,10 +9,11 @@ public class UpdateAuditCommand
     private readonly AppDbContext _db;
     public UpdateAuditCommand(AppDbContext db) => _db = db;
 
-    public async Task<AuditDto?> ExecuteAsync(Guid id, UpdateAuditDto dto)
+    public async Task<AuditDto?> ExecuteAsync(Guid id, UpdateAuditDto dto, int? societeId)
     {
         var audit = await _db.Audits
             .Include(a => a.ControlStatuses)
+            .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (audit is null) return null;

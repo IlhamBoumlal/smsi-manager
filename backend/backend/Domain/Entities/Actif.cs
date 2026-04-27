@@ -11,7 +11,9 @@ namespace backend.Domain.Entities
         public CategorieActif Categorie { get; set; }
         public ClassificationActif Classification { get; set; }
         //A changer après
-        public Guid ProprietaireId { get; set; }
+        public Guid? ProprietaireId { get; set; }
+        public int? SocieteId { get; set; }
+        public Societe? Societe { get; set; }
 
     }
 }

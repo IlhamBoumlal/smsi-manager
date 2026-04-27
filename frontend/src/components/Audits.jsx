@@ -270,9 +270,9 @@ const Toast = ({ msg, type, onClose }) => {
 const MODULES = [
   { id:'plan',     label:'Planifier',   icon:CalendarDays,  accent:'indigo', desc:'Audits : certification / surveillance / fournisseur' },
   { id:'simulate', label:'Simuler',     icon:Sparkles,      accent:'indigo', desc:'Auto-évaluation Oui/Non des 93 contrôles — entraînement uniquement' },
-  { id:'post',     label:'Post-Audit',  icon:BarChart3,     accent:'indigo',desc:'Vérifier chaque contrôle : Conforme (C) ou Non-Conforme (NC)' },
-  { id:'nc',       label:'NC',          icon:AlertTriangle, accent:'indigo',    desc:'Suivi et traitement des non-conformités avec actions correctives' },
-  { id:'gap',      label:'Écart / SoA', icon:GitBranch,     accent:'indigo',  desc:'Statement of Applicability et analyse comparative simulation vs audit' },
+  { id:'post',     label:'Post-Audit',  icon:BarChart3,     accent:'indigo', desc:'Vérifier chaque contrôle : Conforme (C) ou Non-Conforme (NC)' },
+  { id:'nc',       label:'NC',          icon:AlertTriangle, accent:'indigo', desc:'Suivi et traitement des non-conformités avec actions correctives' },
+  { id:'gap',      label:'Écart / SoA', icon:GitBranch,     accent:'indigo', desc:'Statement of Applicability et analyse comparative simulation vs audit' },
 ];
 
 const ACC_ACTIVE = {
@@ -763,11 +763,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
 
   const handleCreateAudit = () => {
     if(!validateAudit()) return;
-    const a = {
-      id: `local-${Date.now()}`,
-      ...auditForm,
-      type: auditForm.type || 'external_cert'
-    };
+    const a = { id: `local-${Date.now()}`, ...auditForm, type: auditForm.type || 'external_cert' };
     setLocalAudits(p=>[a,...p]);
     setAuditForm(EMPTY_AUDIT);
     setView('list');
@@ -775,10 +771,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
 
   const mergedAudits = useMemo(() => {
     const baseAudits = allAudits || [];
-    const localWithType = localAudits.map(a => ({
-      ...a,
-      type: a.type || 'external_cert'
-    }));
+    const localWithType = localAudits.map(a => ({ ...a, type: a.type || 'external_cert' }));
     return [...baseAudits, ...localWithType.filter(a=>!baseAudits.find(m=>m.id===a.id))];
   }, [localAudits, allAudits]);
 
@@ -800,18 +793,12 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
     const auditName = selectedAudit.title || selectedAudit.name || '';
     const isLocalId = !selectedAudit.id || String(selectedAudit.id).startsWith('local-');
     const auditId   = isLocalId ? null : selectedAudit.id;
-
     ALL_CONTROLS.filter(c=>statuses[c.id]==='NC').forEach(c=>{
       const f = ncForms[c.id]||{};
       onNCCreated({
-        controlId:        c.id,
-        title:            f.title || c.name,
-        description:      f.desc  || comments[c.id] || '',
-        correctiveAction: f.action   || '',
-        responsible:      f.resp     || '',
-        deadline:         f.deadline || '',
-        auditName,
-        auditId,
+        controlId: c.id, title: f.title || c.name, description: f.desc || comments[c.id] || '',
+        correctiveAction: f.action || '', responsible: f.resp || '', deadline: f.deadline || '',
+        auditName, auditId,
       });
     });
     setSoaGenerated(true);
@@ -827,18 +814,15 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
           <p className="text-xs text-gray-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
         </div>
       </div>
-
       <div className="flex justify-end">
         {canWrite && <Btn icon={Plus} onClick={()=>setView('create')}>Créer un audit</Btn>}
       </div>
-
       {mergedAudits.length===0 && (
         <Card className="text-center py-14 border border-dashed border-gray-300">
           <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
           <p className="font-semibold text-gray-500">Aucun audit créé</p>
         </Card>
       )}
-
       {mergedAudits.map(a=>{
         const sc = STATUS_CFG[a.status]||STATUS_CFG['in-progress'];
         return (
@@ -1025,7 +1009,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
                       {!statuses[c.id]       && <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-gray-400 max-w-xs">{comments[c.id]||'—'}</td>
-                  </tr>
+                  </tr>    
                 ))}
               </tbody>
             </table>
@@ -1383,7 +1367,7 @@ export function Audits() {
   const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
   const moduleCode = "audits";
   const hasAccess = canRead(moduleCode);
-  
+
   const [audits,     setAudits]     = useState([]);
   const [ncs,        setNcs]        = useState([]);
   const [simHistory, setSimHistory] = useState([]);
@@ -1421,15 +1405,10 @@ export function Audits() {
     }
     try {
       const saved = await createSimulation({
-        name:          sim.name,
-        author:        sim.author,
-        date:          sim.date,
-        score:         sim.score,
-        totalAnswered: sim.totalAnswered,
-        oui:           sim.oui,
-        non:           sim.non,
-        answers:       sim.answers,
-        comments:      sim.comments,
+        name: sim.name, author: sim.author, date: sim.date,
+        score: sim.score, totalAnswered: sim.totalAnswered,
+        oui: sim.oui, non: sim.non,
+        answers: sim.answers, comments: sim.comments,
       });
       setSimHistory(prev => [saved, ...prev.filter(s => s.id !== saved.id)]);
       showToast('Simulation enregistrée dans l\'historique', 'success');
@@ -1439,19 +1418,16 @@ export function Audits() {
   }, [showToast, canWrite, moduleCode]);
 
   const stats = useMemo(()=>({
-    total:    audits.length,
-    planned:  audits.filter(a=>a.status==='planned').length,
-    inProg:   audits.filter(a=>a.status==='in-progress').length,
-    completed:audits.filter(a=>a.status==='completed').length,
-    openNCs:  ncs.filter(n=>n.status==='open').length,
-    sims:     simHistory.length,
+    total:     audits.length,
+    planned:   audits.filter(a=>a.status==='planned').length,
+    inProg:    audits.filter(a=>a.status==='in-progress').length,
+    completed: audits.filter(a=>a.status==='completed').length,
+    openNCs:   ncs.filter(n=>n.status==='open').length,
+    sims:      simHistory.length,
   }),[audits,ncs,simHistory]);
 
   const handleSavePlan = async (data, editId) => {
-    if (!canWrite(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de créer des audits', 'error');
-      return;
-    }
+    if (!canWrite(moduleCode)) { showToast('Vous n\'avez pas la permission de créer des audits', 'error'); return; }
     setSaving(true);
     try {
       if (editId) {
@@ -1463,112 +1439,56 @@ export function Audits() {
         setAudits(p => [...p, c]);
         showToast('Audit planifié', 'success');
       }
-    } catch {
-      showToast('Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
-    }
+    } catch { showToast('Erreur lors de la sauvegarde'); }
+    finally { setSaving(false); }
   };
 
   const handleDeletePlan = async (id) => {
-    if (!canDelete(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de supprimer des audits', 'error');
-      return;
-    }
+    if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des audits', 'error'); return; }
     if (!window.confirm('Supprimer cet audit ?')) return;
-    try {
-      await deleteAudit(id);
-      setAudits(p => p.filter(a => a.id !== id));
-      showToast('Audit supprimé', 'success');
-    } catch {
-      showToast('Erreur');
-    }
+    try { await deleteAudit(id); setAudits(p => p.filter(a => a.id !== id)); showToast('Audit supprimé', 'success'); }
+    catch { showToast('Erreur'); }
   };
 
   const handleAddNC = async (data) => {
-    if (!canWrite(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de créer des NC', 'error');
-      return;
-    }
+    if (!canWrite(moduleCode)) { showToast('Vous n\'avez pas la permission de créer des NC', 'error'); return; }
     setSaving(true);
-    try {
-      const c = await createNC({ ...data, correctiveActions: [] });
-      setNcs(p => [...p, c]);
-      showToast('NC créée', 'success');
-    } catch {
-      showToast('Erreur');
-    } finally {
-      setSaving(false);
-    }
+    try { const c = await createNC({ ...data, correctiveActions: [] }); setNcs(p => [...p, c]); showToast('NC créée', 'success'); }
+    catch { showToast('Erreur'); }
+    finally { setSaving(false); }
   };
 
   const handleUpdateNC = async (id, data) => {
-    if (!canEdit(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de modifier des NC', 'error');
-      return;
-    }
-    try {
-      const u = await updateNC(id, data);
-      setNcs(p => p.map(n => n.id === id ? u : n));
-    } catch {
-      showToast('Erreur mise à jour NC');
-    }
+    if (!canEdit(moduleCode)) { showToast('Vous n\'avez pas la permission de modifier des NC', 'error'); return; }
+    try { const u = await updateNC(id, data); setNcs(p => p.map(n => n.id === id ? u : n)); }
+    catch { showToast('Erreur mise à jour NC'); }
   };
 
   const handleDeleteNC = async (id) => {
-    if (!canDelete(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de supprimer des NC', 'error');
-      return;
-    }
+    if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des NC', 'error'); return; }
     if (!window.confirm('Supprimer cette NC ?')) return;
-    try {
-      await deleteNC(id);
-      setNcs(p => p.filter(n => n.id !== id));
-      showToast('NC supprimée', 'success');
-    } catch {
-      showToast('Erreur');
-    }
+    try { await deleteNC(id); setNcs(p => p.filter(n => n.id !== id)); showToast('NC supprimée', 'success'); }
+    catch { showToast('Erreur'); }
   };
 
   const handleNCFromPostAudit = async (ncData) => {
     const localId = `local-nc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const localNc = {
-      id: localId,
-      ...ncData,
-      status: 'open',
+      id: localId, ...ncData, status: 'open',
       correctiveActions: ncData.correctiveAction
-        ? [{
-            id:          `act-${Date.now()}`,
-            description: ncData.correctiveAction,
-            responsible: ncData.responsible || null,
-            deadline:    ncData.deadline    || null,
-            status:      'pending',
-          }]
+        ? [{ id:`act-${Date.now()}`, description:ncData.correctiveAction, responsible:ncData.responsible||null, deadline:ncData.deadline||null, status:'pending' }]
         : [],
     };
     setNcs(p => [...p, localNc]);
-
     const dto = {
-      title:            ncData.title            || '',
-      description:      ncData.description      || '',
-      controlId:        ncData.controlId        || '',
-      actor:            ncData.actor            || null,
-      correctiveAction: ncData.correctiveAction || null,
-      responsible:      ncData.responsible      || null,
-      deadline:         ncData.deadline         || null,
-      status:           'open',
-      auditName:        ncData.auditName        || null,
-      auditId:          ncData.auditId          || null,
+      title: ncData.title||'', description: ncData.description||'', controlId: ncData.controlId||'',
+      actor: ncData.actor||null, correctiveAction: ncData.correctiveAction||null,
+      responsible: ncData.responsible||null, deadline: ncData.deadline||null,
+      status: 'open', auditName: ncData.auditName||null, auditId: ncData.auditId||null,
       correctiveActions: ncData.correctiveAction
-        ? [{
-            description: ncData.correctiveAction,
-            responsible: ncData.responsible || null,
-            deadline:    ncData.deadline    || null,
-            status:      'pending',
-          }]
+        ? [{ description:ncData.correctiveAction, responsible:ncData.responsible||null, deadline:ncData.deadline||null, status:'pending' }]
         : [],
     };
-
     try {
       const saved = await createNC(dto);
       setNcs(p => p.map(n => n.id === localId ? saved : n));
@@ -1578,7 +1498,6 @@ export function Audits() {
     }
   };
 
-  // Vérification d'accès
   if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -1605,78 +1524,60 @@ export function Audits() {
     <div className="min-h-screen w-full bg-gray-50" style={{fontFamily:"'Inter','DM Sans',system-ui,sans-serif"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
 
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Shield className="w-5 h-5 text-white"/>
-            </div>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
             <div>
-              <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Audit ISO 27001:2022</h1>
-              <p className="text-xs text-gray-400">4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI</p>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+                Audit ISO 27001:2022
+              </h1>
+              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+                4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI
+              </p>
             </div>
+            <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
+              <RefreshCw className="w-4 h-4 text-gray-400"/>
+            </button>
           </div>
-          <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-            <RefreshCw className="w-4 h-4 text-gray-400"/>
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full px-6 py-6 space-y-5">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
-          {[
-            { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
-            { label: 'Planifiés',        value: stats.planned,   sub: 'À venir' },
-            { label: 'En cours',         value: stats.inProg,    sub: stats.inProg > 0 ? 'Actifs' : 'Aucun' },
-            { label: 'Terminés',         value: stats.completed, sub: 'Archivés' },
-            { label: 'NC Ouvertes',      value: stats.openNCs,   sub: stats.openNCs > 0 ? 'Action requise' : 'RAS' },
-            { label: 'Simulations',      value: stats.sims,      sub: 'Historique' },
-          ].map((k, i) => (
-            <div key={i} style={{
-              background: k.highlight ? 'linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)' : '#fff',
-              borderRadius: 14,
-              padding: '18px 20px',
-              boxShadow: k.highlight
-                ? '0 8px 24px rgba(29,78,216,.35)'
-                : '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
-              animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 60}ms both`,
-            }}>
-              <div style={{
-                fontSize: 30, fontWeight: 800, lineHeight: 1,
-                color: k.highlight ? '#fff' : '#111827',
-                fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px',
-              }}>{k.value}</div>
-              <div style={{
-                fontSize: 12, fontWeight: 600, marginTop: 6,
-                color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151',
-              }}>{k.label}</div>
-              <div style={{
-                fontSize: 11, marginTop: 2,
-                color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF',
-              }}>{k.sub}</div>
-              {k.highlight && (
-                <div style={{ marginTop: 10, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%`,
-                    background: 'rgba(255,255,255,.8)',
-                    borderRadius: 99,
-                    transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s',
-                  }} />
-                </div>
-              )}
-            </div>
-          ))}
         </div>
 
-        <ActionBar active={module} onChange={setModule}/>
+        <div className="space-y-5">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
+            {[
+              { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
+              { label: 'Planifiés',        value: stats.planned,   sub: 'À venir' },
+              { label: 'En cours',         value: stats.inProg,    sub: stats.inProg > 0 ? 'Actifs' : 'Aucun' },
+              { label: 'Terminés',         value: stats.completed, sub: 'Archivés' },
+              { label: 'NC Ouvertes',      value: stats.openNCs,   sub: stats.openNCs > 0 ? 'Action requise' : 'RAS' },
+              { label: 'Simulations',      value: stats.sims,      sub: 'Historique' },
+            ].map((k, i) => (
+              <div key={i} style={{
+                background: k.highlight ? 'linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)' : '#fff',
+                borderRadius: 14, padding: '18px 20px',
+                boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
+                animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 60}ms both`,
+              }}>
+                <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
+                <div style={{ fontSize: 11, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
+                {k.highlight && (
+                  <div style={{ marginTop: 10, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%`, background: 'rgba(255,255,255,.8)', borderRadius: 99, transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s' }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
-        {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)} canExport={canExport(moduleCode)}/>}
-        {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
-        {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
-        {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}
-      </div>
+          <ActionBar active={module} onChange={setModule}/>
+
+          {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+          {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)} canExport={canExport(moduleCode)}/>}
+          {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
+          {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+          {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}
+        </div>
+      </main>
 
       <style>{`
         body,html{margin:0;padding:0;width:100%;overflow-x:hidden}

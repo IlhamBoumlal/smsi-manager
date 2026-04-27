@@ -13,6 +13,7 @@ namespace backend.Domain.Entities
     {
         public int Id { get; set; }
 
+        public int? SocieteId { get; set; }
         public string UserId { get; set; } = "";
 
         // ── LIENS (l'un ou l'autre est renseigné) ────────────────────────────
@@ -36,5 +37,6 @@ namespace backend.Domain.Entities
         // ── NAVIGATION ────────────────────────────────────────────────────────
         public ConformityProof? ConformityProof { get; set; }
         public ActionPlan? ActionPlan { get; set; }
+        public Societe? Societe { get; set; }
     }
 }

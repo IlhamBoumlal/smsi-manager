@@ -11,7 +11,8 @@ public record CreateProcessusCommand(
     string Categorie,
     string Nom,
     string Responsable,
-    string Description
+    string Description,
+    int? SocieteId
 ) : IRequest<ProcessusDto>;
 
 public class CreateProcessusCommandHandler : IRequestHandler<CreateProcessusCommand, ProcessusDto>
@@ -21,7 +22,7 @@ public class CreateProcessusCommandHandler : IRequestHandler<CreateProcessusComm
 
     public async Task<ProcessusDto> Handle(CreateProcessusCommand cmd, CancellationToken ct)
     {
-        var p = Processus.Create(cmd.Categorie, cmd.Nom, cmd.Responsable, cmd.Description);
+        var p = Processus.Create(cmd.Categorie, cmd.Nom, cmd.Responsable, cmd.Description, cmd.SocieteId);
         await _repo.AddAsync(p, ct);
         await _repo.SaveChangesAsync(ct);
         return new ProcessusDto(p.Id, p.Categorie, p.Nom, p.Responsable, p.Description, new());

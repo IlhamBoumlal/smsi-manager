@@ -10,12 +10,16 @@ namespace backend.Infrastructure.Repositories
         private readonly AppDbContext _context;
         public ControleRepository(AppDbContext context) => _context = context;
 
-        public Task<List<Controle>> GetAllAsync() =>
-            _context.Controles.OrderBy(c => c.Code).ToListAsync();
+        public Task<List<Controle>> GetAllAsync(int? societeId = null, CancellationToken ct = default) =>
+            ApplyFilter(societeId).OrderBy(c => c.Code).ToListAsync(ct);
 
-        public Task<Controle?> GetByIdAsync(Guid id) =>
-            _context.Controles.FirstOrDefaultAsync(c => c.Id == id);
+        public Task<Controle?> GetByIdAsync(Guid id, int? societeId = null, CancellationToken ct = default) =>
+            ApplyFilter(societeId).FirstOrDefaultAsync(c => c.Id == id, ct);
 
+        private IQueryable<Controle> ApplyFilter(int? societeId) =>
+            societeId.HasValue
+                ? _context.Controles.Where(c => c.SocieteId == null || c.SocieteId == societeId.Value)
+                : _context.Controles;
         public async Task<Controle?> UpdateAsync(Controle controle)
         {
             var existing = await _context.Controles.FindAsync(controle.Id);

@@ -19,12 +19,9 @@ namespace backend.Application.Risques.Commands.DuplicateRiskStudy
             if (string.IsNullOrWhiteSpace(request.CurrentUserId) || !request.CurrentSocieteId.HasValue)
                 return (false, "FORBIDDEN:NO_ACCESS_SCOPE", null);
 
-            var source = await _repository.GetByIdAsync(request.Id);
+            var source = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (source is null)
                 return (false, "NOT_FOUND:RISK_STUDY", null);
-
-            if (source.SocieteId != request.CurrentSocieteId.Value)
-                return (false, "FORBIDDEN:FOREIGN_SOCIETE_SCOPE", null);
 
             var duplicated = await _repository.CreateAsync(new RiskStudy
             {

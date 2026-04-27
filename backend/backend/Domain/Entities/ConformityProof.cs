@@ -11,6 +11,7 @@ namespace backend.Domain.Entities
         public int Id { get; set; }
 
         public int IsoClauseId { get; set; }  // sous-clause concernée
+        public int? SocieteId { get; set; }
         public string UserId { get; set; } = "";
 
         [MaxLength(500)] public string Description { get; set; } = "";
@@ -20,6 +21,7 @@ namespace backend.Domain.Entities
 
         // ── NAVIGATION ────────────────────────────────────────────────────────
         public IsoClause? Clause { get; set; }
+        public Societe? Societe { get; set; }
         public List<FileAttachment> Files { get; set; } = new();
     }
 }
