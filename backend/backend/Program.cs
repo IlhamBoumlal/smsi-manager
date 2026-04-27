@@ -18,6 +18,7 @@ using FluentEmail.Smtp;
 using backend.API.Hubs;
 using System.Net.Mail;
 using System.Net;
+using backend.Application.DTOs.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -176,6 +177,17 @@ builder.Services.AddScoped<IEmailServiceIncident, EmailServiceIncident>();
 builder.Services.AddScoped<IEmailServiceSens, FormationEmailService>();
 
 builder.Services.AddHostedService<RappelHostedService>();
+
+//les settings de l'email monitoring
+builder.Services.Configure<EmailMonitoringSettings>(
+    builder.Configuration.GetSection("EmailMonitoring"));
+
+// Ajouter le Background Service
+builder.Services.AddHostedService<EmailMonitoringService>();
+
+// Ajouter HttpClientFactory
+builder.Services.AddHttpClient();
+
 
 var app = builder.Build();
 
