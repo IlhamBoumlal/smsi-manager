@@ -11,6 +11,7 @@ namespace backend.Application.Actifs.Commands.UpdateActif
      TypeActif Type,
      CategorieActif Categorie,
      ClassificationActif Classification,
-     Guid ProprietaireId
+     Guid? ProprietaireId,
+     int? SocieteId
  ) : IRequest<ActifResponseDto?>;
 }

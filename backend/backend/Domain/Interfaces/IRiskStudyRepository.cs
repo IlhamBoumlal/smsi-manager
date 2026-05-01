@@ -5,9 +5,9 @@ namespace backend.Domain.Interfaces
     public interface IRiskStudyRepository
     {
         Task<IEnumerable<RiskStudy>> GetAllBySocieteAsync(int societeId);
-        Task<RiskStudy?> GetByIdAsync(Guid id);
+        Task<RiskStudy?> GetByIdAsync(Guid id, int? societeId);
         Task<RiskStudy> CreateAsync(RiskStudy study);
         Task<RiskStudy?> UpdateAsync(RiskStudy study);
-        Task<bool> DeleteAsync(Guid id);
+        Task<bool> DeleteAsync(Guid id, int? societeId);
     }
 }

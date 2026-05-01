@@ -4,4 +4,4 @@ using backend.Application.DTOs;
 
 namespace backend.Application.Sensibilisation.Queries.GetFormations;
 
-public record GetFormationsQuery(Guid? SocieteId) : IRequest<List<FormationListDto>>;
+public record GetFormationsQuery(int? SocieteId) : IRequest<List<FormationListDto>>;

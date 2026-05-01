@@ -25,14 +25,75 @@ public class GetAllControlesQueryHandler : IRequestHandler<GetAllControlesQuery,
 
     public async Task<List<ControleDto>> Handle(GetAllControlesQuery request, CancellationToken cancellationToken)
     {
-        // 1. On récupère les entités brutes de la base de données d'abord
-        var entites = await _context.Controles
+        List<backend.Domain.Entities.Controle> entites;
+
+        if (request.SocieteId.HasValue)
+        {
+            await EnsureSocieteControlesAsync(request.SocieteId.Value, cancellationToken);
+
+            entites = await _context.Controles
+                .AsNoTracking()
+                .Where(c => c.SocieteId == request.SocieteId.Value)
+                .OrderBy(c => c.Code)
+                .ToListAsync(cancellationToken);
+        }
+        else
+        {
+            entites = await _context.Controles
+                .AsNoTracking()
+                .Where(c => c.SocieteId == null)
+                .OrderBy(c => c.Code)
+                .ToListAsync(cancellationToken);
+        }
+
+        return entites.Select(MapToDto).ToList();
+    }
+
+    private async Task EnsureSocieteControlesAsync(int societeId, CancellationToken cancellationToken)
+    {
+        var hasControles = await _context.Controles
             .AsNoTracking()
+            .AnyAsync(c => c.SocieteId == societeId, cancellationToken);
+
+        if (hasControles)
+            return;
+
+        var templates = await _context.Controles
+            .AsNoTracking()
+            .Where(c => c.SocieteId == null)
             .OrderBy(c => c.Code)
             .ToListAsync(cancellationToken);
 
-        // 2. On transforme les entités en DTO en mémoire (C# s'occupe de la désérialisation)
-        return entites.Select(c => MapToDto(c)).ToList();
+        if (!templates.Any())
+            return;
+
+        var clones = templates.Select(template => new backend.Domain.Entities.Controle
+        {
+            Id = Guid.NewGuid(),
+            Code = template.Code,
+            Titre = template.Titre,
+            Description = template.Description,
+            Domaine = template.Domaine,
+            Applicable = template.Applicable,
+            RaisonsApplicabilite = template.RaisonsApplicabilite,
+            RaisonExclusion = template.RaisonExclusion,
+            Statut = template.Statut,
+            JustificationConformite = template.JustificationConformite,
+            Remarque = template.Remarque,
+            Preuves = template.Preuves,
+            Steps = template.Steps,
+            Priorite = template.Priorite,
+            StatutPlan = template.StatutPlan,
+            ResponsablePlan = template.ResponsablePlan,
+            DateEcheance = template.DateEcheance,
+            DateMiseAJour = DateTime.UtcNow,
+            DernierModificateurId = null,
+            DernierModificateurNom = null,
+            SocieteId = societeId
+        }).ToList();
+
+        await _context.Controles.AddRangeAsync(clones, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     private ControleDto MapToDto(backend.Domain.Entities.Controle c)

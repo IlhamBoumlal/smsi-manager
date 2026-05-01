@@ -33,7 +33,7 @@ public class RappelHostedService(IServiceScopeFactory scopeFactory) : Background
             foreach (var f in in48h)
             {
                 await mediator.Send(
-                    new NotifyParticipantsCommand(f.Id, "Rappel 48h avant"),
+                    new NotifyParticipantsCommand(f.Id, "Rappel 48h avant",f.SocieteId),
                     stoppingToken);
             }
         }

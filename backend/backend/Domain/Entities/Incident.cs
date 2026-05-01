@@ -11,5 +11,8 @@ namespace backend.Domain.Entities
         public PrioriteIncident? Priorite { get; set; }
         public StatutIncident? Statut { get; set; }
         public string? Resolution { get; set; }
+
+        public int? SocieteId { get; set; }
+        public Societe? Societe { get; set; }
     }
 }

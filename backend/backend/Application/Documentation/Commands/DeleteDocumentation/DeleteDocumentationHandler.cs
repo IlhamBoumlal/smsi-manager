@@ -16,7 +16,7 @@ namespace backend.Application.Documentation.Commands.DeleteDocumentation
 
         public async Task<(bool Success, string? Error)> Handle(DeleteDocumentationCommand request, CancellationToken cancellationToken)
         {
-            var existing = await _repository.GetByIdAsync(request.Id);
+            var existing = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (existing is null) return (false, "NOT_FOUND");
 
             var actor = DocumentationAccessControl.BuildActorContext(
@@ -27,7 +27,7 @@ namespace backend.Application.Documentation.Commands.DeleteDocumentation
                 return (false, "FORBIDDEN");
 
             _fileStorage.DeleteDocumentFile(existing.FilePath);
-            var deleted = await _repository.DeleteAsync(request.Id);
+            var deleted = await _repository.DeleteAsync(request.Id, request.CurrentSocieteId);
             return deleted ? (true, null) : (false, "NOT_FOUND");
         }
     }

@@ -255,15 +255,41 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("ProprietaireId")
+                    b.Property<Guid?>("ProprietaireId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SocieteId");
+
                     b.ToTable("Actifs");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Action", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Actions");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.ActionCorrective", b =>
@@ -428,6 +454,9 @@ namespace backend.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<string>("SourceDetection")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -464,6 +493,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IsoClauseId");
+
+                    b.HasIndex("SocieteId");
 
                     b.HasIndex("SubClauseId");
 
@@ -516,6 +547,9 @@ namespace backend.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -538,6 +572,10 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("SocieteId", "UpdatedAt");
 
                     b.ToTable("Audits");
                 });
@@ -591,6 +629,9 @@ namespace backend.Migrations
                     b.Property<int>("IsoClauseId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -599,6 +640,8 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
 
                     b.HasIndex("IsoClauseId", "UserId");
 
@@ -633,6 +676,9 @@ namespace backend.Migrations
                     b.Property<int>("Score")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -643,11 +689,13 @@ namespace backend.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IsoClauseId");
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("IsoClauseId", "UserId");
 
                     b.ToTable("ConformityStatuses");
                 });
@@ -706,6 +754,9 @@ namespace backend.Migrations
                     b.Property<string>("ResponsablePlan")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Statut")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -724,6 +775,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Code");
+
+                    b.HasIndex("SocieteId");
 
                     b.ToTable("controles", (string)null);
                 });
@@ -792,6 +845,9 @@ namespace backend.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Statut")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -805,6 +861,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessusId");
+
+                    b.HasIndex("SocieteId");
 
                     b.ToTable("Documents");
                 });
@@ -937,6 +995,9 @@ namespace backend.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("datetime2");
 
@@ -949,6 +1010,8 @@ namespace backend.Migrations
                     b.HasIndex("ActionPlanId");
 
                     b.HasIndex("ConformityProofId");
+
+                    b.HasIndex("SocieteId");
 
                     b.HasIndex("UserId");
 
@@ -1011,8 +1074,8 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("SocieteId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1023,6 +1086,8 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
 
                     b.ToTable("Formations");
                 });
@@ -1152,9 +1217,6 @@ namespace backend.Migrations
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Declarant")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -1164,6 +1226,9 @@ namespace backend.Migrations
                     b.Property<string>("Resolution")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("Statut")
                         .HasColumnType("int");
 
@@ -1171,6 +1236,8 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
 
                     b.ToTable("Incidents");
                 });
@@ -1208,6 +1275,33 @@ namespace backend.Migrations
                     b.HasIndex("ParentId");
 
                     b.ToTable("IsoClauses");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Module", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Modules");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.NonConformite", b =>
@@ -1250,6 +1344,9 @@ namespace backend.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1266,6 +1363,10 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AuditId");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("SocieteId", "UpdatedAt");
 
                     b.ToTable("NonConformites");
                 });
@@ -1286,12 +1387,17 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
-                    b.ToTable("PdcaCycles");
+                    b.HasIndex("SocieteId");
+
+                    b.ToTable("PdcaCycles", (string)null);
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.PdcaItem", b =>
@@ -1322,6 +1428,37 @@ namespace backend.Migrations
                     b.HasIndex("SectionId");
 
                     b.ToTable("PdcaItems");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Permission", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ActionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ModuleId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionId");
+
+                    b.HasIndex("ModuleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("RoleId", "ModuleId", "ActionId")
+                        .IsUnique();
+
+                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Phase", b =>
@@ -1434,7 +1571,12 @@ namespace backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
 
                     b.ToTable("Processus");
                 });
@@ -1574,6 +1716,9 @@ namespace backend.Migrations
                     b.Property<int>("Score")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TotalAnswered")
                         .HasColumnType("int");
 
@@ -1584,6 +1729,10 @@ namespace backend.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("SocieteId", "CreatedAt");
 
                     b.ToTable("SimulationAudits");
                 });
@@ -1673,6 +1822,16 @@ namespace backend.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.Actif", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.ActionCorrective", b =>
                 {
                     b.HasOne("backend.Domain.Entities.NonConformite", "NonConformite")
@@ -1692,6 +1851,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("backend.Domain.Entities.IsoClause", "SubClause")
                         .WithMany()
                         .HasForeignKey("SubClauseId")
@@ -1699,7 +1863,19 @@ namespace backend.Migrations
 
                     b.Navigation("Clause");
 
+                    b.Navigation("Societe");
+
                     b.Navigation("SubClause");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Audit", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.AuditControlStatus", b =>
@@ -1721,7 +1897,14 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Clause");
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.ConformityStatus", b =>
@@ -1732,7 +1915,24 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Clause");
+
+                    b.Navigation("Societe");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Controle", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.ControleHistorique", b =>
@@ -1748,11 +1948,20 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Domain.Entities.Document", b =>
                 {
-                    b.HasOne("backend.Domain.Entities.Processus", null)
+                    b.HasOne("backend.Domain.Entities.Processus", "Processus")
                         .WithMany("Documents")
                         .HasForeignKey("ProcessusId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Processus");
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.DocumentationDocument", b =>
@@ -1798,9 +2007,26 @@ namespace backend.Migrations
                         .HasForeignKey("ConformityProofId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("ActionPlan");
 
                     b.Navigation("ConformityProof");
+
+                    b.Navigation("Societe");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Formation", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.FormationDocument", b =>
@@ -1836,6 +2062,16 @@ namespace backend.Migrations
                     b.Navigation("Formation");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.Incident", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.IsoClause", b =>
                 {
                     b.HasOne("backend.Domain.Entities.IsoClause", "Parent")
@@ -1852,7 +2088,24 @@ namespace backend.Migrations
                         .HasForeignKey("AuditId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Audit");
+
+                    b.Navigation("Societe");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.PdcaCycle", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.PdcaItem", b =>
@@ -1864,6 +2117,25 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Section");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Permission", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Action", "Action")
+                        .WithMany()
+                        .HasForeignKey("ActionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Module", "Module")
+                        .WithMany("Permissions")
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Action");
+
+                    b.Navigation("Module");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Phase", b =>
@@ -1886,6 +2158,16 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("ActionPlan");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Processus", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
@@ -1921,6 +2203,16 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Phase");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.SimulationAudit", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Societe", b =>
@@ -1970,6 +2262,11 @@ namespace backend.Migrations
                     b.Navigation("Conformities");
 
                     b.Navigation("SubClauses");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.Module", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.NonConformite", b =>

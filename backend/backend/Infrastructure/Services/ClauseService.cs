@@ -224,22 +224,30 @@ namespace backend.Infrastructure.Services
 
         // ── CONFORMITY ────────────────────────────────────────────────────────
 
-        public async Task<ConformityStatusDto?> GetConformityAsync(int clauseId, string userId)
+        public async Task<ConformityStatusDto?> GetConformityAsync(int clauseId, string userId, int? societeId)
         {
             var cs = await _db.ConformityStatuses
-                .FirstOrDefaultAsync(c => c.IsoClauseId == clauseId && c.UserId == userId);
+                .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
+                .Where(c => societeId.HasValue ? c.SocieteId == societeId.Value || c.SocieteId == null : c.SocieteId == null)
+                .FirstOrDefaultAsync();
             return cs is null ? null : MapConformity(cs);
         }
 
-        public async Task<ConformityStatusDto> UpsertConformityAsync(int clauseId, string userId, UpsertConformityDto dto)
+        public async Task<ConformityStatusDto> UpsertConformityAsync(int clauseId, string userId, int? societeId, UpsertConformityDto dto)
         {
             var cs = await _db.ConformityStatuses
-                .FirstOrDefaultAsync(c => c.IsoClauseId == clauseId && c.UserId == userId);
+                .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
+                .Where(c => societeId.HasValue ? c.SocieteId == societeId.Value || c.SocieteId == null : c.SocieteId == null)
+                .FirstOrDefaultAsync();
 
             if (cs is null)
             {
-                cs = new ConformityStatus { IsoClauseId = clauseId, UserId = userId };
+                cs = new ConformityStatus { IsoClauseId = clauseId, UserId = userId, SocieteId = societeId };
                 _db.ConformityStatuses.Add(cs);
+            }
+            else if (!cs.SocieteId.HasValue && societeId.HasValue)
+            {
+                cs.SocieteId = societeId;
             }
 
             cs.Status = dto.Status;
@@ -255,46 +263,57 @@ namespace backend.Infrastructure.Services
 
         // ── ACTION PLANS ──────────────────────────────────────────────────────
 
-        public async Task<List<ActionPlanDto>> GetActionPlansAsync(int clauseId, string userId)
+        public async Task<List<ActionPlanDto>> GetActionPlansAsync(int clauseId, string userId, int? societeId)
         {
             var plans = await _db.ActionPlans
                 .Where(ap => ap.IsoClauseId == clauseId && ap.UserId == userId)
+                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
                 .OrderByDescending(ap => ap.CreatedAt)
                 .ToListAsync();
             return plans.Select(MapActionPlan).ToList();
         }
 
-        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId)
+        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId, int? societeId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .FirstOrDefaultAsync();
             return ap is null ? null : MapActionPlan(ap);
         }
 
-        public async Task<ActionPlanDto> CreateActionPlanAsync(string userId, CreateActionPlanDto dto)
+        public async Task<ActionPlanDto> CreateActionPlanAsync(string userId, int? societeId, CreateActionPlanDto dto)
         {
-            var ap = new ActionPlan { UserId = userId };
+            var ap = new ActionPlan { UserId = userId, SocieteId = societeId };
             ApplyDto(ap, dto);
             _db.ActionPlans.Add(ap);
             await _db.SaveChangesAsync();
             return MapActionPlan(ap);
         }
 
-        public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, UpdateActionPlanDto dto)
+        public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, int? societeId, UpdateActionPlanDto dto)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .FirstOrDefaultAsync();
             if (ap is null) return null;
             ApplyDto(ap, dto);
+            if (!ap.SocieteId.HasValue && societeId.HasValue)
+            {
+                ap.SocieteId = societeId;
+            }
             ap.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return MapActionPlan(ap);
         }
 
-        public async Task<bool> DeleteActionPlanAsync(int id, string userId)
+        public async Task<bool> DeleteActionPlanAsync(int id, string userId, int? societeId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .FirstOrDefaultAsync();
             if (ap is null) return false;
             _db.ActionPlans.Remove(ap);
             await _db.SaveChangesAsync();
@@ -303,7 +322,7 @@ namespace backend.Infrastructure.Services
 
         // ── DASHBOARD ─────────────────────────────────────────────────────────
 
-        public async Task<List<ClauseDashboardDto>> GetDashboardAsync(string userId)
+        public async Task<List<ClauseDashboardDto>> GetDashboardAsync(string userId, int? societeId)
         {
             var clauses = await _db.IsoClauses
                 .Include(c => c.SubClauses)
@@ -313,10 +332,12 @@ namespace backend.Infrastructure.Services
 
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
+                .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
                 .ToListAsync();
 
             var actionPlans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
+                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
                 .ToListAsync();
 
             return clauses.Select(c =>
@@ -355,14 +376,16 @@ namespace backend.Infrastructure.Services
 
         // ── GLOBAL STATS ──────────────────────────────────────────────────────
 
-        public async Task<GlobalStatsDto> GetGlobalStatsAsync(string userId)
+        public async Task<GlobalStatsDto> GetGlobalStatsAsync(string userId, int? societeId)
         {
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
+                .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
                 .ToListAsync();
 
             var plans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
+                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
                 .ToListAsync();
 
             var totalClauses = await _db.IsoClauses
@@ -453,11 +476,12 @@ namespace backend.Infrastructure.Services
 
         // ── CONFORMITY PROOFS ─────────────────────────────────────────────────
 
-        public async Task<List<ConformityProofDto>> GetConformityProofsAsync(int subClauseId, string userId)
+        public async Task<List<ConformityProofDto>> GetConformityProofsAsync(int subClauseId, string userId, int? societeId)
         {
             var proofs = await _db.ConformityProofs
                 .Include(p => p.Files)
                 .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
+                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -465,16 +489,22 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<ConformityProofDto> UpsertConformityProofAsync(
-            int subClauseId, string userId, UpsertConformityProofDto dto)
+            int subClauseId, string userId, int? societeId, UpsertConformityProofDto dto)
         {
             var proof = await _db.ConformityProofs
                 .Include(p => p.Files)
-                .FirstOrDefaultAsync(p => p.IsoClauseId == subClauseId && p.UserId == userId);
+                .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
+                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .FirstOrDefaultAsync();
 
             if (proof is null)
             {
-                proof = new ConformityProof { IsoClauseId = subClauseId, UserId = userId };
+                proof = new ConformityProof { IsoClauseId = subClauseId, UserId = userId, SocieteId = societeId };
                 _db.ConformityProofs.Add(proof);
+            }
+            else if (!proof.SocieteId.HasValue && societeId.HasValue)
+            {
+                proof.SocieteId = societeId;
             }
 
             proof.Description = dto.Description;
@@ -483,11 +513,13 @@ namespace backend.Infrastructure.Services
             return MapProof(proof);
         }
 
-                public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
-            int proofId, string userId, IFormFile file, string? description, string? documentType = null)
+        public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
+            int proofId, string userId, int? societeId, IFormFile file, string? description, string? documentType = null)
         {
             var proof = await _db.ConformityProofs
-                .FirstOrDefaultAsync(p => p.Id == proofId && p.UserId == userId)
+                .Where(p => p.Id == proofId && p.UserId == userId)
+                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Preuve introuvable.");
 
             var clauseReference = await _db.IsoClauses
@@ -527,6 +559,7 @@ namespace backend.Infrastructure.Services
             var attachment = new FileAttachment
             {
                 UserId = userId,
+                SocieteId = proof.SocieteId,
                 ConformityProofId = proofId,
                 DocumentationDocumentId = documentationDocument.Id,
                 OriginalName = documentationDocument.OriginalFileName ?? Path.GetFileName(file.FileName),
@@ -545,12 +578,12 @@ namespace backend.Infrastructure.Services
             return MapFile(attachment);
         }
 
-        public async Task<bool> DeleteConformityProofFileAsync(int fileId, string userId)
+        public async Task<bool> DeleteConformityProofFileAsync(int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId
-                                       && x.UserId == userId
-                                       && x.ConformityProofId != null);
+                .Where(x => x.Id == fileId && x.UserId == userId && x.ConformityProofId != null)
+                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .FirstOrDefaultAsync();
             if (f is null) return false;
 
             _db.FileAttachments.Remove(f);
@@ -560,10 +593,11 @@ namespace backend.Infrastructure.Services
 
         // ── ACTION PLAN DOCUMENTS ─────────────────────────────────────────────
 
-        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId)
+        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId, int? societeId)
         {
             var files = await _db.FileAttachments
                 .Where(f => f.ActionPlanId == planId && f.UserId == userId)
+                .Where(f => societeId.HasValue ? f.SocieteId == societeId.Value || f.SocieteId == null : f.SocieteId == null)
                 .OrderByDescending(f => f.UploadedAt)
                 // On ne charge PAS Content ici pour éviter de ramener des Mo inutilement
                 .Select(f => new FileAttachment
@@ -584,10 +618,12 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<FileAttachmentDto> UploadActionPlanFileAsync(
-            int planId, string userId, IFormFile file, string? description)
+            int planId, string userId, int? societeId, IFormFile file, string? description)
         {
             var plan = await _db.ActionPlans
-                .FirstOrDefaultAsync(p => p.Id.Equals(planId) && p.UserId == userId)
+                .Where(p => p.Id.Equals(planId) && p.UserId == userId)
+                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Plan d'action introuvable.");
 
             var content = await ReadAndValidateAsync(file);
@@ -595,6 +631,7 @@ namespace backend.Infrastructure.Services
             var attachment = new FileAttachment
             {
                 UserId = userId,
+                SocieteId = plan.SocieteId,
                 ActionPlanId = planId,
                 OriginalName = Path.GetFileName(file.FileName),
                 ContentType = file.ContentType,
@@ -609,12 +646,12 @@ namespace backend.Infrastructure.Services
             return MapFile(attachment);
         }
 
-        public async Task<bool> DeleteActionPlanFileAsync(int fileId, string userId)
+        public async Task<bool> DeleteActionPlanFileAsync(int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId
-                                       && x.UserId == userId
-                                       && x.ActionPlanId != null);
+                .Where(x => x.Id == fileId && x.UserId == userId && x.ActionPlanId != null)
+                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .FirstOrDefaultAsync();
             if (f is null) return false;
 
             _db.FileAttachments.Remove(f);
@@ -626,10 +663,12 @@ namespace backend.Infrastructure.Services
         // Charge uniquement la ligne demandée, avec le contenu binaire.
 
         public async Task<(byte[] content, string contentType, string fileName)?> DownloadFileAsync(
-            int fileId, string userId)
+            int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId && x.UserId == userId);
+                .Where(x => x.Id == fileId && x.UserId == userId)
+                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .FirstOrDefaultAsync();
 
             if (f is null) return null;
 
@@ -676,4 +715,3 @@ namespace backend.Infrastructure.Services
 
     }
 }
-

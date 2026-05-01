@@ -1,16 +1,18 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using backend.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace backend.Domain.Interfaces
 {
     public interface IUserRepository
     {
-        Task<ApplicationUser?> GetByIdAsync(string id);
+        Task<ApplicationUser?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
         Task<ApplicationUser?> GetByEmailAsync(string email);
         Task<List<ApplicationUser>> GetAllWithSocieteAsync();
         Task<List<ApplicationUser>> GetActiveBySocieteAsync(int societeId);
         Task<IdentityResult> CreateAsync(ApplicationUser user, string password);
         Task<IdentityResult> UpdateAsync(ApplicationUser user);
+        Task<IdentityResult> DeleteAsync(ApplicationUser user);
         Task<IList<string>> GetRolesAsync(ApplicationUser user);
         Task AddToRoleAsync(ApplicationUser user, string role);
         Task RemoveFromRolesAsync(ApplicationUser user, IEnumerable<string> roles);
@@ -18,8 +20,9 @@ namespace backend.Domain.Interfaces
         Task<string> GeneratePasswordResetTokenAsync(ApplicationUser user);
         Task<IdentityResult> ResetPasswordAsync(ApplicationUser user, string token, string newPassword);
         Task<SignInResult> CheckPasswordAsync(ApplicationUser user, string password);
-        Task<IdentityResult> DeleteAsync(ApplicationUser user);
         Task<List<ApplicationUser>> GetUsersByRoleAsync(string role);
-    }
 
+        // Nouvelle méthode pour récupérer l'ID du rôle d'un utilisateur
+        Task<string?> GetRoleIdByUserIdAsync(string userId, CancellationToken cancellationToken = default);
+    }
 }

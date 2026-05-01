@@ -3,6 +3,8 @@
 public class Audit
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public int? SocieteId { get; set; }
+    public Societe? Societe { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = "external_cert"; // external_cert | external_surv | supplier
     public string Status { get; set; } = "planned";       // planned | in-progress | completed

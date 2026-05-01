@@ -1,5 +1,6 @@
 using backend.API.Hubs;
 using backend.Application.DTOs.Controles;
+using backend.Application.DTOs.Settings;
 using backend.Application.Services;
 using backend.Domain.Entities;
 using backend.Domain.Enumerations;
@@ -165,6 +166,9 @@ builder.Services.AddScoped<IPdcaRepository, PdcaRepository>();
 builder.Services.AddScoped<IRiskStudyRepository, RiskStudyRepository>();
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
 builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IModuleRepository, ModuleRepository>();
+builder.Services.AddScoped<IActionRepository, ActionRepository>();
 
 // Services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -175,6 +179,12 @@ builder.Services.AddScoped<IEmailServiceIncident, EmailServiceIncident>();
 builder.Services.AddScoped<IEmailServiceSens, FormationEmailService>();
 
 builder.Services.AddHostedService<RappelHostedService>();
+
+// Email monitoring
+builder.Services.Configure<EmailMonitoringSettings>(
+    builder.Configuration.GetSection("EmailMonitoring"));
+builder.Services.AddHostedService<EmailMonitoringService>();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
@@ -211,6 +221,3 @@ app.MapHub<NotificationHub>(NotificationHubPath)
    .RequireAuthorization("SignalRNotificationUser");
 
 app.Run();
-
-
-

@@ -13,7 +13,7 @@ public class AddSectionHandler : IRequestHandler<AddSectionCommand, Guid>
     public async Task<Guid> Handle(AddSectionCommand cmd, CancellationToken ct)
     {
         // Vérifier que la phase existe directement
-        var phase = await _repo.GetPhaseByIdAsync(cmd.PhaseId, ct);
+        var phase = await _repo.GetPhaseByIdAsync(cmd.PhaseId, cmd.SocieteId, ct);
         if (phase == null)
         {
             throw new InvalidOperationException($"Phase introuvable avec l'ID: {cmd.PhaseId}");

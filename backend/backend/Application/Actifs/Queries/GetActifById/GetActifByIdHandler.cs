@@ -11,7 +11,7 @@ namespace backend.Application.Actifs.Queries.GetActifById
 
         public async Task<ActifResponseDto?> Handle(GetActifByIdQuery request, CancellationToken ct)
         {
-            var actif = await _repository.GetByIdAsync(request.Id);
+            var actif = await _repository.GetByIdAsync(request.Id, request.SocieteId);
             if (actif is null) return null;
             return new ActifResponseDto(
                 actif.Id, actif.Nom, actif.Description, actif.Type,

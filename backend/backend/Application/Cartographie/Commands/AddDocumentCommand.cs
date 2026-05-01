@@ -13,7 +13,8 @@ public record AddDocumentCommand(
     string Statut,
     string? FichierNom,
     string? FichierType,
-    byte[]? FichierData
+    byte[]? FichierData,
+    int? SocieteId
 ) : IRequest<DocumentDto>;
 
 public class AddDocumentCommandHandler : IRequestHandler<AddDocumentCommand, DocumentDto>
@@ -23,7 +24,7 @@ public class AddDocumentCommandHandler : IRequestHandler<AddDocumentCommand, Doc
 
     public async Task<DocumentDto> Handle(AddDocumentCommand cmd, CancellationToken ct)
     {
-        var p = await _repo.GetByIdAsync(cmd.ProcessusId, ct)
+        var p = await _repo.GetByIdAsync(cmd.ProcessusId, cmd.SocieteId, ct)
                 ?? throw new KeyNotFoundException($"Processus {cmd.ProcessusId} introuvable.");
 
         var doc = p.AddDocument(cmd.Nom, cmd.Type, cmd.Reference, cmd.Statut,

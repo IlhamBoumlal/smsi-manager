@@ -17,6 +17,15 @@ public class ClauseController : ControllerBase
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? User.FindFirstValue("sub") ?? "";
 
+    private int? CurrentSocieteId
+    {
+        get
+        {
+            var value = User.FindFirstValue("SocieteId");
+            return int.TryParse(value, out var parsed) ? parsed : null;
+        }
+    }
+
     // ── ISO CLAUSES (référentiel) ──────────────────────────────────────────
 
     /// GET /api/clauses
@@ -42,13 +51,13 @@ public class ClauseController : ControllerBase
     public async Task<IActionResult> GetDashboard()
     {
         await _svc.SeedClausesAsync();
-        return Ok(await _svc.GetDashboardAsync(UserId));
+        return Ok(await _svc.GetDashboardAsync(UserId, CurrentSocieteId));
     }
 
     /// GET /api/clauses/stats
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
-        => Ok(await _svc.GetGlobalStatsAsync(UserId));
+        => Ok(await _svc.GetGlobalStatsAsync(UserId, CurrentSocieteId));
 
     // ── CONFORMITY ────────────────────────────────────────────────────────
 
@@ -58,7 +67,7 @@ public class ClauseController : ControllerBase
     [HttpGet("conformity/{subClauseId:int}")]
     public async Task<IActionResult> GetConformity(int subClauseId)
     {
-        var cs = await _svc.GetConformityAsync(subClauseId, UserId);
+        var cs = await _svc.GetConformityAsync(subClauseId, UserId, CurrentSocieteId);
         // On retourne toujours 200 ; le frontend vérifie cs != null
         return Ok(cs);
     }
@@ -67,25 +76,25 @@ public class ClauseController : ControllerBase
     /// Même logique qu'un PUT — l'upsert est idempotent.
     [HttpPost("conformity")]
     public async Task<IActionResult> CreateConformity([FromBody] UpsertConformityDto dto)
-        => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, dto));
+        => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, CurrentSocieteId, dto));
 
     /// PUT /api/clauses/conformity  (mise à jour ou création)
     [HttpPut("conformity")]
     public async Task<IActionResult> UpsertConformity([FromBody] UpsertConformityDto dto)
-        => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, dto));
+        => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, CurrentSocieteId, dto));
 
     // ── ACTION PLANS ──────────────────────────────────────────────────────
 
     /// GET /api/clauses/plans?isoClauseId={clauseId}
     [HttpGet("plans")]
     public async Task<IActionResult> GetActionPlans([FromQuery] int isoClauseId)
-        => Ok(await _svc.GetActionPlansAsync(isoClauseId, UserId));
+        => Ok(await _svc.GetActionPlansAsync(isoClauseId, UserId, CurrentSocieteId));
 
     /// GET /api/clauses/plans/{id}
     [HttpGet("plans/{id:int}")]
     public async Task<IActionResult> GetActionPlan(int id)
     {
-        var ap = await _svc.GetActionPlanAsync(id, UserId);
+        var ap = await _svc.GetActionPlanAsync(id, UserId, CurrentSocieteId);
         return ap is null ? NotFound() : Ok(ap);
     }
 
@@ -93,23 +102,23 @@ public class ClauseController : ControllerBase
     [HttpPost("plans")]
     public async Task<IActionResult> CreateActionPlan([FromBody] CreateActionPlanDto dto)
     {
-        var ap = await _svc.CreateActionPlanAsync(UserId, dto);
+        var ap = await _svc.CreateActionPlanAsync(UserId, CurrentSocieteId, dto);
         return CreatedAtAction(nameof(GetActionPlan), new { id = ap.Id }, ap);
     }
 
-    /// PUT /api/clauses/plans/{id}
+    /// PUT /api/clauses/plans/{id:int}
     [HttpPut("plans/{id:int}")]
     public async Task<IActionResult> UpdateActionPlan(int id, [FromBody] UpdateActionPlanDto dto)
     {
-        var ap = await _svc.UpdateActionPlanAsync(id, UserId, dto);
+        var ap = await _svc.UpdateActionPlanAsync(id, UserId, CurrentSocieteId, dto);
         return ap is null ? NotFound() : Ok(ap);
     }
 
-    /// DELETE /api/clauses/plans/{id}
+    /// DELETE /api/clauses/plans/{id:int}
     [HttpDelete("plans/{id:int}")]
     public async Task<IActionResult> DeleteActionPlan(int id)
     {
-        var ok = await _svc.DeleteActionPlanAsync(id, UserId);
+        var ok = await _svc.DeleteActionPlanAsync(id, UserId, CurrentSocieteId);
         return ok ? NoContent() : NotFound();
     }
 }

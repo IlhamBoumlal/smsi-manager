@@ -7,6 +7,8 @@
 public class SimulationAudit
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public int? SocieteId { get; set; }
+    public Societe? Societe { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Author { get; set; }
     public DateTime Date { get; set; } = DateTime.UtcNow;

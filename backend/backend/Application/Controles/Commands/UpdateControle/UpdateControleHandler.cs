@@ -38,12 +38,46 @@ public class UpdateControleCommandHandler
     {
         try
         {
+            Console.WriteLine($"DEBUG: UpdateControle - Id: {request.Id}, SocieteId: {request.SocieteId}, Statut: {request.Statut}, Applicable: {request.Applicable}");
+
+            if (!request.SocieteId.HasValue)
+                return (false, "Société non spécifiée", null);
+
+            // D'abord essayer de trouver par ID exact (nouveau comportement)
             var entite = await _context.Controles
-                .FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken);
+                .FirstOrDefaultAsync(c => c.Id == request.Id && c.SocieteId == request.SocieteId.Value, cancellationToken);
 
-            if (entite is null)
-                return (false, "Contrôle non trouvé", null);
+            Console.WriteLine($"DEBUG: Recherche par ID exact - Trouvé: {entite != null}");
+            if (entite != null)
+                Console.WriteLine($"DEBUG: Contrôle trouvé - Id: {entite.Id}, Code: {entite.Code}, SocieteId: {entite.SocieteId}, Statut actuel: {entite.Statut}");
 
+            // Si pas trouvé et que c'est un ancien ID de contrôle global, chercher par code
+            if (entite == null)
+            {
+                Console.WriteLine("DEBUG: Contrôle non trouvé par ID exact, recherche fallback...");
+                var controleGlobal = await _context.Controles
+                    .FirstOrDefaultAsync(c => c.Id == request.Id && c.SocieteId == null, cancellationToken);
+
+                Console.WriteLine($"DEBUG: Contrôle global trouvé: {controleGlobal != null}");
+                if (controleGlobal != null)
+                {
+                    Console.WriteLine($"DEBUG: Contrôle global - Code: {controleGlobal.Code}, recherche équivalent société...");
+                    entite = await _context.Controles
+                        .FirstOrDefaultAsync(c => c.Code == controleGlobal.Code && c.SocieteId == request.SocieteId.Value, cancellationToken);
+
+                    Console.WriteLine($"DEBUG: Contrôle société trouvé par code: {entite != null}");
+                    if (entite != null)
+                        Console.WriteLine($"DEBUG: Contrôle société - Id: {entite.Id}, Statut actuel: {entite.Statut}");
+                }
+            }
+
+            if (entite == null)
+            {
+                Console.WriteLine($"DEBUG: Contrôle non trouvé - Id: {request.Id}, SocieteId: {request.SocieteId}");
+                return (false, "Contrôle non trouvé ou accès non autorisé", null);
+            }
+
+            Console.WriteLine($"DEBUG: Contrôle trouvé - Id: {entite.Id}, Code: {entite.Code}, SocieteId: {entite.SocieteId}");
             var modifierId = NormalizeText(request.ModifierId) ?? NormalizeText(entite.DernierModificateurId);
             if (string.IsNullOrWhiteSpace(modifierId))
                 return (false, "Utilisateur non identifié pour la mise à jour du contrôle.", null);
@@ -62,6 +96,7 @@ public class UpdateControleCommandHandler
 
             // Snapshot avant
             var avantJson = TakeSnapshot(entite);
+            Console.WriteLine($"DEBUG: Statut AVANT: {entite.Statut}");
 
             // Application des modifications
             entite.Titre = request.Titre;
@@ -69,6 +104,7 @@ public class UpdateControleCommandHandler
             entite.Domaine = request.Domaine;
             entite.Applicable = request.Applicable;
             entite.Statut = request.Statut;
+            Console.WriteLine($"DEBUG: Statut assigné: {entite.Statut} (demandé: {request.Statut})");
 
             if (request.Applicable)
             {
@@ -120,7 +156,7 @@ public class UpdateControleCommandHandler
                 entite.RaisonExclusion = request.RaisonExclusion;
                 entite.RaisonsApplicabilite = null;
                 entite.Preuves = "[]";
-                ResetPlanAction(entite);
+                entite.Statut = Statut.NonEvalue;                ResetPlanAction(entite);
             }
 
             entite.DateMiseAJour = DateTime.UtcNow;
@@ -129,6 +165,7 @@ public class UpdateControleCommandHandler
 
             // Snapshot après
             var apresJson = TakeSnapshot(entite);
+            Console.WriteLine($"DEBUG: Statut APRÈS modifications: {entite.Statut}");
             var champsModifies = DetecterChangements(avantJson, apresJson);
 
             _context.ControleHistoriques.Add(new ControleHistorique
@@ -142,11 +179,22 @@ public class UpdateControleCommandHandler
                 ChampsModifies = champsModifies,
             });
 
+            Console.WriteLine($"DEBUG: Avant SaveChangesAsync - Statut: {entite.Statut}, Applicable: {entite.Applicable}");
             await _context.SaveChangesAsync(cancellationToken);
-            return (true, null, MapToDto(entite));
+            Console.WriteLine($"DEBUG: Après SaveChangesAsync - Statut en mémoire: {entite.Statut}");
+            Console.WriteLine($"DEBUG: État du contexte - IsModified: {_context.Entry(entite).State}");
+
+            var dto = MapToDto(entite);
+            Console.WriteLine($"DEBUG: DTO retourné - Statut: {dto.Statut}");
+
+            return (true, null, dto);
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"DEBUG ERROR: Exception lors de UpdateControle: {ex.Message}");
+            Console.WriteLine($"DEBUG ERROR: StackTrace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+                Console.WriteLine($"DEBUG ERROR: Inner Exception: {ex.InnerException.Message}");
             return (false, $"Erreur: {ex.Message}", null);
         }
     }
@@ -434,3 +482,4 @@ public class UpdateControleCommandHandler
         public string? DocumentType { get; init; }
     }
 }
+

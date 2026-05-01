@@ -22,12 +22,9 @@ namespace backend.Application.Risques.Commands.UpdateRiskStudy
             if (string.IsNullOrWhiteSpace(request.Name))
                 return (false, "BAD_REQUEST:NAME_REQUIRED", null);
 
-            var existing = await _repository.GetByIdAsync(request.Id);
+            var existing = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (existing is null)
                 return (false, "NOT_FOUND:RISK_STUDY", null);
-
-            if (existing.SocieteId != request.CurrentSocieteId.Value)
-                return (false, "FORBIDDEN:FOREIGN_SOCIETE_SCOPE", null);
 
             var updated = await _repository.UpdateAsync(new RiskStudy
             {

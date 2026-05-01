@@ -1,4 +1,6 @@
-﻿using backend.Domain.Interfaces;
+﻿using backend.Domain.Entities;
+using backend.Domain.Interfaces;
+using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -9,23 +11,49 @@ namespace backend.Infrastructure.Repositories
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly AppDbContext _context;
 
         public UserRepository(UserManager<ApplicationUser> userManager,
-                              SignInManager<ApplicationUser> signInManager)
+                              SignInManager<ApplicationUser> signInManager,
+                              AppDbContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _context = context;
         }
 
-        public Task<ApplicationUser?> GetByIdAsync(string id)
-            => _userManager.FindByIdAsync(id);
+        // Récupère l'utilisateur avec sa société
+        public async Task<ApplicationUser?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+        {
+            return await _context.Users
+                .Include(u => u.Societe)
+                .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        }
 
-        public Task<ApplicationUser?> GetByEmailAsync(string email)
-            => _userManager.Users.Include(u => u.Societe)
-                                 .FirstOrDefaultAsync(u => u.Email == email);
+        // Récupère l'ID du rôle d'un utilisateur via la table de liaison
+        public async Task<string?> GetRoleIdByUserIdAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            var userRole = await _context.UserRoles
+                .Where(ur => ur.UserId == userId)
+                .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.RoleId, r.Name })
+                .FirstOrDefaultAsync(cancellationToken);
 
-        public Task<List<ApplicationUser>> GetAllWithSocieteAsync()
-            => _userManager.Users.Include(u => u.Societe).ToListAsync();
+            return userRole?.RoleId;
+        }
+
+        public async Task<ApplicationUser?> GetByEmailAsync(string email)
+        {
+            return await _context.Users
+                .Include(u => u.Societe)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<List<ApplicationUser>> GetAllWithSocieteAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Societe)
+                .ToListAsync();
+        }
 
         public Task<List<ApplicationUser>> GetActiveBySocieteAsync(int societeId)
             => _userManager.Users
@@ -59,8 +87,6 @@ namespace backend.Infrastructure.Repositories
 
         public Task<SignInResult> CheckPasswordAsync(ApplicationUser user, string password)
             => _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
-
-        
 
         public Task<IdentityResult> DeleteAsync(ApplicationUser user)
             => _userManager.DeleteAsync(user);

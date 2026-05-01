@@ -1,4 +1,4 @@
 using Application.DTOs;
 using MediatR;
 namespace Application.PDCA.Queries.GetCycles;
-public record GetCyclesQuery : IRequest<List<CycleSummaryDto>>;
+public record GetCyclesQuery(int? SocieteId = null) : IRequest<List<CycleSummaryDto>>;

@@ -17,14 +17,16 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public ControlesController(IMediator mediator) => _mediator = mediator;
 
+        private int? CurrentSocieteId => int.TryParse(User.FindFirstValue("SocieteId"), out var id) ? id : null;
+
         [HttpGet]
         public async Task<IActionResult> GetAll() =>
-            Ok(await _mediator.Send(new GetAllControlesQuery()));
+            Ok(await _mediator.Send(new GetAllControlesQuery(CurrentSocieteId)));
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var result = await _mediator.Send(new GetControleByIdQuery(id));
+            var result = await _mediator.Send(new GetControleByIdQuery(id, CurrentSocieteId));
             return result is null ? NotFound() : Ok(result);
         }
 
@@ -48,9 +50,11 @@ namespace backend.API.Controllers
             var (success, error, data) = await _mediator.Send(command with
             {
                 Id = id,
+                SocieteId = CurrentSocieteId,
                 ModifierId = modifierId,
                 ModifierNom = modifierNom
             });
+
             return success ? Ok(data) : BadRequest(error);
         }
     }

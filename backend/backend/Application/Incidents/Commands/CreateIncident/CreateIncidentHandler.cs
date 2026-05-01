@@ -5,6 +5,7 @@ using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Application.Incidents.Commands.CreateIncident
 {
@@ -32,6 +33,17 @@ namespace backend.Application.Incidents.Commands.CreateIncident
 
         public async Task<Guid> Handle(CreateIncidentCommand request, CancellationToken cancellationToken)
         {
+            _logger.LogInformation(
+                "CreateIncidentHandler.Handle: SocieteId={SocieteId}, Titre={Titre}",
+                request.SocieteId,
+                request.Incident.Titre);
+
+            // ── Vérification que le SocieteId est bien présent ─────────────────
+            if (request.SocieteId == null)
+            {
+                _logger.LogWarning("CreateIncidentHandler: SocieteId est NULL — l'incident ne sera pas isolé par société.");
+            }
+
             var incident = new Incident
             {
                 Id = Guid.NewGuid(),
@@ -40,80 +52,118 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                 Date = DateTime.UtcNow,
                 Priorite = request.Incident.Priorite,
                 Statut = StatutIncident.EnCours,
-                Resolution = null
+                Resolution = null,
+                SocieteId = request.SocieteId   // ← isolation clé
             };
 
             await _context.Incidents.AddAsync(incident, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
-            try
+            _logger.LogInformation(
+                "Incident créé: Id={IncidentId}, SocieteId={SocieteId}",
+                incident.Id,
+                incident.SocieteId);
+
+            // ── Notifications fire-and-forget ──────────────────────────────────
+            _ = Task.Run(async () =>
             {
-                await NotifyTraitantsAsync(incident).WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
-            }
-            catch (TimeoutException)
-            {
-                _logger.LogWarning("Timeout lors de l'envoi des notifications pour incident {IncidentId}", incident.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erreur lors de l'envoi des notifications pour incident {IncidentId}", incident.Id);
-            }
+                try
+                {
+                    await SendNotificationsAsync(incident);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erreur lors de l'envoi des notifications pour incident {IncidentId}", incident.Id);
+                }
+            });
 
             return incident.Id;
         }
 
-        private async Task NotifyTraitantsAsync(Incident incident)
+        // ── Notifications isolées par société ──────────────────────────────────
+        private async Task SendNotificationsAsync(Incident incident)
         {
-            var traitants = await _userRepository.GetUsersByRoleAsync("User");
-            if (traitants is null)
+            _logger.LogInformation("=== ENVOI NOTIFICATIONS pour incident {IncidentId} (SocieteId={SocieteId}) ===",
+                incident.Id, incident.SocieteId);
+
+            // Récupérer les utilisateurs admins de la société concernée
+            // Si SocieteId est null → récupérer les super-admins (sans société)
+            IEnumerable<ApplicationUser> targets;
+
+            try
             {
-                _logger.LogWarning("Aucun traitant trouve pour incident {IncidentId}", incident.Id);
+                if (incident.SocieteId.HasValue)
+                {
+                    // Admins de cette société spécifique
+                    targets = await _context.Users
+                        .Where(u => u.SocieteId == incident.SocieteId.Value)
+                        .ToListAsync();
+                }
+                else
+                {
+                    // Incidents sans société : notifier les super-admins (SocieteId == null)
+                    targets = await _context.Users
+                        .Where(u => u.SocieteId == null)
+                        .ToListAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la récupération des utilisateurs cibles");
                 return;
             }
 
-            var incidentTitle = incident.Titre ?? "Incident sans titre";
-            var incidentDescription = incident.Description ?? string.Empty;
+            if (!targets.Any())
+            {
+                _logger.LogWarning("Aucun utilisateur trouvé pour SocieteId={SocieteId}", incident.SocieteId);
+                return;
+            }
 
             var notification = new
             {
                 type = "NewIncident",
                 incidentId = incident.Id,
-                titre = incidentTitle,
-                description = incidentDescription,
+                titre = incident.Titre,
+                description = incident.Description,
                 priorite = incident.Priorite?.ToString() ?? "MOYENNE",
                 date = incident.Date,
-                message = $"Nouvel incident : {incidentTitle}",
+                message = $"🚨 NOUVEL INCIDENT : {incident.Titre}",
                 statut = "EnCours"
             };
 
-            foreach (var traitant in traitants)
+            foreach (var user in targets)
             {
-                if (string.IsNullOrWhiteSpace(traitant.Email))
+                if (string.IsNullOrEmpty(user.Email)) continue;
+
+                var groupName = user.Email.ToLower()
+                    .Replace("@", "_")
+                    .Replace(".", "_");
+
+                // SignalR
+                try
                 {
-                    continue;
+                    await _hubContext.Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
+                    _logger.LogInformation("✅ SignalR envoyé à {Email} (groupe: {Group})", user.Email, groupName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Erreur SignalR pour {Email}", user.Email);
                 }
 
+                // Email
                 try
                 {
                     await _emailService.SendIncidentNotificationAsync(
-                        traitant.Email,
-                        traitant.NomComplet,
-                        incidentTitle,
-                        incidentDescription);
+                        user.Email,
+                        user.UserName ?? user.Email,
+                        incident.Titre ?? string.Empty,
+                        incident.Description ?? string.Empty
+                    );
+                    _logger.LogInformation("✅ Email envoyé à {Email}", user.Email);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erreur email incident {IncidentId} vers {Email}", incident.Id, traitant.Email);
-                }
-
-                try
-                {
-                    var groupName = NotificationHub.BuildUserGroup(traitant.Email);
-                    await _hubContext.Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erreur SignalR incident {IncidentId} vers {Email}", incident.Id, traitant.Email);
+                    _logger.LogError(ex, "❌ Erreur email pour {Email}", user.Email);
                 }
             }
         }

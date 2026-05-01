@@ -8,5 +8,8 @@ public class PdcaCycle
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    public int? SocieteId { get; set; }
+    public Societe? Societe { get; set; }
+
     public ICollection<Phase> Phases { get; set; } = new List<Phase>();
 }

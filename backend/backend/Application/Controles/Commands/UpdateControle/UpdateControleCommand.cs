@@ -25,5 +25,6 @@ public record UpdateControleCommand(
     string? ResponsablePlan = null,
     DateTime? DateEcheance = null,
     string? ModifierId = null,
-    string? ModifierNom = null
+    string? ModifierNom = null,
+    int? SocieteId = null
 ) : IRequest<(bool Success, string? Error, ControleDto? Data)>;

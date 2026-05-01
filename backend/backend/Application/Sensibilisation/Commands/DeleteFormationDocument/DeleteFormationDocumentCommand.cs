@@ -3,5 +3,5 @@ using MediatR;
 
 namespace backend.Application.Sensibilisation.Commands.DeleteFormationDocument;
 
-public record DeleteFormationDocumentCommand(Guid FormationId, Guid DocumentId)
+public record DeleteFormationDocumentCommand(Guid FormationId, Guid DocumentId, int? SocieteId)
     : IRequest<bool>;

@@ -1,4 +1,4 @@
-﻿using backend.Application.DTOs.Controles;
+using backend.Application.DTOs.Controles;
 using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
@@ -73,15 +73,14 @@ namespace backend.Application.Services
 
             string[] roles =
             {
+                "Super Admin", "Admin Societe", "Auditeur", "Consultant", "RSSI",
                 "Admin", "Chef de Projet", "Membre", "Lecteur",
-                "Responsable SÃ©curitÃ©", "Auditeur Interne",
-                "Gestionnaire de Projet", "Consultant", "Utilisateur Standard",
-                "Responsable ConformitÃ©", "DPO", "Direction GÃ©nÃ©rale",
-                "Responsable DevOps",
-                "Administrateur Infrastructure et Cloud",
-                "RSSI", "DRH", "DSI", "EmployÃ©",
-                "Responsable DÃ©veloppement",
-                "Responsable Cloud",
+                "Responsable Securite", "Auditeur Interne",
+                "Gestionnaire de Projet", "Utilisateur Standard",
+                "Responsable Conformite", "DPO", "Direction Generale",
+                "Responsable DevOps", "Administrateur Infrastructure et Cloud",
+                "DRH", "DSI", "Employe",
+                "Responsable Developpement", "Responsable Cloud",
                 "Responsable Infrastructure et Cloud"
             };
 
@@ -97,7 +96,7 @@ namespace backend.Application.Services
             // Seed users from configuration only (no hardcoded credentials)
             var adminEmail = config["SeedUsers:Admin:Email"];
             var adminPassword = config["SeedUsers:Admin:Password"];
-            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur SystÃ¨me";
+            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur Système";
             var adminRole = config["SeedUsers:Admin:Role"] ?? "Admin";
 
             var standardEmail = config["SeedUsers:Standard:Email"];
@@ -422,7 +421,7 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
                 };
                 dbContext.Societes.Add(societe);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"âœ… SociÃ©tÃ© crÃ©Ã©e: {demoSocieteName}");
+                Console.WriteLine($"✅ Société créée: {demoSocieteName}");
             }
 
             var demoUsers = new[]
@@ -430,7 +429,7 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
                 new DemoUserSeed("rssi.demo@smsi.local", "RssiDemo@123", "RSSI Demo", "RSSI"),
                 new DemoUserSeed("drh.demo@smsi.local", "DrhDemo@123", "DRH Demo", "DRH"),
                 new DemoUserSeed("dsi.demo@smsi.local", "DsiDemo@123", "DSI Demo", "DSI"),
-                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "EmployÃ©"),
+                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"),
             };
 
             var usersByRole = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
@@ -539,7 +538,7 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
             }
 
             await dbContext.SaveChangesAsync();
-            Console.WriteLine($"âœ… Documentation seed terminÃ©e");
+            Console.WriteLine($"✅ Documentation seed terminée");
         }
 
         private static async Task<ApplicationUser> EnsureDemoUserAsync(
@@ -567,7 +566,7 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
                     throw new InvalidOperationException(
                         $"Impossible de creer l'utilisateur demo {seed.Email}: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
                 }
-                Console.WriteLine($"âœ… Utilisateur demo crÃ©Ã©: {seed.Email}");
+                Console.WriteLine($"✅ Utilisateur demo créé: {seed.Email}");
             }
             else
             {
@@ -636,18 +635,18 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
             return user;
         }
 
-        // Ã€ AJOUTER dans la classe DbInitializer
+        // À AJOUTER dans la classe DbInitializer
         public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
             
             if (await dbContext.Controles.AnyAsync())
             {
-                Console.WriteLine("â„¹ï¸ ContrÃ´les dÃ©jÃ  prÃ©sents. Seed ignorÃ©.");
+                Console.WriteLine("ℹ️ Contrôles déjà présents. Seed ignoré.");
                 return;
             }
 
-            // Chercher le fichier JSON Ã  diffÃ©rents emplacements
+            // Chercher le fichier JSON à différents emplacements
             var candidatePaths = new[]
             {
                 Path.Combine(AppContext.BaseDirectory, "controles.json"),
@@ -684,7 +683,7 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
 
                 if (dtos is null || dtos.Count == 0)
                 {
-                    Console.WriteLine("âš ï¸ Aucune donnÃ©e trouvÃ©e dans le fichier JSON");
+                    Console.WriteLine("⚠️ Aucune donnée trouvée dans le fichier JSON");
                     return;
                 }
 
@@ -725,16 +724,20 @@ IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
 
                 await dbContext.Controles.AddRangeAsync(controles);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"âœ… {controles.Count} contrÃ´les ISO 27001 insÃ©rÃ©s avec succÃ¨s.");
+                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés avec succès.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"âŒ Erreur lors du seed des contrÃ´les: {ex.Message}");
+                Console.WriteLine($"❌ Erreur lors du seed des contrôles: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
     }
 }
+
+
+
+
 
 

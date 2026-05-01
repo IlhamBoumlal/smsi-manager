@@ -3,5 +3,5 @@ using MediatR;
 
 namespace backend.Application.Incidents.Commands.CreateIncident
 {
-    public record CreateIncidentCommand(IncidentDto Incident) : IRequest<Guid>;
+    public record CreateIncidentCommand(IncidentDto Incident, int? SocieteId) : IRequest<Guid>;
 }

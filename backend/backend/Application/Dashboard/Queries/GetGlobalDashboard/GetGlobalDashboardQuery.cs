@@ -3,5 +3,5 @@ using MediatR;
 
 namespace backend.Application.Dashboard.Queries.GetGlobalDashboard
 {
-    public record GetGlobalDashboardQuery() : IRequest<GlobalDashboardDto>;
+    public record GetGlobalDashboardQuery(int? CurrentSocieteId) : IRequest<GlobalDashboardDto>;
 }
