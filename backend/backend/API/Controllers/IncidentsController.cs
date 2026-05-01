@@ -5,12 +5,14 @@ using backend.Application.Incidents.Commands.UpdateIncident;
 using backend.Application.Incidents.Queries.GetAllIncidents;
 using backend.Application.Incidents.Queries.GetIncidentById;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class IncidentsController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -27,13 +29,6 @@ namespace backend.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, IncidentDto dto)
         {
-            // 👇 Ajoute ça temporairement
-            Console.WriteLine($"=== UPDATE REÇU ===");
-            Console.WriteLine($"Statut: {dto.Statut}");
-            Console.WriteLine($"Resolution: {dto.Resolution}");
-            Console.WriteLine($"Priorite: {dto.Priorite}");
-            Console.WriteLine($"===================");
-
             var result = await _mediator.Send(new UpdateIncidentCommand(id, dto));
             return result ? Ok() : NotFound();
         }

@@ -2,17 +2,15 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Search, ChevronDown, ChevronUp,
   Edit3, Trash2, Download, BarChart3, Check, X,
-  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2, Flag,
-  FileText, Tag, Target, Briefcase, FileCheck, Scale,
-  Users, UserCheck, Signature, CalendarDays,
+  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2,
+  FileText, Tag, Target, Briefcase, FileCheck,
+  UserCheck, Signature, CalendarDays,
   Activity, Info, Building2,
-  User, MapPin, Cpu, RefreshCw, Sparkles, Link2,
-  GitBranch, BookOpen, AlertOctagon, CircleDot, Eye,
-  ChevronRight as ArrowRight, Save, History, FolderOpen,
+  RefreshCw, Sparkles, GitBranch, BookOpen, Eye,
+  ChevronRight as ArrowRight, Save, History,
 } from 'lucide-react';
 import {
   getAllAudits,
-  getAuditById,
   createAudit,
   updateAudit,
   deleteAudit,
@@ -22,7 +20,6 @@ import {
   deleteNC,
   getAllSimulations,
   createSimulation,
-  deleteSimulation,
 } from '../api/audits';
 
 // ─── ISO 27001:2022 — 93 contrôles ───────────────────────────────────────────
@@ -32,7 +29,7 @@ const ISO_THEMES = [
     controls: [
       { id:'5.1',  name:'Politiques de sécurité',               question:'Votre organisation dispose-t-elle de politiques de sécurité de l\'information formalisées et approuvées par la direction ?' },
       { id:'5.2',  name:'Rôles et responsabilités',             question:'Les rôles et responsabilités en matière de sécurité sont-ils clairement définis et attribués ?' },
-      { id:'5.3',  name:'Séparation des tâches',                question:'La séparation des tâches est-elle appliquée pour éviter les conflits d\'intérêts ?' },
+      { id:'5.3',  name:'Separation des taches',                question:'La separation des taches est-elle appliquee pour eviter les conflits d\'interets ?' },
       { id:'5.4',  name:'Responsabilités de la direction',      question:'La direction s\'engage-t-elle activement dans le soutien à la sécurité de l\'information ?' },
       { id:'5.5',  name:'Contact avec les autorités',           question:'Des contacts appropriés sont-ils maintenus avec les autorités compétentes ?' },
       { id:'5.6',  name:'Contact avec groupes spécialisés',     question:'Des contacts sont-ils maintenus avec des groupes d\'intérêt spéciaux en sécurité ?' },
@@ -96,7 +93,7 @@ const ISO_THEMES = [
       { id:'7.9',  name:'Actifs hors site',                     question:'La sécurité des équipements utilisés hors des locaux est-elle assurée ?' },
       { id:'7.10', name:'Supports de stockage',                 question:'Les supports amovibles sont-ils gérés et sécurisés conformément à une politique définie ?' },
       { id:'7.11', name:'Services utilitaires',                 question:'Les services essentiels (énergie, climatisation) sont-ils protégés et surveillés ?' },
-      { id:'7.12', name:'Câblage de sécurité',                  question:'Les infrastructures de câblage réseau sont-elles protégées contre les interceptions ?' },
+      { id:'7.12', name:'Cablage de securite',                  question:'Les infrastructures de cablage reseau sont-elles protegees contre les interceptions ?' },
       { id:'7.13', name:'Maintenance des équipements',          question:'Les équipements font-ils l\'objet d\'une maintenance régulière et documentée ?' },
       { id:'7.14', name:'Élimination sécurisée des supports',   question:'Les supports en fin de vie sont-ils détruits de manière sécurisée avant élimination ?' },
     ],

@@ -10,12 +10,12 @@ import {
   Users,
   Factory,
   Building2,
-  Shield,
   ClipboardCheck,
   Network,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { resolveAssetUrl } from "../api/url";
+import { hasJwtRole } from "../utils/jwtRoles";
 
 const mainAxes = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie" },
@@ -42,8 +42,6 @@ const adminMenuItems = [
   { label: "Holdings", Icon: Building2, path: "/admin/holdings" },
 ];
 
-const ADMIN_EMAIL = "admin@alexsys.com";
-
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -61,7 +59,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     "tableau-bord";
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
-  const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
+  const isAdmin = hasJwtRole("Admin");
 
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";

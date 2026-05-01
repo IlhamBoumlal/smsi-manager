@@ -4,7 +4,7 @@ using System.Security.Claims;
 
 namespace backend.API.Hubs
 {
-    [Authorize]
+    [Authorize(Policy = "SignalRNotificationUser")]
     public class NotificationHub : Hub
     {
         private readonly ILogger<NotificationHub> _logger;
@@ -16,52 +16,68 @@ namespace backend.API.Hubs
 
         public override async Task OnConnectedAsync()
         {
-            var userEmail = GetUserEmail();
+            var userEmail = GetUserEmail(Context.User);
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                _logger.LogWarning("Connexion SignalR refusee: claim email manquant.");
+                Context.Abort();
+                return;
+            }
 
-            if (!string.IsNullOrEmpty(userEmail))
-            {
-                var groupName = NormalizeEmailForGroup(userEmail);
-                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-                _logger.LogInformation($"✅ Utilisateur {userEmail} connecté et ajouté au groupe {groupName}");
-            }
-            else
-            {
-                _logger.LogWarning($"⚠️ Connexion sans email valide - ConnectionId: {Context.ConnectionId}");
-            }
+            var groupName = BuildUserGroup(userEmail);
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+            _logger.LogInformation("Utilisateur {Email} connecte au groupe {GroupName}", userEmail, groupName);
 
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var userEmail = GetUserEmail();
-
-            if (!string.IsNullOrEmpty(userEmail))
+            var userEmail = GetUserEmail(Context.User);
+            if (!string.IsNullOrWhiteSpace(userEmail))
             {
-                var groupName = NormalizeEmailForGroup(userEmail);
+                var groupName = BuildUserGroup(userEmail);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-                _logger.LogInformation($"❌ Utilisateur {userEmail} déconnecté du groupe {groupName}");
+                _logger.LogInformation("Utilisateur {Email} retire du groupe {GroupName}", userEmail, groupName);
             }
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        // Méthode pour envoyer une notification à un utilisateur spécifique
         public async Task SendNotificationToUser(string userEmail, object notification)
         {
-            var groupName = NormalizeEmailForGroup(userEmail);
+            var groupName = BuildUserGroup(userEmail);
             await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation($"📨 Notification envoyée à {userEmail} (groupe: {groupName})");
+            _logger.LogInformation("Notification envoyee a {Email} (groupe: {GroupName})", userEmail, groupName);
         }
 
-        // Méthode pour envoyer à tous les utilisateurs connectés
         public async Task SendNotificationToAll(object notification)
         {
             await Clients.All.SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation($"📨 Notification envoyée à TOUS les utilisateurs");
+            _logger.LogInformation("Notification envoyee a tous les utilisateurs connectes");
         }
 
-        // Méthode de test
+        public async Task TestNotification()
+        {
+            var userEmail = GetUserEmail(Context.User);
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                _logger.LogWarning("TestNotification appelee sans email utilisateur.");
+                return;
+            }
+
+            await Clients.Caller.SendAsync("ReceiveNotification", new
+            {
+                type = "Test",
+                message = "Test de connexion SignalR reussi",
+                titre = "Test SignalR",
+                description = "Si vous voyez ce message, la notification fonctionne",
+                incidentId = Guid.NewGuid(),
+                priorite = "HAUTE",
+                date = DateTime.UtcNow
+            });
+        }
+
         public async Task TestNotificationForUser(string email)
         {
             var testNotification = new
@@ -69,7 +85,7 @@ namespace backend.API.Hubs
                 type = "Test",
                 message = $"Test de notification pour {email}",
                 titre = "Test SignalR",
-                description = "Si vous voyez ce message, la notification fonctionne!",
+                description = "Si vous voyez ce message, la notification fonctionne",
                 incidentId = Guid.NewGuid().ToString(),
                 priorite = "HAUTE",
                 date = DateTime.UtcNow
@@ -78,21 +94,16 @@ namespace backend.API.Hubs
             await SendNotificationToUser(email, testNotification);
         }
 
-        private string GetUserEmail()
+        public static string BuildUserGroup(string email)
         {
-            // Essayer plusieurs méthodes pour récupérer l'email
-            var email = Context.User?.FindFirst(ClaimTypes.Email)?.Value
-                        ?? Context.User?.FindFirst("email")?.Value
-                        ?? Context.User?.Identity?.Name;
-
-            _logger.LogInformation($"Email récupéré: {email ?? "null"}");
-            return email ?? "boumlalilham@gmail.com"; // Fallback par défaut
+            return email.Trim().ToLowerInvariant();
         }
 
-        private string NormalizeEmailForGroup(string email)
+        private static string? GetUserEmail(ClaimsPrincipal? user)
         {
-            // Nettoyer l'email pour créer un nom de groupe valide
-            return email?.ToLower().Replace("@", "_").Replace(".", "_") ?? "default_user";
+            return user?.FindFirst(ClaimTypes.Email)?.Value
+                   ?? user?.FindFirst("email")?.Value
+                   ?? user?.Identity?.Name;
         }
     }
 }

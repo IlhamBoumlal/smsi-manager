@@ -17,7 +17,12 @@ namespace backend.Infrastructure.Services
         // ── CONFORMITY PROOFS ─────────────────────────────────────────────────
         Task<List<ConformityProofDto>> GetConformityProofsAsync(int subClauseId, string userId);
         Task<ConformityProofDto> UpsertConformityProofAsync(int subClauseId, string userId, UpsertConformityProofDto dto);
-        Task<FileAttachmentDto> UploadConformityProofFileAsync(int proofId, string userId, IFormFile file, string? description);
+        Task<FileAttachmentDto> UploadConformityProofFileAsync(
+            int proofId,
+            string userId,
+            IFormFile file,
+            string? description,
+            string? documentType = null);
         Task<bool> DeleteConformityProofFileAsync(int fileId, string userId);
 
         // ── ACTION PLANS ──────────────────────────────────────────────────────

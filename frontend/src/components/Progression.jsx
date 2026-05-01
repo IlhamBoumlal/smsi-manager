@@ -1,8 +1,6 @@
 // Progression.jsx - Version avec style KPI identique à ClausesDashboard
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import {
   getCycle, getCycles, createCycle,
   addSection, renameSection, deleteSection,
@@ -78,12 +76,6 @@ const SEP_LINES = [0, 90, 180, 270].map(deg => {
     x2: CX + OUTER_R * Math.cos(r), y2: CY + OUTER_R * Math.sin(r)
   };
 });
-
-const AXE_ROUTES = {
-  "tableau-bord": "/dashboard", "pdca": "/pdca", "clauses": "/Clausesdashboard",
-  "controles": "/controles", "documentation": "/documentation",
-  "risques": "/risques", "audits": "/audits", "actifs": "/actifs",
-};
 
 function transformCycle(cycle, fallback) {
   if (!cycle || !cycle.phases || !Array.isArray(cycle.phases)) {
@@ -277,7 +269,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
         onMouseEnter={e => e.currentTarget.style.background = "#F0F4FF"}
         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, fontWeight: 600, color: "#0D1117", minWidth: 0, flex: 1 }}>
-          <span style={{ color: phase.color, flexShrink: 0, fontSize: 13 }}>🔷</span>
+          <span style={{ color: phase.color, flexShrink: 0, fontSize: 13 }}>ðŸ”·</span>
           <div style={{ minWidth: 0, flex: 1 }}>
             {editMode && editingTitle ? (
               <input ref={titleRef} value={titleVal} onChange={e => setTitleVal(e.target.value)}
@@ -311,7 +303,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
           }}>{done}/{total}</span>
           {editMode && (
             <button onClick={e => { e.stopPropagation(); onDeleteSection(phaseKey, sec.id); }}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#93C5FD", padding: "0 2px", lineHeight: 1 }}>🗑</button>
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#93C5FD", padding: "0 2px", lineHeight: 1 }}>ðŸ—‘</button>
           )}
           <span style={{ fontSize: 10, color: "#94A3B8", display: "inline-block", transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
         </div>
@@ -477,7 +469,7 @@ function PhasePanel({ phase, isOpen, onClose, onToggle, onDeleteItem, onDeleteSe
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
         {phase.sections.length === 0 ? (
           <div style={{ textAlign: "center", padding: "32px 0", color: "#93C5FD", fontSize: 12 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>🔷</div>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>ðŸ”·</div>
             Aucune catégorie. Activez le mode édition pour commencer.
           </div>
         ) : (
@@ -550,15 +542,10 @@ function Toast({ msg, visible }) {
 
 /* ════════ MAIN ════════ */
 export default function Progression() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
   const [data,     setData]     = useState(INITIAL_DATA);
   const [selected, setSelected] = useState(null);
   const [hovered,  setHovered]  = useState(null);
   const [toast,    setToast]    = useState({ msg: "", visible: false });
-  const [activeAxe, setActiveAxe] = useState("pdca");
-  const [cycleId,  setCycleId]  = useState(null);
   const toastRef = useRef(null);
 
   const showToast = useCallback((msg) => {
@@ -575,12 +562,10 @@ export default function Progression() {
         if (list.length > 0) {
           const id    = list[0].id;
           const cycle = await getCycle(id);
-          setCycleId(id);
           setData(transformCycle(cycle, INITIAL_DATA));
         } else {
           const created = await createCycle("Cycle PDCA");
           const cycle   = await getCycle(created.id);
-          setCycleId(created.id);
           setData(transformCycle(cycle, INITIAL_DATA));
         }
       } catch (e) {
@@ -686,9 +671,6 @@ export default function Progression() {
       showToast("❌ Erreur lors de l'ajout");
     }
   }, [mutate, showToast, data]);
-
-  const handleLogout    = () => { logout(); navigate("/login"); };
-  const handleAxeChange = id => { setActiveAxe(id); if (id !== "pdca" && AXE_ROUTES[id]) navigate(AXE_ROUTES[id]); };
 
   const global = calcGlobal(data);
   const HUB_R  = 52, hubCirc = 2 * Math.PI * HUB_R;

@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlanActionModal from './PlanActionModal';
 import {
   Search, CheckCircle2, AlertCircle,
   MinusCircle, AlertTriangle, Ban, X, Save, ClipboardList,
   Building2, Users, Lock, Cpu, ShieldCheck, Upload, FileText,
-  ChevronDown, History, ChevronRight, ChevronUp, Clock, User,
-  ArrowRight, Eye, Paperclip, Download
+  ChevronDown, History, ChevronUp, Clock, User,
+  ArrowRight, Paperclip, SearchX
 } from 'lucide-react';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:5006/api/controles';
+const API = '/api/controles';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THÈME
@@ -93,6 +93,27 @@ const CHAMP_LABELS = {
   Steps:                   "Étapes du plan d'action",
 };
 
+const DOCUMENT_TYPES = ["Politique", "Procedure", "Plan", "Registre", "Rapport", "Charte", "Chart"];
+
+function inferDocumentType(fileName = "", contentType = "") {
+  const name = String(fileName || "").toLowerCase();
+  const mime = String(contentType || "").toLowerCase();
+  const ext = name.split(".").pop() || "";
+
+  if (name.includes("procedure") || name.includes("proc") || name.includes("mode-operatoire")) return "Procedure";
+  if (name.includes("plan") || name.includes("pca") || name.includes("pra")) return "Plan";
+  if (name.includes("registre") || name.includes("log") || name.includes("inventaire")) return "Registre";
+  if (name.includes("politique") || name.includes("policy")) return "Politique";
+  if (name.includes("charte")) return "Charte";
+  if (name.includes("chart") || name.includes("graph") || name.includes("dashboard")) return "Chart";
+
+  if (mime.includes("spreadsheet") || mime.includes("excel") || ["xls", "xlsx", "csv"].includes(ext)) return "Registre";
+  if (mime.includes("presentation") || ["ppt", "pptx"].includes(ext)) return "Plan";
+  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "Chart";
+  if (mime.includes("text/plain") || ext === "txt") return "Procedure";
+  return "Rapport";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,66 +147,102 @@ function parseJsonSafe(json) {
   try { return JSON.parse(json); } catch { return null; }
 }
 
-function humanizeChamps(champsStr) {
-  if (!champsStr) return '';
-  return champsStr
-    .split(', ')
-    .map(c => CHAMP_LABELS[c] || c)
-    .join(' · ');
-}
 
 // ✅ Fonction de parsing des preuves avec log
 function parsePreuves(preuves) {
-  console.log('[parsePreuves] Input:', preuves, typeof preuves);
-  if (!preuves) {
-    console.log('[parsePreuves] Aucune preuve, retour []');
-    return [];
-  }
+  if (!preuves) return [];
+
+  let arr = [];
   if (Array.isArray(preuves)) {
-    console.log('[parsePreuves] Déjà un tableau, longueur:', preuves.length);
-    return preuves;
-  }
-  if (typeof preuves === 'string') {
+    arr = preuves;
+  } else if (typeof preuves === 'string') {
     try {
       const parsed = JSON.parse(preuves);
-      const arr = Array.isArray(parsed) ? parsed : [];
-      console.log('[parsePreuves] String JSON parsée, longueur:', arr.length);
-      return arr;
-    } catch (e) {
-      console.error('[parsePreuves] Erreur parsing JSON', e);
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
       return [];
     }
+  } else {
+    return [];
   }
-  console.log('[parsePreuves] Type non géré, retour []');
-  return [];
+
+  return arr
+    .map((item, idx) => normalizePreuveItem(item, idx))
+    .filter(Boolean);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// OPEN PREUVE — ouvre dans un onglet avec prévisualisation + téléchargement
-// ─────────────────────────────────────────────────────────────────────────────
+function normalizePreuveItem(item, idx) {
+  if (!item) return null;
 
-function openPreuve(doc) {
-  if (!doc || !doc.data) {
-    console.warn("Document invalide", doc);
-    return;
+  if (typeof item === 'string') {
+    const name = item.trim();
+    return name ? { name } : null;
   }
-  const ext = doc.name.split('.').pop().toLowerCase();
-  const map = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
-  const mime = map[ext] || 'application/octet-stream';
-  const bytes = atob(doc.data);
-  const buffer = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
-  const blob = new Blob([buffer], { type: mime });
+
+  if (typeof item !== 'object') return null;
+
+  const documentationId =
+    item.documentationId ||
+    item.DocumentationId ||
+    item.documentId ||
+    item.DocumentId ||
+    null;
+
+  const downloadUrlRaw =
+    item.downloadUrl ||
+    item.DownloadUrl ||
+    null;
+
+  const downloadUrl = downloadUrlRaw
+    || (documentationId ? `/api/documentation/${documentationId}/file` : null);
+
+  const name =
+    item.name ||
+    item.Name ||
+    item.originalName ||
+    item.OriginalName ||
+    extractNameFromUrl(downloadUrl) ||
+    `preuve-${idx + 1}`;
+
+  const data = item.data || item.Data || item.base64 || item.Base64 || null;
+  const contentType = item.contentType || item.ContentType || item.mimeType || item.MimeType || null;
+  const fileSize = item.fileSize || item.FileSize || null;
+  const documentType = item.documentType || item.DocumentType || item.type || item.Type || inferDocumentType(name, contentType);
+
+  return {
+    ...item,
+    name,
+    data,
+    contentType,
+    fileSize,
+    documentType,
+    documentationId,
+    downloadUrl,
+  };
+}
+
+function extractNameFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const clean = url.split('?')[0];
+  const parts = clean.split('/');
+  const last = parts[parts.length - 1];
+  if (!last) return null;
+  return decodeURIComponent(last);
+}
+
+function openBlobInViewer(blob, fileName) {
+  const safeName = fileName || 'preuve';
+  const ext = (safeName.split('.').pop() || '').toLowerCase();
   const url = URL.createObjectURL(blob);
 
-  const isImage = ['png','jpg','jpeg','gif','webp'].includes(ext);
-  const isPdf   = ext === 'pdf';
+  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+  const isPdf = ext === 'pdf';
 
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8"/>
-  <title>${doc.name}</title>
+  <title>${safeName}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', sans-serif; background: #F1F5F9; min-height: 100vh; }
@@ -222,23 +279,23 @@ function openPreuve(doc) {
 <body>
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-icon">${isImage ? '🖼' : isPdf ? '📄' : '📎'}</div>
-      <span class="topbar-name">${doc.name}</span>
+      <div class="topbar-icon">${isImage ? 'IMG' : isPdf ? 'PDF' : 'FIC'}</div>
+      <span class="topbar-name">${safeName}</span>
       <span class="topbar-ext">${ext}</span>
     </div>
-    <a class="btn-dl" href="${url}" download="${doc.name}">
-      ⬇ Télécharger
+    <a class="btn-dl" href="${url}" download="${safeName}">
+      T&eacute;l&eacute;charger
     </a>
   </div>
   ${isPdf
-    ? `<iframe src="${url}#toolbar=1&navpanes=0" title="${doc.name}"></iframe>`
+    ? `<iframe src="${url}#toolbar=1&navpanes=0" title="${safeName}"></iframe>`
     : isImage
-      ? `<div class="img-wrap"><img src="${url}" alt="${doc.name}" /></div>`
+      ? `<div class="img-wrap"><img src="${url}" alt="${safeName}" /></div>`
       : `<div class="content"><div class="other-wrap">
-           <div class="icon">📎</div>
-           <p>Prévisualisation non disponible pour ce type de fichier.</p>
+           <div class="icon">FIC</div>
+           <p>Pr&eacute;visualisation non disponible pour ce type de fichier.</p>
            <br/>
-           <a class="btn-dl" href="${url}" download="${doc.name}" style="display:inline-flex">⬇ Télécharger ${doc.name}</a>
+           <a class="btn-dl" href="${url}" download="${safeName}" style="display:inline-flex">T&eacute;l&eacute;charger ${safeName}</a>
          </div></div>`
   }
 </body>
@@ -251,10 +308,65 @@ function openPreuve(doc) {
   }
 }
 
+function buildBlobFromBase64(doc) {
+  const fileName = doc?.name || 'preuve';
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  const map = {
+    pdf: 'application/pdf',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp'
+  };
+  const mime = doc?.contentType || map[ext] || 'application/octet-stream';
+  const bytes = atob(doc.data);
+  const buffer = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) buffer[i] = bytes.charCodeAt(i);
+  return new Blob([buffer], { type: mime });
+}
+
+async function openPreuve(doc) {
+  if (!doc) return;
+
+  try {
+    const fileName = doc.name || 'preuve';
+    const downloadUrl = doc.downloadUrl || (doc.documentationId ? `/api/documentation/${doc.documentationId}/file` : null);
+
+    if (downloadUrl) {
+      const normalizedUrl = downloadUrl.startsWith('http')
+        ? downloadUrl
+        : (downloadUrl.startsWith('/') ? downloadUrl : `/${downloadUrl}`);
+      const response = await axiosInstance.get(normalizedUrl, { responseType: 'blob' });
+      const blob = new Blob([response.data], {
+        type: response.headers?.['content-type'] || doc.contentType || 'application/octet-stream',
+      });
+      openBlobInViewer(blob, fileName);
+      return;
+    }
+
+    if (doc.data) {
+      const blob = buildBlobFromBase64(doc);
+      openBlobInViewer(blob, fileName);
+      return;
+    }
+
+    alert("Impossible d'ouvrir cette preuve: fichier indisponible.");
+  } catch (err) {
+    console.error('Erreur ouverture preuve:', err);
+    alert("Impossible d'ouvrir cette preuve pour le moment.");
+  }
+}
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve({ name: file.name, data: reader.result.split(',')[1] });
+    reader.onload = () => resolve({
+      name: file.name,
+      data: reader.result.split(',')[1],
+      contentType: file.type || null,
+      fileSize: file.size || null,
+      documentType: inferDocumentType(file.name, file.type),
+    });
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -421,7 +533,7 @@ function StatutBadge({ statut, applicable }) {
 }
 
 function DocumentChip({ doc, onRemove, showRemove = false }) {
- 
+  const docName = doc?.name || 'preuve';
 
   return (
     <div style={{
@@ -432,7 +544,7 @@ function DocumentChip({ doc, onRemove, showRemove = false }) {
     }}>
       <span
         onClick={() => openPreuve(doc)}
-        title={`Ouvrir et télécharger : ${doc.name}`}
+        title={`Ouvrir et télécharger : ${docName}`}
         style={{
           fontSize: 12, color: '#1D4ED8', cursor: 'pointer',
           fontWeight: 600, maxWidth: 200,
@@ -440,7 +552,7 @@ function DocumentChip({ doc, onRemove, showRemove = false }) {
           textDecoration: 'underline', textDecorationStyle: 'dotted',
         }}
       >
-        {doc.name}
+        {docName}
       </span>
       {showRemove && (
         <X
@@ -541,7 +653,7 @@ function HistoriquePanel({ controleId, onClose }) {
 
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API}/${controleId}/historique`)
+    axiosInstance.get(`${API}/${controleId}/historique`)
       .then(r => setHistorique(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -575,13 +687,17 @@ function HistoriquePanel({ controleId, onClose }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           {loading && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div>
+              <div style={{ display: 'inline-flex', marginBottom: 12, color: T.gray400 }}>
+                <Clock size={34} />
+              </div>
               <div style={{ fontSize: 14, color: T.gray500, fontWeight: 600 }}>Chargement de l'historique...</div>
             </div>
           )}
           {!loading && historique.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>📋</div>
+              <div style={{ display: 'inline-flex', marginBottom: 14, color: T.gray400 }}>
+                <ClipboardList size={38} />
+              </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.gray700 }}>Aucune modification enregistrée</div>
               <div style={{ fontSize: 12.5, color: T.gray400, marginTop: 6 }}>L'historique sera créé lors de la première évaluation.</div>
             </div>
@@ -687,6 +803,7 @@ function HistoriquePanel({ controleId, onClose }) {
 export default function Controles() {
   const [controles, setControles]           = useState([]);
   const [loading, setLoading]               = useState(true);
+  const [loadError, setLoadError]           = useState('');
   const [searchTerm, setSearchTerm]         = useState('');
   const [activeTab, setActiveTab]           = useState('all');
   const [evaluationCtrl, setEvaluationCtrl] = useState(null);
@@ -703,14 +820,30 @@ export default function Controles() {
 
   const fetchData = () => {
     setLoading(true);
-    axios.get(API)
+    setLoadError('');
+    axiosInstance.get(API)
       .then(r => {
         console.log('[API] Réponse brute:', r.data);
-        const data = r.data.map(normalize);
+        const rawData = Array.isArray(r.data) ? r.data : [];
+        if (!Array.isArray(r.data)) {
+          setLoadError("Format de reponse inattendu depuis l'API controles.");
+        }
+        const data = rawData.map(normalize);
         console.log('[API] Après normalisation:', data);
-        setControles(data.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' })));
+        setControles(
+          data.sort((a, b) =>
+            String(a.code || '').localeCompare(String(b.code || ''), undefined, { numeric: true, sensitivity: 'base' })
+          )
+        );
       })
-      .catch(console.error)
+      .catch(err => {
+        console.error(err);
+        const apiMessage =
+          typeof err?.response?.data === 'string'
+            ? err.response.data
+            : err?.response?.data?.message;
+        setLoadError(apiMessage || "Impossible de charger les controles. Verifiez que le backend tourne et que la base contient les controles.");
+      })
       .finally(() => setLoading(false));
   };
 
@@ -719,21 +852,16 @@ export default function Controles() {
   };
 
   const handleSaveEvaluation = async (updated) => {
-    const token = localStorage.getItem('token');
-    
-    // 🔥 Correction cruciale : éviter le double stringify des preuves
-    let preuvesToSend = updated.preuves;
-    if (Array.isArray(updated.preuves)) {
-      preuvesToSend = JSON.stringify(updated.preuves);
-      console.log('[Sauvegarde] Preuves tableau -> stringifié:', preuvesToSend);
-    } else if (typeof updated.preuves === 'string') {
-      // Déjà une chaîne JSON, on la garde telle quelle
-      preuvesToSend = updated.preuves;
-      console.log('[Sauvegarde] Preuves déjà string, conservation:', preuvesToSend);
-    } else {
-      preuvesToSend = "[]";
-      console.log('[Sauvegarde] Preuves null/undefined -> []');
+    const parsedPreuves = Array.isArray(updated.preuves)
+      ? updated.preuves.map((item, idx) => normalizePreuveItem(item, idx)).filter(Boolean)
+      : parsePreuves(updated.preuves);
+
+    if (updated.applicable === true && updated.statut === 'Conforme' && parsedPreuves.length === 0) {
+      alert("Pour enregistrer un contr�le conforme, ajoute au moins une preuve documentaire.");
+      return;
     }
+
+    const preuvesToSend = JSON.stringify(parsedPreuves);
 
     try {
       const command = {
@@ -766,21 +894,33 @@ export default function Controles() {
         DateVerification: updated.DateVerification || null,
       };
 
-      console.log('[Sauvegarde] Commande envoyée:', command);
-
-      const response = await axios.put(`${API}/${updated.id}`, command, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
+      const response = await axiosInstance.put(`${API}/${updated.id}`, command);
 
       if (response.status === 200 || response.status === 204) {
         const savedData = normalize(response.data || updated);
-        console.log('[Sauvegarde] Réponse normalisée:', savedData);
         updateLocalControle(savedData);
         setEvaluationCtrl(null);
       }
     } catch (err) {
-      console.error("Erreur détaillée:", err.response?.data);
-      alert("Erreur lors de la sauvegarde.");
+      const data = err?.response?.data;
+      let details = '';
+
+      if (typeof data === 'string') {
+        details = data;
+      } else if (data?.message) {
+        details = data.message;
+      } else if (data?.error) {
+        details = data.error;
+      } else if (data?.title && data?.errors && typeof data.errors === 'object') {
+        const validation = Object.values(data.errors)
+          .flat()
+          .filter(Boolean)
+          .join(' ');
+        details = `${data.title}${validation ? ` ${validation}` : ''}`;
+      }
+
+      console.error('Erreur detailee:', data || err);
+      alert(`Erreur lors de la sauvegarde.${details ? `\n${details}` : ''}`);
     }
   };
 
@@ -878,14 +1018,42 @@ export default function Controles() {
               <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Chargement des contrôles...</div>
             </div>
           )}
-          {!loading && filtered.length === 0 && (
+          {!loading && !!loadError && (
+            <div style={{ textAlign: 'center', padding: '64px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+                <AlertTriangle size={42} color="#DC2626" />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Erreur de chargement des controles</div>
+              <div style={{ fontSize: 13, color: '#9CA3AF', marginTop: 8, maxWidth: 620, marginInline: 'auto' }}>{loadError}</div>
+              <button
+                type="button"
+                onClick={fetchData}
+                style={{
+                  marginTop: 16,
+                  padding: '9px 16px',
+                  borderRadius: 10,
+                  border: '1.5px solid #E5E7EB',
+                  background: '#fff',
+                  color: '#374151',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Reessayer
+              </button>
+            </div>
+          )}
+          {!loading && !loadError && filtered.length === 0 && (
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Aucun contrôle trouvé</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <SearchX size={46} color="#9CA3AF" />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Aucun controle trouve</div>
               <div style={{ fontSize: 13, color: '#9CA3AF', marginTop: 6 }}>Essayez un autre filtre ou recherche</div>
             </div>
           )}
-          {!loading && filtered.map((ctrl, index) => (
+          {!loading && !loadError && filtered.map((ctrl, index) => (
             <div key={ctrl.id} style={{
               background: '#fff', borderRadius: 16, overflow: 'hidden',
               boxShadow: '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
@@ -1070,24 +1238,12 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
   }));
 
   const [localDocs, setLocalDocs] = useState(() => {
-    const p = ctrl.preuves;
-    if (!p) return [];
-    if (Array.isArray(p)) return p;
-    if (typeof p === 'string') {
-      try { return JSON.parse(p); } catch { return []; }
-    }
-    return [];
+    return parsePreuves(ctrl.preuves);
   });
 
   // Synchronisation si ctrl change (ex: re-ouverture du panneau)
   useEffect(() => {
-    console.log('[EvaluationPanel] ctrl.preuves reçu:', ctrl.preuves);
-    const p = ctrl.preuves;
-    if (!p) setLocalDocs([]);
-    else if (Array.isArray(p)) setLocalDocs(p);
-    else if (typeof p === 'string') {
-      try { setLocalDocs(JSON.parse(p)); } catch { setLocalDocs([]); }
-    } else setLocalDocs([]);
+    setLocalDocs(parsePreuves(ctrl.preuves));
   }, [ctrl.preuves]);
 
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
@@ -1097,6 +1253,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
   const isNotApplicable  = form.applicable === false;
   const isStatusSelected = form.statut && form.statut !== 'NonEvalue';
   const isNC             = form.statut === 'NCMineure' || form.statut === 'NCMajeure';
+  const hasConformityProof = form.statut !== 'Conforme' || localDocs.length > 0;
 
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -1114,6 +1271,14 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
     setForm(f => ({ ...f, preuves: nextDocs }));
   };
 
+  const setDocType = (index, value) => {
+    const nextDocs = localDocs.map((doc, i) => (
+      i === index ? { ...doc, documentType: value } : doc
+    ));
+    setLocalDocs(nextDocs);
+    setForm(f => ({ ...f, preuves: nextDocs }));
+  };
+
   const hasPlanAction = () => {
     if (!form.steps) return false;
     if (typeof form.steps === 'string') {
@@ -1124,7 +1289,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
 
   const canSave =
     (isNotApplicable && (form.raisonExclusion?.trim().length ?? 0) > 0) ||
-    (isApplicable && isStatusSelected);
+    (isApplicable && isStatusSelected && hasConformityProof);
 
   const handleApplicableChange = (val) => {
     if (val === 'oui') {
@@ -1153,6 +1318,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
   };
 
   const handleSaveClick = async () => {
+    if (!canSave) return;
     setSaving(true);
     await onSave(form);
     setSaving(false);
@@ -1171,11 +1337,20 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
                 
                 <span
                   onClick={() => openPreuve(doc)}
-                  title={`Ouvrir : ${doc.name}`}
+                  title={`Ouvrir : ${doc?.name || 'preuve'}`}
                   style={{ flex: 1, fontSize: 12.5, color: accentColor, cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', textDecorationStyle: 'dotted', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
-                  {doc.name}
+                  {doc?.name || 'preuve'}
                 </span>
+                <select
+                  value={doc?.documentType || inferDocumentType(doc?.name, doc?.contentType)}
+                  onChange={(e) => setDocType(i, e.target.value)}
+                  style={{ height: 30, borderRadius: 8, border: `1px solid ${borderColor}`, fontSize: 12, color: '#334155', padding: '0 8px', background: '#fff', fontFamily: T.font }}
+                >
+                  {DOCUMENT_TYPES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
                 <button
                   onClick={() => removeDoc(i)}
                   title="Supprimer ce document"
@@ -1284,6 +1459,11 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
                     accentColor="#059669"
                     label="Ajouter des preuves de conformité"
                   />
+                  {localDocs.length === 0 && (
+                    <p style={{ margin: 0, fontSize: 12, color: '#b91c1c', fontWeight: 600 }}>
+                      Au moins une preuve documentaire est obligatoire pour le statut Conforme.
+                    </p>
+                  )}
                 </Section>
               )}
 
@@ -1385,3 +1565,4 @@ const btnSecondary = {
   fontWeight: 600, fontSize: 14, cursor: 'pointer',
   fontFamily: T.font, color: T.gray700,
 };
+

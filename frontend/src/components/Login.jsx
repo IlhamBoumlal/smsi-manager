@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
+import { resolveAssetUrl } from "../api/url";
 
 // Composant Login : Page de connexion avec formulaire email/mot de passe
 // Gère l'authentification et la redirection selon le rôle utilisateur
@@ -25,13 +26,7 @@ export default function Login() {
     else if (user.societe?.logo) logoPath = user.societe.logo;
     
     if (logoPath) {
-      if (logoPath.startsWith('/')) {
-        logoImage = `http://localhost:5006${logoPath}`;
-      } else if (!logoPath.startsWith('http')) {
-        logoImage = `http://localhost:5006/${logoPath}`;
-      } else {
-        logoImage = logoPath;
-      }
+      logoImage = resolveAssetUrl(logoPath, isoLogo);
     }
   }
 

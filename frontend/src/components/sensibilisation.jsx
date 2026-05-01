@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Search, Download, RefreshCw, ArrowLeft,
-  Send, Check, X, Upload, BookOpen, Shield, Loader2, Trash2,
+  Check, X, Upload, BookOpen, Loader2, Trash2,
 } from 'lucide-react';
 import {
   getDashboard,
   getFormations,
   getFormation,
   createFormation,
-  updateFormation,
   notifyParticipants,
   updateParticipantStatus,
   uploadFormationDocument,
@@ -107,7 +106,7 @@ function Toggle({ checked, onChange }) {
 
 function SectionDivider({ children }) {
   return (
-    <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest pb-2 border-b border-gray-100 mt-5 mb-3.5 font-mono first:mt-0">
+    <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest pb-2 border-b border-slate-200 bg-slate-50 mt-5 mb-3.5 font-mono first:mt-0">
       {children}
     </div>
   );
@@ -116,27 +115,59 @@ function SectionDivider({ children }) {
 // ─── KPI Strip ────────────────────────────────────────────────────────────────
 function KpiStrip({ data, loading }) {
   const kpis = [
-    { label: 'Taux de participation', value: loading ? '—' : `${data?.tauxMoyen ?? 0}%`, sub: `${data?.total ?? 0} formations · moyenne`, highlight: true },
-    { label: 'Formations totales',    value: loading ? '—' : data?.total ?? 0,      sub: `${data?.terminees ?? 0} terminées` },
-    { label: 'Planifiées',            value: loading ? '—' : data?.planifiees ?? 0, sub: 'À venir' },
-    { label: 'En cours',              value: loading ? '—' : data?.enCours ?? 0,    sub: (data?.enCours ?? 0) > 0 ? 'Actives' : 'Aucune active' },
+    {
+      label: 'Taux de participation',
+      value: loading ? '--' : `${data?.tauxMoyen ?? 0}%`,
+      sub: `${data?.total ?? 0} formations`,
+      highlight: true,
+    },
+    {
+      label: 'Formations totales',
+      value: loading ? '--' : data?.total ?? 0,
+      sub: `${data?.terminees ?? 0} terminees`,
+      valueClass: 'text-slate-900',
+    },
+    {
+      label: 'Planifiees',
+      value: loading ? '--' : data?.planifiees ?? 0,
+      sub: 'A venir',
+      valueClass: 'text-blue-700',
+    },
+    {
+      label: 'En cours',
+      value: loading ? '--' : data?.enCours ?? 0,
+      sub: (data?.enCours ?? 0) > 0 ? 'Actives' : 'Aucune active',
+      valueClass: 'text-amber-700',
+    },
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 4 }}>
+    <div className="mb-1 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((k, i) => (
-        <div key={i} style={{
-          background: k.highlight ? 'linear-gradient(135deg,#1D4ED8,#1e40af)' : '#fff',
-          borderRadius: 14, padding: '20px 22px',
-          boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.06)',
-          animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
-        }}>
-          <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
-          <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
-          <div style={{ fontSize: 11.5, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
+        <div
+          key={i}
+          className={`rounded-2xl border px-6 py-5 transition-all duration-300 ${
+            k.highlight
+              ? 'border-blue-700 bg-gradient-to-br from-blue-700 to-blue-800 text-white shadow-[0_8px_24px_rgba(29,78,216,0.35)] hover:-translate-y-1'
+              : 'border-slate-200 bg-white shadow-sm hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(15,23,42,0.10)]'
+          }`}
+          style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 70}ms both` }}
+        >
+          <p className={`text-[12.5px] font-semibold ${k.highlight ? 'text-white/95' : 'text-slate-700'}`}>{k.label}</p>
+          <p
+            className={`mt-2 text-[32px] font-extrabold leading-none ${
+              k.highlight ? 'text-white' : k.valueClass || 'text-slate-900'
+            }`}
+          >
+            {k.value}
+          </p>
+          <p className={`mt-2 text-[11.5px] ${k.highlight ? 'text-white/75' : 'text-slate-400'}`}>{k.sub}</p>
           {k.highlight && typeof data?.tauxMoyen === 'number' && (
-            <div style={{ marginTop: 12, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${data.tauxMoyen}%`, background: 'rgba(255,255,255,.8)', borderRadius: 99, transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s' }} />
+            <div className="mt-4 h-[5px] overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-[5px] rounded-full bg-white/90 transition-all duration-500"
+                style={{ width: `${data.tauxMoyen}%` }}
+              />
             </div>
           )}
         </div>
@@ -144,8 +175,6 @@ function KpiStrip({ data, loading }) {
     </div>
   );
 }
-
-// ─── ActionBar ────────────────────────────────────────────────────────────────
 const MODULES = [
   { id: 'list',   icon: BookOpen, label: 'Formations' },
   { id: 'create', icon: Plus,     label: 'Planifier' },
@@ -153,23 +182,28 @@ const MODULES = [
 
 function ActionBar({ active, onChange }) {
   return (
-    <div className="flex gap-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 w-fit">
-      {MODULES.map(m => {
+    <div className="mb-1 flex w-fit gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+      {MODULES.map((m) => {
         const Icon = m.icon;
         const isActive = active === m.id;
         return (
-          <button key={m.id} onClick={() => onChange(m.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all
-              ${isActive ? 'bg-blue-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}>
-            <Icon className="w-4 h-4" />{m.label}
+          <button
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-medium transition-all ${
+              isActive
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {m.label}
           </button>
         );
       })}
     </div>
   );
 }
-
-// ─── Vue Liste ────────────────────────────────────────────────────────────────
 function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -256,20 +290,20 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? <Spinner /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-slate-200 bg-slate-50">
                   {['Intitulé', 'Type', 'Date', 'Durée', 'Formateur', 'Participation', 'Statut', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[11px] font-medium text-gray-400 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(f => (
-                  <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors last:border-0">
+                  <tr key={f.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors last:border-0">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{f.title}</div>
                       <div className="text-[11px] text-gray-400 mt-0.5">{f.departement} · {f.participants} participants</div>
@@ -547,7 +581,6 @@ function CreateView({ onBack, onSave }) {
 function DetailView({ formationId, onBack, onToast }) {
   const [formation,  setFormation]  = useState(null);
   const [loading,    setLoading]    = useState(true);
-  const [notifying,  setNotifying]  = useState(false);
   const [uploading,  setUploading]  = useState(false);
   const fileInputRef = useRef(null);
 
@@ -560,22 +593,10 @@ function DetailView({ formationId, onBack, onToast }) {
     } finally {
       setLoading(false);
     }
-  }, [formationId]);
+  }, [formationId, onToast]);
 
   useEffect(() => { load(); }, [load]);
 
-  const handleNotify = async () => {
-    setNotifying(true);
-    try {
-      await notifyParticipants(formation.id, 'Notification manuelle');
-      onToast('Notifications envoyées');
-      await load();
-    } catch {
-      onToast('Erreur d\'envoi', 'error');
-    } finally {
-      setNotifying(false);
-    }
-  };
 
   const handleStatusChange = async (participantId, status) => {
     try {
@@ -853,29 +874,48 @@ export default function Sensibilisation() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50" style={{ fontFamily: "'Inter','DM Sans',system-ui,sans-serif" }}>
+    <div
+      className="min-h-screen bg-[#f8f9fb] px-4 py-5 sm:px-6"
+      style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}
+    >
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+      <div className="mx-auto max-w-[1200px] space-y-5">
+        <section className="mb-1">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Sensibilisation ISO 27001</h1>
-              <p className="text-xs text-gray-400">Clause 7.2 &amp; 7.3 · Gestion des formations SMSI</p>
+              <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: '-0.8px' }}>
+                Sensibilisation ISO 27001
+              </h1>
+              <p className="mt-1 text-[13.5px] text-slate-500">
+                Pilotage des formations, participation et preuves d'audit.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                title="Rafraichir"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Rafraichir
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId(null);
+                  setModule('create');
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-colors hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                Nouvelle formation
+              </button>
             </div>
           </div>
-          <button onClick={handleRefresh}
-            className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-            <RefreshCw className="w-4 h-4 text-gray-400" />
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full px-6 py-6 space-y-5">
+        </section>
+        <div className="space-y-5">
         <KpiStrip data={dashboard} loading={loadingKpi} />
 
         <ActionBar
@@ -903,6 +943,7 @@ export default function Sensibilisation() {
             onToast={showToast}
           />
         )}
+      </div>
       </div>
 
       <style>{`

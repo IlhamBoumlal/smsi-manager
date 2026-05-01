@@ -32,12 +32,20 @@ public class ClauseFileController : ControllerBase
     [HttpPost("proofs/{proofId:int}/files")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> UploadProofFile(
-        int proofId, IFormFile file, [FromForm] string? description = null)
+        int proofId,
+        IFormFile file,
+        [FromForm] string? description = null,
+        [FromForm] string? documentType = null)
     {
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadConformityProofFileAsync(proofId, UserId, file, description));
+            return Ok(await _svc.UploadConformityProofFileAsync(
+                proofId,
+                UserId,
+                file,
+                description,
+                documentType));
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }

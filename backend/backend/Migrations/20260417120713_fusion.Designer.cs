@@ -13,7 +13,7 @@ namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260417120713_fusion")]
-    partial class fusion
+    partial class Fusion
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

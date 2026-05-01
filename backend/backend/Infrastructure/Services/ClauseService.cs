@@ -3,21 +3,31 @@ using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
 using backend.Domain.Entities;
+using backend.Domain.Interfaces;
+using Microsoft.AspNetCore.StaticFiles;
 namespace backend.Infrastructure.Services
 {
     public class ClauseService : IClauseService
     {
         private readonly AppDbContext _db;
+        private readonly IDocumentationProofLinkService _documentationProofLinkService;
 
         private static readonly JsonSerializerOptions _json = new()
         {
             PropertyNameCaseInsensitive = true
         };
         private readonly IWebHostEnvironment _env;
-        public ClauseService(AppDbContext db, IWebHostEnvironment env)
-        { _db = db; _env = env; }
+        private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-        public ClauseService(AppDbContext db) => _db = db;
+        public ClauseService(
+            AppDbContext db,
+            IWebHostEnvironment env,
+            IDocumentationProofLinkService documentationProofLinkService)
+        {
+            _db = db;
+            _env = env;
+            _documentationProofLinkService = documentationProofLinkService;
+        }
 
         // ── MAPPERS ───────────────────────────────────────────────────────────
 
@@ -473,25 +483,60 @@ namespace backend.Infrastructure.Services
             return MapProof(proof);
         }
 
-        public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
-            int proofId, string userId, IFormFile file, string? description)
+                public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
+            int proofId, string userId, IFormFile file, string? description, string? documentType = null)
         {
-            // Vérifier que la preuve appartient à cet utilisateur
             var proof = await _db.ConformityProofs
                 .FirstOrDefaultAsync(p => p.Id == proofId && p.UserId == userId)
                 ?? throw new KeyNotFoundException("Preuve introuvable.");
 
-            var content = await ReadAndValidateAsync(file);
+            var clauseReference = await _db.IsoClauses
+                .Where(c => c.Id == proof.IsoClauseId)
+                .Select(c => c.Number)
+                .FirstOrDefaultAsync();
+
+            var documentationDocument = await _documentationProofLinkService.FindOrCreateFromFormFileAndLinkAsync(
+                file,
+                userId,
+                clauseReference,
+                controleReference: null,
+                description,
+                requestedType: documentType,
+                sourceModule: "Clause",
+                controleDomaine: null,
+                CancellationToken.None);
+
+            var existingLink = await _db.FileAttachments
+                .FirstOrDefaultAsync(x =>
+                    x.ConformityProofId == proofId
+                    && x.UserId == userId
+                    && x.DocumentationDocumentId == documentationDocument.Id);
+
+            if (existingLink is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(description))
+                {
+                    existingLink.Description = description.Trim();
+                    existingLink.UploadedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+
+                return MapFile(existingLink);
+            }
 
             var attachment = new FileAttachment
             {
                 UserId = userId,
                 ConformityProofId = proofId,
-                OriginalName = Path.GetFileName(file.FileName),
-                ContentType = file.ContentType,
-                FileSize = file.Length,
+                DocumentationDocumentId = documentationDocument.Id,
+                OriginalName = documentationDocument.OriginalFileName ?? Path.GetFileName(file.FileName),
+                ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                    ? GuessContentTypeFromFileName(documentationDocument.OriginalFileName ?? file.FileName)
+                    : file.ContentType,
+                FileSize = documentationDocument.FileSizeBytes ?? file.Length,
                 Description = description,
-                Content = content,        // ← stocké en base
+                // Pas de duplication binaire: le fichier reste centralise dans Documentation.
+                Content = Array.Empty<byte>(),
                 UploadedAt = DateTime.UtcNow,
             };
 
@@ -586,10 +631,49 @@ namespace backend.Infrastructure.Services
             var f = await _db.FileAttachments
                 .FirstOrDefaultAsync(x => x.Id == fileId && x.UserId == userId);
 
-            if (f is null || f.Content.Length == 0) return null;
+            if (f is null) return null;
 
-            return (f.Content, f.ContentType, f.OriginalName);
+            if (f.DocumentationDocumentId.HasValue)
+            {
+                var doc = await _db.DocumentationDocuments
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == f.DocumentationDocumentId.Value);
+
+                var absolutePath = ResolveAbsoluteDocumentPath(doc?.FilePath);
+                if (!string.IsNullOrWhiteSpace(absolutePath) && File.Exists(absolutePath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(absolutePath);
+                    var fileName = string.IsNullOrWhiteSpace(doc?.OriginalFileName) ? f.OriginalName : doc!.OriginalFileName!;
+                    var contentType = GuessContentTypeFromFileName(fileName);
+                    return (bytes, contentType, fileName);
+                }
+            }
+
+            if (f.Content.Length == 0) return null;
+
+            return (f.Content, string.IsNullOrWhiteSpace(f.ContentType) ? GuessContentTypeFromFileName(f.OriginalName) : f.ContentType, f.OriginalName);
+        }
+
+        private string? ResolveAbsoluteDocumentPath(string? storedPath)
+        {
+            if (string.IsNullOrWhiteSpace(storedPath)) return null;
+            if (Path.IsPathRooted(storedPath)) return storedPath;
+
+            var relative = storedPath.Trim().TrimStart('~').TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var webRoot = _env.WebRootPath;
+            if (string.IsNullOrWhiteSpace(webRoot))
+                webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+
+            return Path.Combine(webRoot, relative);
+        }
+
+        private static string GuessContentTypeFromFileName(string? fileName)
+        {
+            if (!string.IsNullOrWhiteSpace(fileName) && _contentTypeProvider.TryGetContentType(fileName, out var mime))
+                return mime;
+            return "application/octet-stream";
         }
 
     }
 }
+

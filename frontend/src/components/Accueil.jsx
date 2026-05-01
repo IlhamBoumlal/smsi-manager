@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
 import { 
   ShieldCheck, Lightbulb, Play, Search, RotateCcw, 
-  Zap, BarChart3, Users, LogIn, Mail, Phone, MapPin,
-  ChevronRight
+  Zap, BarChart3, Users, LogIn
 } from 'lucide-react';
 
 // Données statiques pour les étapes PDCA (Plan-Do-Check-Act)

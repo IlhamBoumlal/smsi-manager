@@ -18,6 +18,7 @@ namespace backend.Domain.Entities
         // ── LIENS (l'un ou l'autre est renseigné) ────────────────────────────
         public int? ConformityProofId { get; set; }
         public int? ActionPlanId { get; set; }
+        public Guid? DocumentationDocumentId { get; set; }
 
         // ── MÉTADONNÉES ───────────────────────────────────────────────────────
         [MaxLength(255)] public string OriginalName { get; set; } = "";
@@ -36,5 +37,6 @@ namespace backend.Domain.Entities
         // ── NAVIGATION ────────────────────────────────────────────────────────
         public ConformityProof? ConformityProof { get; set; }
         public ActionPlan? ActionPlan { get; set; }
+        public DocumentationDocument? DocumentationDocument { get; set; }
     }
 }

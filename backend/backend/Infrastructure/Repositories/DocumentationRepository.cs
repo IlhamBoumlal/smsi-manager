@@ -52,6 +52,7 @@ namespace backend.Infrastructure.Repositories
             existing.FilePath = document.FilePath;
             existing.OriginalFileName = document.OriginalFileName;
             existing.FileSizeBytes = document.FileSizeBytes;
+            existing.FileHash = document.FileHash;
             existing.SocieteId = document.SocieteId;
             existing.CreatedByUserId = document.CreatedByUserId;
             existing.LastModifiedByUserId = document.LastModifiedByUserId;

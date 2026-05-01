@@ -17,8 +17,6 @@
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.13" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.13" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.13">
@@ -28,11 +26,14 @@
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
     <PackageReference Include="QuestPDF" Version="2026.2.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.3.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="appsettings.json" />
+    <None Update="Infrastructure\SeedData\controles.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

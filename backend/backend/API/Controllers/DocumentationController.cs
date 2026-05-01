@@ -10,6 +10,7 @@ using backend.Application.DTOs.Documentation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using System.Security.Claims;
 
 namespace backend.API.Controllers
@@ -21,6 +22,7 @@ namespace backend.API.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IWebHostEnvironment _environment;
+        private static readonly FileExtensionContentTypeProvider ContentTypeProvider = new();
 
         public DocumentationController(IMediator mediator, IWebHostEnvironment environment)
         {
@@ -183,6 +185,33 @@ namespace backend.API.Controllers
             return BadRequest(error);
         }
 
+        [HttpGet("{id:guid}/file")]
+        public async Task<IActionResult> DownloadOriginalFile(Guid id)
+        {
+            var doc = await _mediator.Send(new GetDocumentationByIdQuery(
+                id,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
+
+            if (doc is null) return NotFound();
+            if (string.IsNullOrWhiteSpace(doc.FilePath)) return NotFound("Aucun fichier associe.");
+
+            var webRoot = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            var relativePath = doc.FilePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var absolutePath = Path.Combine(webRoot, relativePath);
+
+            if (!System.IO.File.Exists(absolutePath))
+                return NotFound("Fichier introuvable.");
+
+            var downloadName = string.IsNullOrWhiteSpace(doc.OriginalFileName)
+                ? $"{SafeFileName(doc.Name)}{Path.GetExtension(absolutePath)}"
+                : doc.OriginalFileName;
+
+            var contentType = ResolveContentType(downloadName);
+            return PhysicalFile(absolutePath, contentType, downloadName);
+        }
+
         [HttpGet("{id:guid}/download")]
         public async Task<IActionResult> Download(Guid id, [FromQuery] string format = "pdf")
         {
@@ -233,6 +262,13 @@ namespace backend.API.Controllers
         {
             var invalid = Path.GetInvalidFileNameChars();
             return string.Join("_", name.Split(invalid, StringSplitOptions.RemoveEmptyEntries)).Trim();
+        }
+
+        private static string ResolveContentType(string fileName)
+        {
+            if (ContentTypeProvider.TryGetContentType(fileName, out var mime))
+                return mime;
+            return "application/octet-stream";
         }
 
         private static string BuildFallbackExport(DocumentationResponseDto doc, string format)

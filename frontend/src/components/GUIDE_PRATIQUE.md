@@ -1,8 +1,8 @@
-# 🛠️ Guide Pratique - Controles & PlanActionNC
+# ðŸ› ï¸ Guide Pratique - Controles & PlanActionNC
 
 > Guide rapide pour naviguer et modifier les composants de gestion des contrôles ISO 27001
 
-## 📍 Localisation des Fichiers
+## ðŸ“ Localisation des Fichiers
 
 ```
 src/components/
@@ -36,7 +36,7 @@ export function HomePage() {
 
 ---
 
-## 🔧 Tâches Courantes
+## ?? Taches Courantes
 
 ### ❌ Ajouter un Plan d'Action pour un Contrôle Manquant
 
@@ -63,7 +63,7 @@ export function HomePage() {
 
 ---
 
-### 🎨 Changer les Couleurs d'un Domaine
+### ðŸŽ¨ Changer les Couleurs d'un Domaine
 
 **Où ?** : Controles.jsx, objet `DOMAIN_THEMES` (lignes ~45-65)
 
@@ -118,7 +118,7 @@ Organisationnel: {
 
 ---
 
-### 🔐 Changer l'URL de l'API
+### ðŸ” Changer l'URL de l'API
 
 **Où ?** : Controles.jsx, ligne 32
 
@@ -134,7 +134,7 @@ const API = 'https://api.monssi.com/api/controles';
 
 ---
 
-### 📱 Adapter pour Mobile
+### ðŸ“± Adapter pour Mobile
 
 **Fichier concerné** : Controles.jsx, section `display: grid`
 
@@ -321,7 +321,7 @@ npm run build
 
 ---
 
-## 📞 Support
+## ðŸ“ž Support
 
 Pour des questions sur :
 - **Architecture** → Voir `README_STRUCTURE.md`

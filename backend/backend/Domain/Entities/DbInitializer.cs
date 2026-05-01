@@ -1,4 +1,4 @@
-using backend.Application.DTOs.Controles;
+﻿using backend.Application.DTOs.Controles;
 using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
@@ -24,20 +24,63 @@ namespace backend.Application.Services
                 // In local development, allow startup even when a migration is missing.
                 await dbContext.Database.EnsureCreatedAsync();
             }
+            catch (Exception ex)
+            {
+                // Do not block startup for modules that can self-heal via compatibility patches below.
+                Console.WriteLine($"Database migration skipped: {ex.Message}");
+            }
+
+            // Legacy databases may contain older schemas.
+            // Run compatibility patches independently so one failure does not block the others.
+            try
+            {
+                await EnsureControlesSchemaCompatibilityAsync(dbContext);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Controles schema compatibility failed: {ex.Message}");
+            }
+
+            try
+            {
+                await EnsureDocumentationProofSchemaCompatibilityAsync(dbContext);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Documentation proof schema compatibility failed: {ex.Message}");
+            }
+
+            try
+            {
+                await EnsureCartographieSchemaCompatibilityAsync(dbContext);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Cartographie schema compatibility failed: {ex.Message}");
+            }
+
+            try
+            {
+                await EnsureIncidentsSchemaCompatibilityAsync(dbContext);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Incidents schema compatibility failed: {ex.Message}");
+            }
 
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            // Création des rôles
-            string[] roles = {
+            string[] roles =
+            {
                 "Admin", "Chef de Projet", "Membre", "Lecteur",
-                "Responsable Sécurité", "Auditeur Interne",
+                "Responsable SÃ©curitÃ©", "Auditeur Interne",
                 "Gestionnaire de Projet", "Consultant", "Utilisateur Standard",
-                "Responsable Conformité", "DPO", "Direction Générale",
+                "Responsable ConformitÃ©", "DPO", "Direction GÃ©nÃ©rale",
                 "Responsable DevOps",
                 "Administrateur Infrastructure et Cloud",
-                "RSSI", "DRH", "DSI", "Employé",
-                "Responsable Développement",
+                "RSSI", "DRH", "DSI", "EmployÃ©",
+                "Responsable DÃ©veloppement",
                 "Responsable Cloud",
                 "Responsable Infrastructure et Cloud"
             };
@@ -47,42 +90,258 @@ namespace backend.Application.Services
                 if (!await roleManager.RoleExistsAsync(role))
                 {
                     await roleManager.CreateAsync(new IdentityRole(role));
-                    Console.WriteLine($"✅ Rôle créé: {role}");
+                    Console.WriteLine($"Role created: {role}");
                 }
             }
 
-            // Seed users from configuration or use defaults
-            var adminEmail = config["SeedUsers:Admin:Email"] ?? "admin@alexsys.com";
-            var adminPassword = config["SeedUsers:Admin:Password"] ?? "Admin@123456!";
-            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur Système";
+            // Seed users from configuration only (no hardcoded credentials)
+            var adminEmail = config["SeedUsers:Admin:Email"];
+            var adminPassword = config["SeedUsers:Admin:Password"];
+            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur SystÃ¨me";
             var adminRole = config["SeedUsers:Admin:Role"] ?? "Admin";
 
-            var standardEmail = config["SeedUsers:Standard:Email"] ?? "user@alexsys.com";
-            var standardPassword = config["SeedUsers:Standard:Password"] ?? "User@123456!";
+            var standardEmail = config["SeedUsers:Standard:Email"];
+            var standardPassword = config["SeedUsers:Standard:Password"];
             var standardName = config["SeedUsers:Standard:NomComplet"] ?? "Utilisateur Standard";
             var standardRole = config["SeedUsers:Standard:Role"] ?? "Utilisateur Standard";
 
-            // VOTRE ADMIN PERSONNALISÉ 
-            var yourAdminEmail = "boumlalilham@gmail.com";
-            var yourAdminPassword = "Admin@123456!";
-            var yourAdminName = "Ilham Boumlal";
-
             await EnsureRoleExistsAsync(roleManager, adminRole);
             await EnsureRoleExistsAsync(roleManager, standardRole);
-            await EnsureRoleExistsAsync(roleManager, "Admin"); // Assure que le rôle Admin existe
+            await EnsureRoleExistsAsync(roleManager, "Admin");
 
-            // Créer les utilisateurs
-            await SeedUserIfMissingAsync(userManager, adminEmail, adminPassword, adminName, adminRole);
-            await SeedUserIfMissingAsync(userManager, standardEmail, standardPassword, standardName, standardRole);
+            await TrySeedConfiguredUserAsync(userManager, adminEmail, adminPassword, adminName, adminRole, "Admin");
+            await TrySeedConfiguredUserAsync(userManager, standardEmail, standardPassword, standardName, standardRole, "Standard");
 
-            // CRÉER VOTRE ADMIN SPÉCIFIQUE - AJOUTEZ CECI
-            await SeedUserIfMissingAsync(userManager, yourAdminEmail, yourAdminPassword, yourAdminName, "Admin");
-            Console.WriteLine($"✅ Vérification admin {yourAdminEmail} terminée");
+            var seedDemo = bool.TryParse(config["SeedUsers:EnableDemo"], out var enableDemo) && enableDemo;
+            if (seedDemo)
+            {
+                await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager, config);
+            }
 
-            // Seed demo users and documentation for RBAC demonstration
-            await SeedDocumentationMvpDemoAsync(dbContext, userManager, roleManager, config);
             await SeedControlesAsync(serviceProvider);
+        }
 
+        private static async Task EnsureControlesSchemaCompatibilityAsync(AppDbContext dbContext)
+        {
+            const string sql = @"
+DECLARE @fullTableName NVARCHAR(300);
+
+SELECT TOP (1) @fullTableName = QUOTENAME(s.name) + N'.' + QUOTENAME(t.name)
+FROM sys.tables t
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+WHERE t.name = N'controles';
+
+IF @fullTableName IS NOT NULL
+BEGIN
+    IF COL_LENGTH(@fullTableName, N'DateEcheance') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [DateEcheance] datetime2 NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'DernierModificateurId') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [DernierModificateurId] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'DernierModificateurNom') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [DernierModificateurNom] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'JustificationConformite') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [JustificationConformite] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'Priorite') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [Priorite] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'RaisonExclusion') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [RaisonExclusion] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'RaisonsApplicabilite') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [RaisonsApplicabilite] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'Remarque') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [Remarque] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'ResponsablePlan') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [ResponsablePlan] nvarchar(max) NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'StatutPlan') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [StatutPlan] int NULL;');
+
+    IF COL_LENGTH(@fullTableName, N'Steps') IS NULL
+        EXEC(N'ALTER TABLE ' + @fullTableName + N' ADD [Steps] nvarchar(max) NULL;');
+
+    IF OBJECT_ID(N'[dbo].[ControleHistoriques]', N'U') IS NULL
+    BEGIN
+        CREATE TABLE [dbo].[ControleHistoriques](
+            [Id] uniqueidentifier NOT NULL,
+            [ControleId] uniqueidentifier NOT NULL,
+            [DateModification] datetime2 NOT NULL,
+            [ModificateurId] nvarchar(max) NULL,
+            [ModificateurNom] nvarchar(max) NULL,
+            [AvantJson] nvarchar(max) NULL,
+            [ApresJson] nvarchar(max) NULL,
+            [ChampsModifies] nvarchar(max) NULL,
+            CONSTRAINT [PK_ControleHistoriques] PRIMARY KEY ([Id]),
+            CONSTRAINT [FK_ControleHistoriques_controles_ControleId] FOREIGN KEY ([ControleId]) REFERENCES [dbo].[controles]([Id]) ON DELETE CASCADE
+        );
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_ControleHistoriques_ControleId'
+          AND object_id = OBJECT_ID(N'[dbo].[ControleHistoriques]')
+    )
+        CREATE INDEX [IX_ControleHistoriques_ControleId] ON [dbo].[ControleHistoriques]([ControleId]);
+END";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        private static async Task EnsureDocumentationProofSchemaCompatibilityAsync(AppDbContext dbContext)
+        {
+            const string sql = @"
+IF OBJECT_ID(N'[dbo].[DocumentationDocuments]', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'[dbo].[DocumentationDocuments]', N'FileHash') IS NULL
+        ALTER TABLE [dbo].[DocumentationDocuments] ADD [FileHash] nvarchar(128) NULL;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_DocumentationDocuments_SocieteId_FileHash'
+          AND object_id = OBJECT_ID(N'[dbo].[DocumentationDocuments]')
+    )
+        CREATE INDEX [IX_DocumentationDocuments_SocieteId_FileHash]
+        ON [dbo].[DocumentationDocuments]([SocieteId], [FileHash]);
+END;
+
+IF OBJECT_ID(N'[dbo].[FileAttachments]', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'[dbo].[FileAttachments]', N'DocumentationDocumentId') IS NULL
+        ALTER TABLE [dbo].[FileAttachments] ADD [DocumentationDocumentId] uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_FileAttachments_DocumentationDocumentId'
+          AND object_id = OBJECT_ID(N'[dbo].[FileAttachments]')
+    )
+        CREATE INDEX [IX_FileAttachments_DocumentationDocumentId]
+        ON [dbo].[FileAttachments]([DocumentationDocumentId]);
+
+    IF OBJECT_ID(N'[dbo].[FK_FileAttachments_DocumentationDocuments_DocumentationDocumentId]', N'F') IS NULL
+        ALTER TABLE [dbo].[FileAttachments] WITH CHECK
+        ADD CONSTRAINT [FK_FileAttachments_DocumentationDocuments_DocumentationDocumentId]
+        FOREIGN KEY([DocumentationDocumentId])
+        REFERENCES [dbo].[DocumentationDocuments]([Id])
+        ON DELETE SET NULL;
+END;";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        private static async Task EnsureCartographieSchemaCompatibilityAsync(AppDbContext dbContext)
+        {
+            const string sql = @"
+IF OBJECT_ID(N'[dbo].[Processus]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Processus](
+        [Id] uniqueidentifier NOT NULL,
+        [Categorie] nvarchar(10) NOT NULL,
+        [Nom] nvarchar(200) NOT NULL,
+        [Responsable] nvarchar(100) NULL,
+        [Description] nvarchar(500) NULL,
+        CONSTRAINT [PK_Processus] PRIMARY KEY ([Id])
+    );
+END;
+
+IF COL_LENGTH(N'[dbo].[Processus]', N'Categorie') IS NULL
+    ALTER TABLE [dbo].[Processus] ADD [Categorie] nvarchar(10) NOT NULL CONSTRAINT [DF_Processus_Categorie] DEFAULT N'mgmt';
+IF COL_LENGTH(N'[dbo].[Processus]', N'Nom') IS NULL
+    ALTER TABLE [dbo].[Processus] ADD [Nom] nvarchar(200) NOT NULL CONSTRAINT [DF_Processus_Nom] DEFAULT N'';
+IF COL_LENGTH(N'[dbo].[Processus]', N'Responsable') IS NULL
+    ALTER TABLE [dbo].[Processus] ADD [Responsable] nvarchar(100) NULL;
+IF COL_LENGTH(N'[dbo].[Processus]', N'Description') IS NULL
+    ALTER TABLE [dbo].[Processus] ADD [Description] nvarchar(500) NULL;
+
+IF OBJECT_ID(N'[dbo].[Documents]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Documents](
+        [Id] uniqueidentifier NOT NULL,
+        [ProcessusId] uniqueidentifier NOT NULL,
+        [Nom] nvarchar(200) NOT NULL,
+        [Type] nvarchar(50) NULL,
+        [Reference] nvarchar(50) NULL,
+        [Statut] nvarchar(30) NULL,
+        [FichierNom] nvarchar(260) NULL,
+        [FichierType] nvarchar(100) NULL,
+        [FichierData] varbinary(max) NULL,
+        CONSTRAINT [PK_Documents] PRIMARY KEY ([Id])
+    );
+END;
+
+IF COL_LENGTH(N'[dbo].[Documents]', N'ProcessusId') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [ProcessusId] uniqueidentifier NOT NULL CONSTRAINT [DF_Documents_ProcessusId] DEFAULT '00000000-0000-0000-0000-000000000000';
+IF COL_LENGTH(N'[dbo].[Documents]', N'Nom') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [Nom] nvarchar(200) NOT NULL CONSTRAINT [DF_Documents_Nom] DEFAULT N'';
+IF COL_LENGTH(N'[dbo].[Documents]', N'Type') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [Type] nvarchar(50) NULL;
+IF COL_LENGTH(N'[dbo].[Documents]', N'Reference') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [Reference] nvarchar(50) NULL;
+IF COL_LENGTH(N'[dbo].[Documents]', N'Statut') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [Statut] nvarchar(30) NULL;
+IF COL_LENGTH(N'[dbo].[Documents]', N'FichierNom') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [FichierNom] nvarchar(260) NULL;
+IF COL_LENGTH(N'[dbo].[Documents]', N'FichierType') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [FichierType] nvarchar(100) NULL;
+IF COL_LENGTH(N'[dbo].[Documents]', N'FichierData') IS NULL
+    ALTER TABLE [dbo].[Documents] ADD [FichierData] varbinary(max) NULL;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = N'IX_Documents_ProcessusId'
+      AND object_id = OBJECT_ID(N'[dbo].[Documents]')
+)
+    CREATE INDEX [IX_Documents_ProcessusId] ON [dbo].[Documents]([ProcessusId]);
+
+IF OBJECT_ID(N'[dbo].[FK_Documents_Processus_ProcessusId]', N'F') IS NULL
+   AND OBJECT_ID(N'[dbo].[Documents]', N'U') IS NOT NULL
+   AND OBJECT_ID(N'[dbo].[Processus]', N'U') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[Documents] WITH NOCHECK
+    ADD CONSTRAINT [FK_Documents_Processus_ProcessusId]
+    FOREIGN KEY([ProcessusId]) REFERENCES [dbo].[Processus]([Id]) ON DELETE CASCADE;
+END;";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        private static async Task EnsureIncidentsSchemaCompatibilityAsync(AppDbContext dbContext)
+        {
+            const string sql = @"
+IF OBJECT_ID(N'[dbo].[Incidents]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Incidents](
+        [Id] uniqueidentifier NOT NULL,
+        [Titre] nvarchar(max) NULL,
+        [Description] nvarchar(max) NULL,
+        [Date] datetime2 NULL,
+        [Priorite] nvarchar(max) NULL,
+        [Statut] nvarchar(max) NULL,
+        [Resolution] nvarchar(max) NULL,
+        CONSTRAINT [PK_Incidents] PRIMARY KEY ([Id])
+    );
+END;
+
+IF COL_LENGTH(N'[dbo].[Incidents]', N'Resolution') IS NULL
+    ALTER TABLE [dbo].[Incidents] ADD [Resolution] nvarchar(max) NULL;
+
+IF COL_LENGTH(N'[dbo].[Incidents]', N'Priorite') IS NULL
+    ALTER TABLE [dbo].[Incidents] ADD [Priorite] nvarchar(max) NULL;
+
+IF COL_LENGTH(N'[dbo].[Incidents]', N'Statut') IS NULL
+    ALTER TABLE [dbo].[Incidents] ADD [Statut] nvarchar(max) NULL;
+";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
         }
 
         private static async Task EnsureRoleExistsAsync(RoleManager<IdentityRole> roleManager, string role)
@@ -90,8 +349,25 @@ namespace backend.Application.Services
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(new IdentityRole(role));
-                Console.WriteLine($"✅ Rôle créé: {role}");
+                Console.WriteLine($"Role created: {role}");
             }
+        }
+
+        private static async Task TrySeedConfiguredUserAsync(
+            UserManager<ApplicationUser> userManager,
+            string? email,
+            string? password,
+            string nomComplet,
+            string role,
+            string label)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                Console.WriteLine($"Skipping {label} seed user: missing SeedUsers configuration.");
+                return;
+            }
+
+            await SeedUserIfMissingAsync(userManager, email, password, nomComplet, role);
         }
 
         private static async Task SeedUserIfMissingAsync(
@@ -104,7 +380,7 @@ namespace backend.Application.Services
             var existing = await userManager.FindByEmailAsync(email);
             if (existing is not null)
             {
-                Console.WriteLine($"ℹ️ L'utilisateur {email} existe déjà");
+                Console.WriteLine($"User already exists: {email}");
                 return;
             }
 
@@ -122,14 +398,13 @@ namespace backend.Application.Services
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(user, role);
-                Console.WriteLine($"✅ Utilisateur créé: {email} avec le rôle {role}");
+                Console.WriteLine($"User created: {email} ({role})");
             }
             else
             {
-                Console.WriteLine($"❌ Erreur création utilisateur {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                Console.WriteLine($"Failed creating user {email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
         }
-
         private static async Task SeedDocumentationMvpDemoAsync(
             AppDbContext dbContext,
             UserManager<ApplicationUser> userManager,
@@ -147,7 +422,7 @@ namespace backend.Application.Services
                 };
                 dbContext.Societes.Add(societe);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"✅ Société créée: {demoSocieteName}");
+                Console.WriteLine($"âœ… SociÃ©tÃ© crÃ©Ã©e: {demoSocieteName}");
             }
 
             var demoUsers = new[]
@@ -155,7 +430,7 @@ namespace backend.Application.Services
                 new DemoUserSeed("rssi.demo@smsi.local", "RssiDemo@123", "RSSI Demo", "RSSI"),
                 new DemoUserSeed("drh.demo@smsi.local", "DrhDemo@123", "DRH Demo", "DRH"),
                 new DemoUserSeed("dsi.demo@smsi.local", "DsiDemo@123", "DSI Demo", "DSI"),
-                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"),
+                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "EmployÃ©"),
             };
 
             var usersByRole = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
@@ -264,7 +539,7 @@ namespace backend.Application.Services
             }
 
             await dbContext.SaveChangesAsync();
-            Console.WriteLine($"✅ Documentation seed terminée");
+            Console.WriteLine($"âœ… Documentation seed terminÃ©e");
         }
 
         private static async Task<ApplicationUser> EnsureDemoUserAsync(
@@ -292,7 +567,7 @@ namespace backend.Application.Services
                     throw new InvalidOperationException(
                         $"Impossible de creer l'utilisateur demo {seed.Email}: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
                 }
-                Console.WriteLine($"✅ Utilisateur demo créé: {seed.Email}");
+                Console.WriteLine($"âœ… Utilisateur demo crÃ©Ã©: {seed.Email}");
             }
             else
             {
@@ -361,38 +636,40 @@ namespace backend.Application.Services
             return user;
         }
 
-        // À AJOUTER dans la classe DbInitializer
+        // Ã€ AJOUTER dans la classe DbInitializer
         public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
-            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-
+            
             if (await dbContext.Controles.AnyAsync())
             {
-                Console.WriteLine("ℹ️ Contrôles déjà présents. Seed ignoré.");
+                Console.WriteLine("â„¹ï¸ ContrÃ´les dÃ©jÃ  prÃ©sents. Seed ignorÃ©.");
                 return;
             }
 
-            // Chercher le fichier JSON à différents emplacements
-            var jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "controles.json");
-
-            if (!File.Exists(jsonPath))
+            // Chercher le fichier JSON Ã  diffÃ©rents emplacements
+            var candidatePaths = new[]
             {
-                jsonPath = Path.Combine(Directory.GetCurrentDirectory(), "controles.json");
-            }
+                Path.Combine(AppContext.BaseDirectory, "controles.json"),
+                Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json")
+            };
 
-            if (!File.Exists(jsonPath))
+            var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(jsonPath))
             {
-                jsonPath = Path.Combine(Directory.GetCurrentDirectory(),"Infrastructure", "SeedData", "controles.json");
-            }
+                Console.WriteLine("Fichier controles.json non trouve. Chemins testes:");
+                foreach (var path in candidatePaths)
+                {
+                    Console.WriteLine($" - {path}");
+                }
 
-            if (!File.Exists(jsonPath))
-            {
-                Console.WriteLine($"⚠️ Fichier controles.json non trouvé. Chemins testés: {AppDomain.CurrentDomain.BaseDirectory}, {Directory.GetCurrentDirectory()}");
                 return;
             }
 
-            Console.WriteLine($"📁 Fichier trouvé: {jsonPath}");
+            Console.WriteLine($"Fichier trouve: {jsonPath}");
 
             var options = new System.Text.Json.JsonSerializerOptions
             {
@@ -407,7 +684,7 @@ namespace backend.Application.Services
 
                 if (dtos is null || dtos.Count == 0)
                 {
-                    Console.WriteLine("⚠️ Aucune donnée trouvée dans le fichier JSON");
+                    Console.WriteLine("âš ï¸ Aucune donnÃ©e trouvÃ©e dans le fichier JSON");
                     return;
                 }
 
@@ -448,14 +725,16 @@ namespace backend.Application.Services
 
                 await dbContext.Controles.AddRangeAsync(controles);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés avec succès.");
+                Console.WriteLine($"âœ… {controles.Count} contrÃ´les ISO 27001 insÃ©rÃ©s avec succÃ¨s.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Erreur lors du seed des contrôles: {ex.Message}");
+                Console.WriteLine($"âŒ Erreur lors du seed des contrÃ´les: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
     }
 }
+
+

@@ -1,6 +1,6 @@
 # 📋 Traçabilité des Modifications - Contrôles ISO 27001
 
-## 🎯 Objectif
+## ðŸŽ¯ Objectif
 Implémenter une traçabilité complète des modifications des contrôles pour :
 - ✅ Enregistrer la **date de chaque modification**
 - ✅ Enregistrer **qui a modifié** le contrôle
@@ -9,7 +9,7 @@ Implémenter une traçabilité complète des modifications des contrôles pour :
 
 ---
 
-## 📝 Modifications Frontend
+## ðŸ“ Modifications Frontend
 
 ### 1. **Imports Ajoutés** (ligne 1-10)
 ```javascript
@@ -71,7 +71,7 @@ creePar: ctrl.creePar || null,
 
 ---
 
-## 🔧 Modifications Backend Requises
+## ðŸ”§ Modifications Backend Requises
 
 ### **Champs à ajouter au modèle `Controle`**
 
@@ -239,7 +239,7 @@ public class CreateControleCommand
 
 ---
 
-## 📌 Notes Importantes
+## ðŸ“Œ Notes Importantes
 
 ### Stockage de l'Utilisateur
 Le frontend récupère l'identité utilisateur depuis :
@@ -290,7 +290,7 @@ public class ControleHistorique
 
 ---
 
-## 🎨 Customisation
+## ðŸŽ¨ Customisation
 
 ### Changer le champ utilisateur
 Dans [Controles.jsx](src/components/Controles.jsx) ligne ~365 :
@@ -314,8 +314,8 @@ day: 'numeric'  // 15 (ou sans zéro : 5)
 
 ---
 
-## 📞 Support
+## ðŸ“ž Support
 
 Pour toute question sur l'implémentation, consultez :
-- 📘 [Guide d'audit moderne](GUIDE_PRATIQUE.md)
+- ðŸ“˜ [Guide d'audit moderne](GUIDE_PRATIQUE.md)
 - 📗 [Structure des contrôles](README_STRUCTURE.md)

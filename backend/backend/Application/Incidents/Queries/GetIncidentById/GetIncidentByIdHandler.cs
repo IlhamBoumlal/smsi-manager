@@ -17,7 +17,7 @@ namespace backend.Application.Incidents.Queries.GetIncidentById
             return new IncidentDto
             {
                 Id = incident.Id,
-                Titre = incident.Titre,
+                Titre = incident.Titre ?? string.Empty,
                 Description = incident.Description,
                 Date = incident.Date,
                 Priorite = incident.Priorite,

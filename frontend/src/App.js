@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './components/Login';
 import Accueil from './components/Accueil';
-import Dashboard from './components/Dashboard';
+import Dashboard from './components/dashboard/DashboardV1';
 import Controles from './components/Controles';
 import GestionActifs from './components/GestionActifs';
 import GestionUtilisateurs from './components/Admin/GestionUtilisateurs';

@@ -1,4 +1,4 @@
-// clauses.js — utilise l'instance centrale (refresh token automatique)
+// clauses.js — utilise l'instance centrale (JWT Bearer via axiosInstance)
 import axiosInstance from './axiosInstance';
 
 const API = '/api/clauses';
@@ -22,10 +22,11 @@ export const getConformityProofs = (subClauseId) =>
 export const upsertConformityProof = (subClauseId, description) =>
   axiosInstance.post(`${API}/proofs`, { isoClauseId: subClauseId, description }).then(r => r.data);
 
-export const uploadConformityProofFile = (proofId, file, description, onProgress) => {
+export const uploadConformityProofFile = (proofId, file, description, onProgress, documentType) => {
   const fd = new FormData();
   fd.append('file', file);
   if (description) fd.append('description', description);
+  if (documentType) fd.append('documentType', documentType);
   return axiosInstance.post(`${API}/proofs/${proofId}/files`, fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: e => onProgress?.(Math.round((e.loaded * 100) / e.total)),

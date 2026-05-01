@@ -13,10 +13,12 @@ namespace backend.Application.Incidents.Queries.GetAllIncidents
         public async Task<IEnumerable<IncidentDto>> Handle(GetAllIncidentsQuery request, CancellationToken cancellationToken)
         {
             return await _context.Incidents
+                .AsNoTracking()
+                .OrderByDescending(i => i.Date)
                 .Select(i => new IncidentDto
                 {
                     Id = i.Id,
-                    Titre = i.Titre,
+                    Titre = i.Titre ?? string.Empty,
                     Description = i.Description,
                     Date = i.Date,
                     Priorite = i.Priorite,

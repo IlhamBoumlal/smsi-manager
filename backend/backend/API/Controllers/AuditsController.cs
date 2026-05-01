@@ -3,12 +3,14 @@ using Application.DTOs;
 using backend.Application.Audits.Commands;
 using backend.Application.Audits.Queries;
 using backend.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/audits")]
+[Authorize]
 public class AuditsController : ControllerBase
 {
     private readonly AppDbContext _db;
