@@ -12,13 +12,12 @@ namespace backend.Application.Incidents.Commands.UpdateIncident
 
         public async Task<bool> Handle(UpdateIncidentCommand request, CancellationToken cancellationToken)
         {
-            // ── Isolation stricte : filtre sur Id ET SocieteId ─────────────────
-            // Une société ne peut modifier que ses propres incidents
+            if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
+                return false;
+
             var incident = await _context.Incidents
                 .Where(i => i.Id == request.Id)
-                .Where(i => request.SocieteId.HasValue
-                    ? i.SocieteId == request.SocieteId.Value
-                    : i.SocieteId == null)
+                .Where(i => i.SocieteId == request.SocieteId.Value)
                 .SingleOrDefaultAsync(cancellationToken);
 
             if (incident == null) return false;

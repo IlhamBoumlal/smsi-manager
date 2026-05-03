@@ -1,15 +1,18 @@
-﻿// backend.API/Controllers/PermissionController.cs
+// backend.API/Controllers/PermissionController.cs
 using backend.Application.DTOs.Permissions;
 using backend.Application.Permissions;
 using backend.Application.Permissions.Commands.AssignPermission;
 using backend.Application.Permissions.Commands.RemovePermission;
 using backend.Application.Permissions.Commands.RevokeAllModulePermissions;
 using backend.Application.Permissions.Queries.GetRolePermissions;
+using backend.Application.Security;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Roles = AppRoles.SuperAdmin)]
     [ApiController]
     [Route("api/roles/{roleId}/permissions")]
     public class PermissionController : ControllerBase
@@ -64,7 +67,6 @@ namespace backend.API.Controllers
             return Ok(new { message = result.Message });
         }
 
-        // NOUVEAU: Supprime toutes les permissions d'un module
         [HttpDelete("module/{moduleId}")]
         public async Task<IActionResult> RevokeAllModulePermissions(
             string roleId,

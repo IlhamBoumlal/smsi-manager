@@ -12,18 +12,18 @@ import {
   Building2,
   ClipboardCheck,
   Network,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { resolveAssetUrl } from "../api/url";
-import { hasJwtRole } from "../utils/jwtRoles";
+import { getScopedRoles } from "../utils/roleScopes";
 
-// Définition de tous les axes possibles avec leur moduleCode
 const allMainAxes = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
   { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashbord" },
   { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
-  { id: "controles", label: "Contrôles", path: "/controles", moduleCode: "controles" },
+  { id: "controles", label: "Controles", path: "/controles", moduleCode: "controles" },
   { id: "documentation", label: "Documentation", path: "/documentation", moduleCode: "documentation" },
   { id: "risques", label: "Risques", path: "/risques", moduleCode: "risques" },
 ];
@@ -36,11 +36,24 @@ const allMoreAxes = [
 ];
 
 const allAdminMenuItems = [
-  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques" },
-  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "utilisateurs" },
-  { label: "Sociétés", Icon: Factory, path: "/admin/societes", moduleCode: "societes" },
-  { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings" },
+  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques", allowedRoles: ["super_admin", "admin_societe"] },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "utilisateurs", allowedRoles: ["super_admin", "admin_societe"] },
+  { label: "Societes", Icon: Factory, path: "/admin/societes", moduleCode: "societes", allowedRoles: ["super_admin"] },
+  { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings", allowedRoles: ["super_admin"] },
 ];
+
+const knownAdminRoutes = new Set([
+  "/admin/stats",
+  "/admin/utilisateurs",
+  "/admin/societes",
+  "/admin/holdings",
+  "/admin/roles",
+  "/superadmin",
+]);
+
+const rolePermissionPath = knownAdminRoutes.has("/admin/roles")
+  ? "/admin/roles"
+  : null;
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -51,12 +64,22 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const location = useLocation();
   const { user, logoutUser, canRead, permissionsLoaded } = useAuth();
 
-  // Filtrer les axes selon les permissions de l'utilisateur
-  const mainAxes = allMainAxes.filter(axe => canRead(axe.moduleCode));
-  const moreAxes = allMoreAxes.filter(axe => canRead(axe.moduleCode));
-  const adminMenuItems = allAdminMenuItems.filter(item => canRead(item.moduleCode));
+  const mainAxes = allMainAxes.filter((axe) => canRead(axe.moduleCode));
+  const moreAxes = allMoreAxes.filter((axe) => canRead(axe.moduleCode));
+  const scopedRoles = getScopedRoles(user);
 
-  // Détecte automatiquement l'axe actif depuis l'URL courante
+
+  const rolesPermissionsMenuItem = rolePermissionPath
+    ? [{ label: "Roles / Permissions", Icon: KeyRound, path: rolePermissionPath, allowedRoles: ["super_admin"] }]
+    : [];
+
+  const adminMenuItems = [...allAdminMenuItems, ...rolesPermissionsMenuItem]
+    .filter((item) => item.allowedRoles.some((role) => scopedRoles.has(role)))
+    .filter((item) => !item.moduleCode || canRead(item.moduleCode));
+  const defaultLandingPath = mainAxes.length > 0
+    ? "/tableau-bord"
+    : (adminMenuItems[0]?.path ?? "/");
+
   const allAxes = [...mainAxes, ...moreAxes];
   const activeAxe =
     activeAxeProp ??
@@ -64,7 +87,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     (mainAxes.length > 0 ? mainAxes[0]?.id : "tableau-bord");
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
-  const isAdmin = hasJwtRole("Admin");
 
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";
@@ -106,7 +128,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     if (axe.path) navigate(axe.path);
   };
 
-  // Pendant le chargement des permissions, afficher un header minimal
   if (!permissionsLoaded) {
     return (
       <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
@@ -128,8 +149,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     );
   }
 
-  // Si l'utilisateur n'a accès à aucun module, afficher un header minimal avec déconnexion
-  if (mainAxes.length === 0 && moreAxes.length === 0) {
+  if (mainAxes.length === 0 && moreAxes.length === 0 && adminMenuItems.length === 0) {
     return (
       <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
         <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
@@ -151,7 +171,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
             }}
             className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <LogOut size={18} /> Déconnexion
+            <LogOut size={18} /> Deconnexion
           </button>
         </div>
       </header>
@@ -161,10 +181,15 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
-        {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
-          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
+          onClick={() => {
+            if (mainAxes.length > 0) {
+              handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" });
+              return;
+            }
+            navigate(defaultLandingPath);
+          }}
         >
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
@@ -177,7 +202,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </div>
         </div>
 
-        {/* NAVIGATION - uniquement les modules accessibles */}
         {mainAxes.length > 0 && (
           <nav className="flex items-center gap-2 flex-1 justify-center">
             {mainAxes.map((axe) => (
@@ -221,7 +245,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </nav>
         )}
 
-        {/* PROFIL - Menu admin filtré par permissions */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
@@ -256,7 +279,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     </div>
                   </div>
 
-                  {isAdmin && adminMenuItems.length > 0 && (
+                  {adminMenuItems.length > 0 && (
                     <div className="py-2 border-b border-slate-100">
                       {adminMenuItems.map(({ label, Icon, path }) => (
                         <button
@@ -287,7 +310,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                       <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                         <LogOut size={18} className="text-red-500" />
                       </span>
-                      Déconnexion
+                      Deconnexion
                     </button>
                   </div>
                 </div>

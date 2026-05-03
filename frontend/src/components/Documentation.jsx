@@ -33,7 +33,7 @@ import {
 const API = "/api/documentation";
 
 const defaultPermissions = {
-  role: "EMPLOYE",
+  role: "CONSULTANT",
   canConsult: false,
   canCreate: false,
   canEditOwn: false,
@@ -1837,5 +1837,4 @@ export default function Documentation() {
     </div>
   );
 }
-
 

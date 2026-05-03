@@ -1,6 +1,7 @@
-﻿using backend.Application.Auth.Commands.Register;
+using backend.Application.Auth.Commands.Register;
 using backend.Application.DTOs.User;
 using backend.Application.Roles.Queries.GetAllRoles;
+using backend.Application.Security;
 using backend.Application.Users.Commands.DeleteUser;
 using backend.Application.Users.Commands.UpdateUser;
 using backend.Application.Users.Queries.GetAllUsers;
@@ -12,6 +13,7 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
@@ -19,9 +21,12 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public UserController(IMediator mediator) => _mediator = mediator;
 
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpGet]
         public async Task<IActionResult> GetUsers() =>
             Ok(await _mediator.Send(new GetAllUsersQuery()));
+
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpPost]
         public async Task<IActionResult> CreateUser(CreateUserDto dto)
         {
@@ -33,9 +38,10 @@ namespace backend.API.Controllers
                 dto.SocieteId,
                 dto.RoleId));
 
-            return success ? Ok("Utilisateur créé avec succès.") : BadRequest(error);
+            return success ? Ok("Utilisateur cr�� avec succ�s.") : BadRequest(error);
         }
 
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(string id, UpdateUserDto dto)
         {
@@ -43,37 +49,43 @@ namespace backend.API.Controllers
                 id, dto.NomComplet, dto.Email, dto.SocieteId,
                 dto.RoleId, dto.Password, dto.ConfirmPassword, dto.IsActive));
 
-            return success ? Ok("Utilisateur mis à jour avec succès.") : BadRequest(error);
+            return success ? Ok("Utilisateur mis � jour avec succ�s.") : BadRequest(error);
         }
 
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {
             var (success, error) = await _mediator.Send(new DeleteUserCommand(id));
-            return success ? Ok("Utilisateur supprimé avec succès.") : BadRequest(error);
+            return success ? Ok("Utilisateur supprim� avec succ�s.") : BadRequest(error);
         }
 
-        // ─── Roles (réutilise la Query déjà créée) ───────────────────────────
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpGet("roles")]
         public async Task<IActionResult> GetRoles()
         {
             var roles = await _mediator.Send(new GetAllRolesQuery());
-            return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
+            var finalRoleKeys = AppRoles.FinalRoles
+                .ToDictionary(AppRoles.NormalizeKey, role => role, StringComparer.OrdinalIgnoreCase);
+
+            var filtered = roles
+                .Where(r => !string.IsNullOrWhiteSpace(r.Name) && finalRoleKeys.ContainsKey(AppRoles.NormalizeKey(r.Name)))
+                .OrderBy(r => Array.IndexOf(AppRoles.FinalRoles, finalRoleKeys[AppRoles.NormalizeKey(r.Name)]))
+                .Select(r => new { id = r.Id, nom = r.Name });
+
+            return Ok(filtered);
         }
 
         [HttpGet("me/permissions")]
-        [Authorize]
         public async Task<IActionResult> GetMyPermissions()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = "Utilisateur non authentifié" });
+                return Unauthorized(new { message = "Utilisateur non authentifi�" });
 
             var result = await _mediator.Send(new GetUserPermissionsQuery { UserId = userId });
             return Ok(result);
         }
     }
 }
-
-

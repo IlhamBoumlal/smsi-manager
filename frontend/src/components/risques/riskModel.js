@@ -249,13 +249,13 @@ export function createDemoStudies() {
     name: "Certification ISO 27001",
     organization: "TechCorp SA",
     description: "Analyse des risques cyber pour le perimetre SI critique.",
-    perimeter: "DSI - SI RH et infrastructure cloud",
+    perimeter: "Consultant - SI RH et infrastructure cloud",
     author: "Marie Dupont",
   });
 
   base.workshop1.team = [
     { id: uid(), role: "RSSI", name: "Marie Dupont", responsibility: "Pilotage EBIOS", contact: "m.dupont@techcorp.fr" },
-    { id: uid(), role: "DSI", name: "Jean Martin", responsibility: "Validation architecture", contact: "j.martin@techcorp.fr" },
+    { id: uid(), role: "Consultant", name: "Jean Martin", responsibility: "Validation architecture", contact: "j.martin@techcorp.fr" },
   ];
   const missionId = uid();
   const valueId = uid();

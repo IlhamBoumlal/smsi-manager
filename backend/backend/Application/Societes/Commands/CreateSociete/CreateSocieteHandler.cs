@@ -1,10 +1,10 @@
-﻿using backend.Domain.Entities;
+using backend.Application.Societes;
+using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using MediatR;
 
 namespace backend.Application.Societes.Commands.CreateSociete
 {
-
     public class CreateSocieteHandler : IRequestHandler<CreateSocieteCommand, (bool, string?)>
     {
         private readonly ISocieteRepository _repo;
@@ -20,6 +20,8 @@ namespace backend.Application.Societes.Commands.CreateSociete
         {
             if (string.IsNullOrWhiteSpace(req.Nom))
                 return (false, "Le nom est requis.");
+            if (SocieteNamePolicy.IsReserved(req.Nom))
+                return (false, "Ce nom de societe est reserve.");
 
             var logoPath = await _fileStorage.SaveLogoAsync(req.Logo);
 

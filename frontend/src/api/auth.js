@@ -4,7 +4,7 @@ import { buildApiUrl } from "./url";
 
 const AUTH_API = "/api/auth";
 
-// Login is public; register requires Admin auth on backend.
+// Login is public; register requires Super Admin or Admin Societe auth on backend.
 export const register = (data) => axiosInstance.post(`${AUTH_API}/register`, data);
 export const login = (data) => axios.post(buildApiUrl(`${AUTH_API}/login`), data);
 

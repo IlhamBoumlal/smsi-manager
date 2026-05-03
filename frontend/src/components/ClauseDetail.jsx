@@ -92,7 +92,7 @@ const CLAUSE_SPECIFIC_FIELDS = {
   5: { title:"Leadership et Gouvernance SMSI", hasEnjeuxTables:false, fields:[
     {key:"etatPolitique",label:"État de la politique SMSI existante",type:"textarea",placeholder:"Version actuelle, date de validation..."},
     {key:"engagementDirection",label:"Niveau d'engagement de la direction",type:"textarea",placeholder:"Réunions SMSI, budget alloué, sponsors..."},
-    {key:"rolesDefinis",label:"Rôles et responsabilités définis",type:"textarea",placeholder:"RSSI, DPO, responsables métier..."},
+    {key:"rolesDefinis",label:"Rôles et responsabilités définis",type:"textarea",placeholder:"RSSI, Consultant, responsables métier..."},
   ]},
   6: { title:"Gestion des Risques SSI", hasEnjeuxTables:false, fields:[
     {key:"etatAppreciationRisques",label:"État de l'appréciation des risques",type:"textarea",placeholder:"Dernière analyse, périmètre couvert..."},

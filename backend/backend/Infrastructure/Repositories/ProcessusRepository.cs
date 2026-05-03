@@ -15,7 +15,7 @@ public class ProcessusRepository : IProcessusRepository
         var query = _ctx.Processus.Include(p => p.Documents).AsQueryable();
         query = societeId.HasValue
             ? query.Where(p => p.SocieteId == societeId.Value)
-            : query.Where(p => p.SocieteId == null);
+            : query.Where(_ => false);
         return query.ToListAsync(ct);
     }
 
@@ -24,7 +24,7 @@ public class ProcessusRepository : IProcessusRepository
         var query = _ctx.Processus.Include(p => p.Documents).Where(p => p.Id == id).AsQueryable();
         query = societeId.HasValue
             ? query.Where(p => p.SocieteId == societeId.Value)
-            : query.Where(p => p.SocieteId == null);
+            : query.Where(_ => false);
         return query.FirstOrDefaultAsync(ct);
     }
 

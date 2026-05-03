@@ -11,7 +11,7 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/audits")]
-[Authorize]
+[Authorize(Policy = "SmSiSocieteScope")]
 public class AuditsController : ControllerBase
 {
     private readonly AppDbContext _db;

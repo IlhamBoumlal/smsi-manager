@@ -18,8 +18,8 @@ namespace backend.Infrastructure.Repositories
 
         private IQueryable<Controle> ApplyFilter(int? societeId) =>
             societeId.HasValue
-                ? _context.Controles.Where(c => c.SocieteId == null || c.SocieteId == societeId.Value)
-                : _context.Controles;
+                ? _context.Controles.Where(c => c.SocieteId == societeId.Value)
+                : _context.Controles.Where(_ => false);
         public async Task<Controle?> UpdateAsync(Controle controle)
         {
             var existing = await _context.Controles.FindAsync(controle.Id);

@@ -16,6 +16,8 @@ namespace backend.Infrastructure.Repositories
             var query = _context.Actifs.AsNoTracking();
             if (societeId.HasValue)
                 query = query.Where(a => a.SocieteId == societeId);
+            else
+                query = query.Where(_ => false);
             return await query.ToListAsync();
         }
 
@@ -24,11 +26,16 @@ namespace backend.Infrastructure.Repositories
             var query = _context.Actifs.AsNoTracking().Where(a => a.Id == id);
             if (societeId.HasValue)
                 query = query.Where(a => a.SocieteId == societeId);
+            else
+                query = query.Where(_ => false);
             return await query.FirstOrDefaultAsync();
         }
 
         public async Task<Actif> CreateAsync(Actif actif)
         {
+            if (!actif.SocieteId.HasValue || actif.SocieteId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour creer un actif.");
+
             actif.Id = Guid.NewGuid();
             _context.Actifs.Add(actif);
             await _context.SaveChangesAsync();
@@ -38,7 +45,7 @@ namespace backend.Infrastructure.Repositories
         public async Task<Actif?> UpdateAsync(Actif actif)
         {
             var existing = await _context.Actifs.FindAsync(actif.Id);
-            if (existing is null || (actif.SocieteId.HasValue && existing.SocieteId != actif.SocieteId)) return null;
+            if (!actif.SocieteId.HasValue || existing is null || existing.SocieteId != actif.SocieteId) return null;
 
             existing.Nom = actif.Nom;
             existing.Description = actif.Description;
@@ -55,7 +62,7 @@ namespace backend.Infrastructure.Repositories
         public async Task<bool> DeleteAsync(Guid id, int? societeId = null)
         {
             var actif = await _context.Actifs.FindAsync(id);
-            if (actif is null || (societeId.HasValue && actif.SocieteId != societeId)) return false;
+            if (!societeId.HasValue || actif is null || actif.SocieteId != societeId) return false;
 
             _context.Actifs.Remove(actif);
             await _context.SaveChangesAsync();

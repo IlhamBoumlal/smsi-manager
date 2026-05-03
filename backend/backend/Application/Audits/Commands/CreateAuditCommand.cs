@@ -17,9 +17,12 @@ public class CreateAuditCommand
 
     public async Task<AuditDto> ExecuteAsync(CreateAuditDto dto, int? societeId)
     {
+        if (!societeId.HasValue || societeId.Value <= 0)
+            throw new InvalidOperationException("SocieteId obligatoire pour creer un audit.");
+
         var audit = new Audit
         {
-            SocieteId = societeId,
+            SocieteId = societeId.Value,
             Title = dto.Title,
             Type = dto.Type,
             Status = dto.Status,

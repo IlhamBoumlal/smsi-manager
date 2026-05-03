@@ -1303,13 +1303,13 @@ function createDemoStudies() {
     name: "Certification ISO 27001",
     organization: "TechCorp SA",
     description: "Analyse des risques cyber pour le perimetre SI critique.",
-    perimeter: "DSI - SI RH et infrastructure cloud",
+    perimeter: "Consultant - SI RH et infrastructure cloud",
     author: "Marie Dupont",
   });
 
   base.workshop1.team = [
     { id: uid(), role: "RSSI", name: "Marie Dupont", responsibility: "Pilotage EBIOS", contact: "m.dupont@techcorp.fr" },
-    { id: uid(), role: "DSI", name: "Jean Martin", responsibility: "Validation architecture", contact: "j.martin@techcorp.fr" },
+    { id: uid(), role: "Consultant", name: "Jean Martin", responsibility: "Validation architecture", contact: "j.martin@techcorp.fr" },
   ];
   const missionId = uid();
   const valueId = uid();
@@ -4990,7 +4990,7 @@ const TREATMENT_OPTIONS = [
   { value: "Refus", label: "Refus" },
 ];
 const TREATMENT_LABEL_BY_VALUE = new Map(TREATMENT_OPTIONS.map((option) => [option.value, option.label]));
-const TEAM_ROLE_OPTIONS = ["RSSI", "DSI", "Direction metier", "Architecte", "Exploitant", "Conformite", "Juridique", "DPO", "Autre"].map((value) => ({ value, label: value }));
+const TEAM_ROLE_OPTIONS = ["Super Admin", "Admin Societe", "Auditeur", "Consultant", "RSSI"].map((value) => ({ value, label: value }));
 const BUSINESS_VALUE_TYPE_OPTIONS = ["Donnees", "Service", "Processus", "Image", "Conformite", "Financier", "Autre"].map((value) => ({ value, label: value }));
 const SUPPORTING_ASSET_TYPE_OPTIONS = ["Application", "Serveur", "Base de donnees", "Reseau", "Cloud", "Poste", "Prestataire", "Autre"].map((value) => ({ value, label: value }));
 const CRITICALITY_OPTIONS = ["Faible", "Moyenne", "Elevee", "Critique"].map((value) => ({ value, label: value }));

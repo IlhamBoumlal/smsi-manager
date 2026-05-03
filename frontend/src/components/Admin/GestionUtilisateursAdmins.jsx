@@ -12,16 +12,18 @@ const MOCK_SOCIETES = [
 
 const MOCK_ROLES = [
   { id: 1, nom: "Super Admin" },
-  { id: 2, nom: "Admin Holding" },
-  { id: 3, nom: "Admin Soci√©t√©" },
+  { id: 2, nom: "Admin SociÈtÈ" },
+  { id: 3, nom: "Auditeur" },
+  { id: 4, nom: "Consultant" },
+  { id: 5, nom: "RSSI" },
 ];
 
 const MOCK_USERS = [
-  { id: 1, nomComplet: "Karim Benali", email: "k.benali@nexalys.fr", societeId: 1, roleId: 3, isActive: true, dateCreation: "12/03/2025" },
-  { id: 2, nomComplet: "Sofia Marchand", email: "s.marchand@nexalys.fr", societeId: 2, roleId: 3, isActive: true, dateCreation: "15/03/2025" },
+  { id: 1, nomComplet: "Karim Benali", email: "k.benali@nexalys.fr", societeId: 1, roleId: 2, isActive: true, dateCreation: "12/03/2025" },
+  { id: 2, nomComplet: "Sofia Marchand", email: "s.marchand@nexalys.fr", societeId: 2, roleId: 5, isActive: true, dateCreation: "15/03/2025" },
   { id: 3, nomComplet: "David Nguyen", email: "d.nguyen@alphacloud.be", societeId: 3, roleId: 1, isActive: true, dateCreation: "20/03/2025" },
-  { id: 4, nomComplet: "In√®s Chabane", email: "i.chabane@datasecure.ch", societeId: 4, roleId: 3, isActive: false, dateCreation: "25/03/2025" },
-  { id: 5, nomComplet: "Marc Dubois", email: "m.dubois@nexalys.fr", societeId: 5, roleId: 2, isActive: true, dateCreation: "01/04/2025" },
+  { id: 4, nomComplet: "Ines Chabane", email: "i.chabane@datasecure.ch", societeId: 4, roleId: 3, isActive: false, dateCreation: "25/03/2025" },
+  { id: 5, nomComplet: "Marc Dubois", email: "m.dubois@nexalys.fr", societeId: 5, roleId: 4, isActive: true, dateCreation: "01/04/2025" },
 ];
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";

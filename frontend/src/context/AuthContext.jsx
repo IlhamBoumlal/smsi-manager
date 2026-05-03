@@ -92,33 +92,37 @@ export function AuthProvider({ children }) {
     }, delay);
   };
 
-  /* ─── Charger les permissions de l'utilisateur ──────────────── */
- const loadUserPermissions = useCallback(async (token = null) => {
-  const authToken = token || localStorage.getItem('token');
-  if (!authToken) {
-    setPermissions({ modules: [] });
-    setPermissionsLoaded(false);
-    return;
-  }
+  /* ─── Charger les permissions de l'utilisateur ──────────────── */
+  const loadUserPermissions = useCallback(async (token = null) => {
+    const authToken = token || localStorage.getItem('token');
+    if (!authToken) {
+      setPermissions({ modules: [] });
+      setPermissionsLoaded(false);
+      return;
+    }
 
-  try {
-    const response = await axios.get(`${API}/api/User/me/permissions`, {
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      }
-    });
-    
-    if (response.data) {
-      console.log('[Permissions] Chargées avec succès:', response.data);
-      setPermissions(response.data);
+    try {
+      const response = await axios.get(`${API}/api/User/me/permissions`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        timeout: 8000
+      });
+
+      const payload = response?.data && typeof response.data === 'object'
+        ? response.data
+        : { modules: [] };
+
+      console.log('[Permissions] Chargees avec succes:', payload);
+      setPermissions(payload);
+    } catch (error) {
+      console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
+      setPermissions({ modules: [] });
+    } finally {
+      // Evite un header bloque indefiniment sur "Chargement..."
       setPermissionsLoaded(true);
     }
-  } catch (error) {
-    console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
-    setPermissions({ modules: [] });
-    setPermissionsLoaded(false);
-  }
-}, []);
+  }, []);
   /* ─── Vérifier si l'utilisateur a une permission ───────────── */
   const can = useCallback((moduleCode, actionCode) => {
     if (!permissions.modules || permissions.modules.length === 0) return false;

@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "SmSiSocieteScope")]
     [ApiController]
     [Route("api/risques/studies")]
     public class RisquesController : ControllerBase

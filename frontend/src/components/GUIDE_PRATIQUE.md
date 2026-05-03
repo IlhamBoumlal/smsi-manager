@@ -51,7 +51,7 @@ export function HomePage() {
   causesRacines: "Analyser les causes profondes...",
   planCorrectif: "1. Action 1\n2. Action 2\n3. Action 3\n...",
   verification: "Liste des preuves nécessaires...",
-  responsable: "RSSI / DSI / RSSI",
+  responsable: "RSSI / Consultant / RSSI",
   delai: delai(2),  // 2 mois
 },
 ```

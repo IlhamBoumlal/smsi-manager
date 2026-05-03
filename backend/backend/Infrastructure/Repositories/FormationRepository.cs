@@ -16,6 +16,8 @@ public class FormationRepository(AppDbContext ctx) : IFormationRepository
 
         if (societeId.HasValue)
             q = q.Where(f => f.SocieteId == societeId);
+        else
+            q = q.Where(_ => false);
 
         return await q.OrderByDescending(f => f.DateDebut).ToListAsync(ct);
     }
@@ -25,7 +27,7 @@ public class FormationRepository(AppDbContext ctx) : IFormationRepository
             .Include(f => f.Participants)
             .Include(f => f.FormationDocuments)
             .Include(f => f.Notifications)
-            .FirstOrDefaultAsync(f => f.Id == id && (societeId == null || f.SocieteId == societeId), ct);
+            .FirstOrDefaultAsync(f => societeId.HasValue && f.Id == id && f.SocieteId == societeId, ct);
 
     public async Task AddAsync(Formation formation, CancellationToken ct = default)
         => await ctx.Formations.AddAsync(formation, ct);

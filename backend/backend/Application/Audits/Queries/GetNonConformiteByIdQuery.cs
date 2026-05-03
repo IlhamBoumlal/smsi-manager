@@ -14,7 +14,7 @@ namespace backend.Application.Audits.Queries
         {
             var nc = await _db.NonConformites
                 .Include(n => n.CorrectiveActions)
-                .Where(n => societeId.HasValue ? n.SocieteId == societeId.Value || n.SocieteId == null : n.SocieteId == null)
+                .Where(n => societeId.HasValue && n.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync(n => n.Id == id);
 
             return nc is null ? null : CreateNonConformiteCommand.MapToDto(nc);

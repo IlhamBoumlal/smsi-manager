@@ -1,6 +1,7 @@
 using backend.API.Hubs;
 using backend.Application.DTOs.Controles;
 using backend.Application.DTOs.Settings;
+using backend.Application.Security;
 using backend.Application.Services;
 using backend.Domain.Entities;
 using backend.Domain.Enumerations;
@@ -92,6 +93,15 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser()
               .RequireAssertion(context =>
                   context.User.HasClaim(c => c.Type == ClaimTypes.Email || c.Type == "email")));
+
+    options.AddPolicy("SmSiSocieteScope", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireRole(AppRoles.AdminSociete, AppRoles.Rssi, AppRoles.Auditeur, AppRoles.Consultant)
+              .RequireAssertion(context =>
+              {
+                  var societeId = context.User.FindFirst("SocieteId")?.Value;
+                  return int.TryParse(societeId, out var parsedSocieteId) && parsedSocieteId > 0;
+              }));
 });
 
 // CORS

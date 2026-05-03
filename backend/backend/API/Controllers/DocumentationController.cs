@@ -15,7 +15,7 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "SmSiSocieteScope")]
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentationController : ControllerBase
@@ -224,7 +224,7 @@ namespace backend.API.Controllers
 
             var normalizedFormat = format.Trim().TrimStart('.').ToLowerInvariant();
             if (normalizedFormat is not ("pdf" or "docx" or "xlsx"))
-                return BadRequest("Format invalide. Formats autorisés: pdf, docx, xlsx.");
+                return BadRequest("Format invalide. Formats autorisÃ©s: pdf, docx, xlsx.");
 
             if (!string.IsNullOrWhiteSpace(doc.FilePath))
             {

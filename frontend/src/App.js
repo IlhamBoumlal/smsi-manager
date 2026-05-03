@@ -9,6 +9,7 @@ import GestionUtilisateursAdmins from './components/Admin/GestionUtilisateursAdm
 import GestionSocietes from './components/Admin/GestionSocietes';
 import GestionHoldings from './components/Admin/GestionHoldings';
 import DashboardAdmin from './components/Admin/DashboardAdmin';
+import GestionRoles from './components/Admin/GestionRoles';
 import PrivateAdminRoute from './components/PrivateAdminRoute';
 import PrivateRoute from './components/PrivateRoute';
 import Progression from './components/Progression';
@@ -26,6 +27,7 @@ import Sensibilisation from './components/sensibilisation';
 import GestionIncidents from './components/GestionIncidents';
 import SuperAdminSpace from './components/SuperAdminSpace';
 import GestionUtilisateurs from './components/Admin/GestionUtilisateurs';
+
 function LegacyClauseDetailRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -38,57 +40,113 @@ function LegacyClauseDetailRedirect() {
   return <Navigate to="/clauses" replace />;
 }
 
+const SMSI_SCOPES = ['admin_societe', 'rssi', 'auditeur', 'consultant'];
+
 export default function App() {
   return (
     <Routes>
-      {/* Page login sans header */}
       <Route path="/login" element={<Login />} />
 
-      {/* Page accueil sans header du layout */}
       <Route path="/" element={<Accueil />} />
       <Route path="/accueil" element={<Accueil />} />
 
-      {/* Autres pages avec le header principal et protection par authentification */}
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-        <Route path="/cartographie" element={<CartographieProcessus />} />
-        <Route path="/tableau-bord" element={<Dashboard />} />
-        <Route path="/controles" element={<Controles />} />
-        <Route path="/actifs" element={<GestionActifs />} />
-        <Route path="/pdca" element={<Progression />} />
-        <Route path="/clauses" element={<ClauseDashboard />} />
-        
-        {/* Routes pour les clauses - support des deux formats */}
-        <Route path="/clauses/:id" element={<ClauseDetail />} />
-        <Route path="/Clausedetail" element={<LegacyClauseDetailRedirect />} />
-        
-        <Route path="/documentation" element={<Documentation />} />
-        
-        {/* Routes pour le module de gestion des risques */}
-        <Route path="/risques" element={<RiskModuleLayout />}>
+        <Route
+          path="/cartographie"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><CartographieProcessus /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/tableau-bord"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Dashboard /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/controles"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Controles /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/actifs"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><GestionActifs /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/pdca"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Progression /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/clauses"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><ClauseDashboard /></PrivateAdminRoute>}
+        />
+
+        <Route
+          path="/clauses/:id"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><ClauseDetail /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/Clausedetail"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><LegacyClauseDetailRedirect /></PrivateAdminRoute>}
+        />
+
+        <Route
+          path="/documentation"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Documentation /></PrivateAdminRoute>}
+        />
+
+        <Route
+          path="/risques"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><RiskModuleLayout /></PrivateAdminRoute>}
+        >
           <Route index element={<RiskStudiesPage />} />
           <Route path="etudes/:id" element={<RiskStudyDetailPage />} />
           <Route path="etudes/:id/atelier/:atelierId" element={<RiskWorkshopPage />} />
         </Route>
-        
-        <Route path="/gestion-risque" element={<GestionRisque />} />
-        
-        {/* Nouvelles routes */}
-        <Route path="/audits" element={<Audits />} />
-        <Route path="/sensibilisation" element={<Sensibilisation />} />
-        <Route path="/incidents" element={<GestionIncidents />} />
-        <Route path="/superadmin" element={<SuperAdminSpace />} />
 
+        <Route
+          path="/gestion-risque"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><GestionRisque /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/audits"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Audits /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/sensibilisation"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><Sensibilisation /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/incidents"
+          element={<PrivateAdminRoute requiredScopes={SMSI_SCOPES}><GestionIncidents /></PrivateAdminRoute>}
+        />
 
-        {/* Pages admin séparées, protégées */}
-        <Route path="/admin/stats" element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>} />
-        <Route path="/admin/utilisateursadmin" element={<PrivateAdminRoute><GestionUtilisateursAdmins /></PrivateAdminRoute>} />
-        <Route path="/admin/societes" element={<PrivateAdminRoute><GestionSocietes /></PrivateAdminRoute>} />
-        <Route path="/admin/holdings" element={<PrivateAdminRoute><GestionHoldings /></PrivateAdminRoute>} />
-        <Route path="/admin/utilisateurs" element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>} />
+        <Route
+          path="/superadmin"
+          element={<PrivateAdminRoute requiredScopes={['super_admin']}><SuperAdminSpace /></PrivateAdminRoute>}
+        />
 
+        <Route
+          path="/admin/stats"
+          element={<PrivateAdminRoute><DashboardAdmin /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/admin/utilisateursadmin"
+          element={<PrivateAdminRoute requiredScopes={['super_admin']}><GestionUtilisateursAdmins /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/admin/societes"
+          element={<PrivateAdminRoute requiredScopes={['super_admin']}><GestionSocietes /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/admin/holdings"
+          element={<PrivateAdminRoute requiredScopes={['super_admin']}><GestionHoldings /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/admin/roles"
+          element={<PrivateAdminRoute requiredScopes={['super_admin']}><GestionRoles /></PrivateAdminRoute>}
+        />
+        <Route
+          path="/admin/utilisateurs"
+          element={<PrivateAdminRoute><GestionUtilisateurs /></PrivateAdminRoute>}
+        />
       </Route>
 
-      {/* Route 404 - redirection vers l'accueil */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

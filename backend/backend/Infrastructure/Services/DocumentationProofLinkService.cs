@@ -297,8 +297,10 @@ namespace backend.Infrastructure.Services
 
         private IQueryable<DocumentationDocument> ScopeBySociete(int? societeId)
         {
-            if (societeId.HasValue) return _db.DocumentationDocuments.Where(d => d.SocieteId == societeId);
-            return _db.DocumentationDocuments.Where(d => d.SocieteId == null);
+            if (societeId.HasValue && societeId.Value > 0)
+                return _db.DocumentationDocuments.Where(d => d.SocieteId == societeId);
+
+            return _db.DocumentationDocuments.Where(_ => false);
         }
 
         private async Task<(string UserId, int? SocieteId, string DisplayName)> ResolveActorAsync(

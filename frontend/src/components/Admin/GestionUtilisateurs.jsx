@@ -3,6 +3,12 @@ import { Users, Plus, Search, Edit, Trash2, Shield, Mail, Lock, Eye, EyeOff, X, 
 import axiosInstance from '../../api/axiosInstance';
 
 const API = '/api';
+const normalizeRole = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 export default function GestionUtilisateurs() {
   const [users, setUsers] = useState([]);
@@ -22,6 +28,8 @@ export default function GestionUtilisateurs() {
     confirmPassword: '',
     isActive: true,
   });
+  const selectedRole = roles.find((r) => String(r.id) === String(form.roleId));
+  const isSuperAdminRole = normalizeRole(selectedRole?.nom) === 'super admin';
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -115,13 +123,21 @@ export default function GestionUtilisateurs() {
       return;
     }
 
+    const societeIdValue = form.societeId ? parseInt(form.societeId, 10) : null;
+    if (!isSuperAdminRole && !societeIdValue) {
+      alert('Une societe est obligatoire pour ce role.');
+      return;
+    }
+
+    const payloadSocieteId = isSuperAdminRole ? null : societeIdValue;
+
     setLoading(true);
     try {
       if (editing) {
         await axiosInstance.put(`${API}/user/${editing.id}`, {
           nomComplet: form.nomComplet,
           email: form.email,
-          societeId: parseInt(form.societeId, 10),
+          societeId: payloadSocieteId,
           roleId: form.roleId,
           password: form.password || null,
           confirmPassword: form.confirmPassword || null,
@@ -139,7 +155,7 @@ export default function GestionUtilisateurs() {
           email: form.email,
           password: form.password,
           confirmPassword: form.confirmPassword,
-          societeId: parseInt(form.societeId, 10),
+          societeId: payloadSocieteId,
           roleId: form.roleId,
         });
       }
@@ -266,8 +282,8 @@ export default function GestionUtilisateurs() {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
                 </Field>
-                <Field label="Societe" icon={<Factory size={15} />}>
-                  <select value={form.societeId} onChange={(e) => setForm({ ...form, societeId: e.target.value })} required className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg outline-none text-sm appearance-none bg-white focus:border-blue-400">
+                <Field label={isSuperAdminRole ? 'Societe (optionnelle)' : 'Societe'} icon={<Factory size={15} />}>
+                  <select value={form.societeId} onChange={(e) => setForm({ ...form, societeId: e.target.value })} className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg outline-none text-sm appearance-none bg-white focus:border-blue-400">
                     <option value="">Selectionner une societe</option>
                     {societes.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
                   </select>
@@ -300,7 +316,7 @@ export default function GestionUtilisateurs() {
               </div>
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
                 <button type="button" onClick={closeModal} className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annuler</button>
-                <button type="submit" disabled={loading || !form.societeId || !form.roleId} className="px-5 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-blue-800 text-sm font-medium flex items-center gap-2 disabled:opacity-50">
+                <button type="submit" disabled={loading || !form.roleId || (!isSuperAdminRole && !form.societeId)} className="px-5 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-blue-800 text-sm font-medium flex items-center gap-2 disabled:opacity-50">
                   {loading ? 'Chargement...' : <><CheckCircle size={15} /> {editing ? 'Enregistrer' : 'Creer'}</>}
                 </button>
               </div>

@@ -2,12 +2,14 @@ using backend.Application.Roles.Commands.CreateRole;
 using backend.Application.Roles.Commands.DeleteRole;
 using backend.Application.Roles.Commands.UpdateRole;
 using backend.Application.Roles.Queries.GetAllRoles;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Roles = AppRoles.SuperAdmin)]
     [ApiController]
     [Route("api/[controller]")]
     public class RoleController : ControllerBase
@@ -19,7 +21,15 @@ namespace backend.API.Controllers
         public async Task<IActionResult> GetRoles()
         {
             var roles = await _mediator.Send(new GetAllRolesQuery());
-            return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
+            var finalRoleKeys = AppRoles.FinalRoles
+                .ToDictionary(AppRoles.NormalizeKey, role => role, StringComparer.OrdinalIgnoreCase);
+
+            var filtered = roles
+                .Where(r => !string.IsNullOrWhiteSpace(r.Name) && finalRoleKeys.ContainsKey(AppRoles.NormalizeKey(r.Name)))
+                .OrderBy(r => Array.IndexOf(AppRoles.FinalRoles, finalRoleKeys[AppRoles.NormalizeKey(r.Name)]))
+                .Select(r => new { id = r.Id, nom = r.Name });
+
+            return Ok(filtered);
         }
 
         [HttpPost]

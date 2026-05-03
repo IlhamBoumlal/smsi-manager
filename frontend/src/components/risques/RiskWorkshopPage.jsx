@@ -31,7 +31,7 @@ const TREATMENT_OPTIONS = [
   { value: "Refus", label: "Refus" },
 ];
 const TREATMENT_LABEL_BY_VALUE = new Map(TREATMENT_OPTIONS.map((option) => [option.value, option.label]));
-const TEAM_ROLE_OPTIONS = ["RSSI", "DSI", "Direction metier", "Architecte", "Exploitant", "Conformite", "Juridique", "DPO", "Autre"].map((value) => ({ value, label: value }));
+const TEAM_ROLE_OPTIONS = ["Super Admin", "Admin Societe", "Auditeur", "Consultant", "RSSI"].map((value) => ({ value, label: value }));
 const BUSINESS_VALUE_TYPE_OPTIONS = ["Donnees", "Service", "Processus", "Image", "Conformite", "Financier", "Autre"].map((value) => ({ value, label: value }));
 const SUPPORTING_ASSET_TYPE_OPTIONS = ["Application", "Serveur", "Base de donnees", "Reseau", "Cloud", "Poste", "Prestataire", "Autre"].map((value) => ({ value, label: value }));
 const CRITICALITY_OPTIONS = ["Faible", "Moyenne", "Elevee", "Critique"].map((value) => ({ value, label: value }));

@@ -51,24 +51,10 @@ public class UpdateControleCommandHandler
             if (entite != null)
                 Console.WriteLine($"DEBUG: Contrôle trouvé - Id: {entite.Id}, Code: {entite.Code}, SocieteId: {entite.SocieteId}, Statut actuel: {entite.Statut}");
 
-            // Si pas trouvé et que c'est un ancien ID de contrôle global, chercher par code
+            // Aucun fallback global: le controle doit exister dans la societe courante.
             if (entite == null)
             {
-                Console.WriteLine("DEBUG: Contrôle non trouvé par ID exact, recherche fallback...");
-                var controleGlobal = await _context.Controles
-                    .FirstOrDefaultAsync(c => c.Id == request.Id && c.SocieteId == null, cancellationToken);
-
-                Console.WriteLine($"DEBUG: Contrôle global trouvé: {controleGlobal != null}");
-                if (controleGlobal != null)
-                {
-                    Console.WriteLine($"DEBUG: Contrôle global - Code: {controleGlobal.Code}, recherche équivalent société...");
-                    entite = await _context.Controles
-                        .FirstOrDefaultAsync(c => c.Code == controleGlobal.Code && c.SocieteId == request.SocieteId.Value, cancellationToken);
-
-                    Console.WriteLine($"DEBUG: Contrôle société trouvé par code: {entite != null}");
-                    if (entite != null)
-                        Console.WriteLine($"DEBUG: Contrôle société - Id: {entite.Id}, Statut actuel: {entite.Statut}");
-                }
+                Console.WriteLine("DEBUG: Controle non trouve dans le scope societe.");
             }
 
             if (entite == null)

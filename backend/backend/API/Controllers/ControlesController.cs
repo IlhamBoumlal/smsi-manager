@@ -9,7 +9,7 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "SmSiSocieteScope")]
     [ApiController]
     [Route("api/[controller]")]
     public class ControlesController : ControllerBase

@@ -226,18 +226,24 @@ namespace backend.Infrastructure.Services
 
         public async Task<ConformityStatusDto?> GetConformityAsync(int clauseId, string userId, int? societeId)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                return null;
+
             var cs = await _db.ConformityStatuses
                 .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
-                .Where(c => societeId.HasValue ? c.SocieteId == societeId.Value || c.SocieteId == null : c.SocieteId == null)
+                .Where(c => societeId.HasValue && c.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             return cs is null ? null : MapConformity(cs);
         }
 
         public async Task<ConformityStatusDto> UpsertConformityAsync(int clauseId, string userId, int? societeId, UpsertConformityDto dto)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour enregistrer la conformite.");
+
             var cs = await _db.ConformityStatuses
                 .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
-                .Where(c => societeId.HasValue ? c.SocieteId == societeId.Value || c.SocieteId == null : c.SocieteId == null)
+                .Where(c => societeId.HasValue && c.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
 
             if (cs is null)
@@ -267,7 +273,7 @@ namespace backend.Infrastructure.Services
         {
             var plans = await _db.ActionPlans
                 .Where(ap => ap.IsoClauseId == clauseId && ap.UserId == userId)
-                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .OrderByDescending(ap => ap.CreatedAt)
                 .ToListAsync();
             return plans.Select(MapActionPlan).ToList();
@@ -277,13 +283,16 @@ namespace backend.Infrastructure.Services
         {
             var ap = await _db.ActionPlans
                 .Where(a => a.Id.Equals(id) && a.UserId == userId)
-                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             return ap is null ? null : MapActionPlan(ap);
         }
 
         public async Task<ActionPlanDto> CreateActionPlanAsync(string userId, int? societeId, CreateActionPlanDto dto)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour creer un plan d'action.");
+
             var ap = new ActionPlan { UserId = userId, SocieteId = societeId };
             ApplyDto(ap, dto);
             _db.ActionPlans.Add(ap);
@@ -295,7 +304,7 @@ namespace backend.Infrastructure.Services
         {
             var ap = await _db.ActionPlans
                 .Where(a => a.Id.Equals(id) && a.UserId == userId)
-                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             if (ap is null) return null;
             ApplyDto(ap, dto);
@@ -312,7 +321,7 @@ namespace backend.Infrastructure.Services
         {
             var ap = await _db.ActionPlans
                 .Where(a => a.Id.Equals(id) && a.UserId == userId)
-                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             if (ap is null) return false;
             _db.ActionPlans.Remove(ap);
@@ -332,12 +341,12 @@ namespace backend.Infrastructure.Services
 
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
-                .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
+                .Where(cs => societeId.HasValue && cs.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var actionPlans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
-                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .ToListAsync();
 
             return clauses.Select(c =>
@@ -380,12 +389,12 @@ namespace backend.Infrastructure.Services
         {
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
-                .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
+                .Where(cs => societeId.HasValue && cs.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var plans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
-                .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var totalClauses = await _db.IsoClauses
@@ -481,7 +490,7 @@ namespace backend.Infrastructure.Services
             var proofs = await _db.ConformityProofs
                 .Include(p => p.Files)
                 .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
-                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -491,10 +500,13 @@ namespace backend.Infrastructure.Services
         public async Task<ConformityProofDto> UpsertConformityProofAsync(
             int subClauseId, string userId, int? societeId, UpsertConformityProofDto dto)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour enregistrer une preuve.");
+
             var proof = await _db.ConformityProofs
                 .Include(p => p.Files)
                 .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
-                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
 
             if (proof is null)
@@ -518,7 +530,7 @@ namespace backend.Infrastructure.Services
         {
             var proof = await _db.ConformityProofs
                 .Where(p => p.Id == proofId && p.UserId == userId)
-                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Preuve introuvable.");
 
@@ -582,7 +594,7 @@ namespace backend.Infrastructure.Services
         {
             var f = await _db.FileAttachments
                 .Where(x => x.Id == fileId && x.UserId == userId && x.ConformityProofId != null)
-                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             if (f is null) return false;
 
@@ -597,7 +609,7 @@ namespace backend.Infrastructure.Services
         {
             var files = await _db.FileAttachments
                 .Where(f => f.ActionPlanId == planId && f.UserId == userId)
-                .Where(f => societeId.HasValue ? f.SocieteId == societeId.Value || f.SocieteId == null : f.SocieteId == null)
+                .Where(f => societeId.HasValue && f.SocieteId == societeId.Value)
                 .OrderByDescending(f => f.UploadedAt)
                 // On ne charge PAS Content ici pour éviter de ramener des Mo inutilement
                 .Select(f => new FileAttachment
@@ -622,7 +634,7 @@ namespace backend.Infrastructure.Services
         {
             var plan = await _db.ActionPlans
                 .Where(p => p.Id.Equals(planId) && p.UserId == userId)
-                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Plan d'action introuvable.");
 
@@ -650,7 +662,7 @@ namespace backend.Infrastructure.Services
         {
             var f = await _db.FileAttachments
                 .Where(x => x.Id == fileId && x.UserId == userId && x.ActionPlanId != null)
-                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
             if (f is null) return false;
 
@@ -667,7 +679,7 @@ namespace backend.Infrastructure.Services
         {
             var f = await _db.FileAttachments
                 .Where(x => x.Id == fileId && x.UserId == userId)
-                .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync();
 
             if (f is null) return null;
@@ -715,3 +727,4 @@ namespace backend.Infrastructure.Services
 
     }
 }
+

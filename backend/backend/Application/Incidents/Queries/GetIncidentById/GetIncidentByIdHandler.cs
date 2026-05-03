@@ -13,12 +13,12 @@ namespace backend.Application.Incidents.Queries.GetIncidentById
 
         public async Task<IncidentDto?> Handle(GetIncidentByIdQuery request, CancellationToken cancellationToken)
         {
-            // ── Isolation stricte : filtre sur Id ET SocieteId ─────────────────
+            if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
+                return null;
+
             var incident = await _context.Incidents
                 .Where(i => i.Id == request.Id)
-                .Where(i => request.SocieteId.HasValue
-                    ? i.SocieteId == request.SocieteId.Value
-                    : i.SocieteId == null)
+                .Where(i => i.SocieteId == request.SocieteId.Value)
                 .SingleOrDefaultAsync(cancellationToken);
 
             if (incident == null) return null;

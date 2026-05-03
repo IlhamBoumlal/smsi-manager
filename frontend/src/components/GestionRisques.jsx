@@ -54,7 +54,7 @@ const DEMO_STUDY = {
       },
       team: [
         { id: 'tm1', role: 'RSSI', name: 'Marie Dupont', responsibility: 'Pilotage de l\'analyse', contact: 'm.dupont@techcorp.fr' },
-        { id: 'tm2', role: 'DSI', name: 'Jean Martin', responsibility: 'Validation architecture', contact: 'j.martin@techcorp.fr' }
+        { id: 'tm2', role: 'Consultant', name: 'Jean Martin', responsibility: 'Validation architecture', contact: 'j.martin@techcorp.fr' }
       ],
       missions: [
         { id: 'm1', name: 'Production logicielle', description: 'Développement et livraison des solutions SaaS' },
@@ -81,7 +81,7 @@ const DEMO_STUDY = {
       status: 'not_started',
       riskSources: [
         { id: 'rs1', name: 'Cybercriminel organisé', type: 'Externe', motivation: 'Gain financier', capability: 3 },
-        { id: 'rs2', name: 'Employé malveillant', type: 'Interne', motivation: 'Vengeance', capability: 2 }
+        { id: 'rs2', name: 'Insider malveillant', type: 'Interne', motivation: 'Vengeance', capability: 2 }
       ],
       targetObjectives: [
         { id: 'ov1', name: 'Exfiltrer les données RH', description: 'Accéder et extraire la BDD clients', fearedEventIds: ['fe1'] },

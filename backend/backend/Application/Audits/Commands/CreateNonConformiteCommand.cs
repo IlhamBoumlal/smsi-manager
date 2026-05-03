@@ -11,9 +11,12 @@ namespace backend.Application.Audits.Commands
 
         public async Task<NonConformiteDto> ExecuteAsync(CreateNonConformiteDto dto, int? societeId)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour creer une non-conformite.");
+
             var nc = new NonConformite
             {
-                SocieteId = societeId,
+                SocieteId = societeId.Value,
                 Title = dto.Title,
                 Description = dto.Description,
                 ControlId = dto.ControlId,
