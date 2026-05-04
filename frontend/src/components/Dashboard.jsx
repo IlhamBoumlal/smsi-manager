@@ -10,20 +10,23 @@ import {
   Lock,
   TrendingUp,
   Users,
+  FileDown,
+  XCircle,
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { getDashboard, getGlobalStats } from '../api/clauses';
 import { getCycle, getCycles } from '../api/pdca';
 import { getCurrentRiskStorageKey, getEffectiveWorkshopStatus, getStudyProgress, loadInitialStudies } from './risques/riskModel';
+import { useAuth } from '../context/AuthContext';
 
 const PHS = { plan: 'PLAN', do: 'DO', check: 'CHECK', act: 'ACT' };
 const CAT_LABELS = { mgmt: 'Management', real: 'Realisation', supp: 'Support' };
 const DASHBOARD_TABS = [
-  { key: 'synthese', label: 'Synthese' },
-  { key: 'risques', label: 'Risques' },
-  { key: 'conformite', label: 'Conformite' },
-  { key: 'pdca', label: 'PDCA' },
-  { key: 'operations', label: 'Operations' },
+  { key: 'synthese', label: 'Synthese', moduleCode: 'dashboard' },
+  { key: 'risques', label: 'Risques', moduleCode: 'risques' },
+  { key: 'conformite', label: 'Conformite', moduleCode: 'dashboard' },
+  { key: 'pdca', label: 'PDCA', moduleCode: 'pdca' },
+  { key: 'operations', label: 'Operations', moduleCode: 'dashboard' },
 ];
 const VIEW_MODES = [
   { key: 'compact', label: 'Compact' },
@@ -180,7 +183,27 @@ function Table({ columns, rows }) {
   );
 }
 
+function UnauthorizedAccess({ moduleName }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-6 py-12 text-center">
+      <XCircle size={48} className="text-red-500 mb-3" />
+      <h3 className="text-lg font-bold text-red-700">Accès non autorisé</h3>
+      <p className="text-sm text-red-600 mt-1">
+        Vous n'avez pas les droits nécessaires pour consulter le module {moduleName || 'demandé'}.
+      </p>
+    </div>
+  );
+}
+
+function PermissionGate({ children, fallback = null, canAccess }) {
+  if (!canAccess) return fallback;
+  return children;
+}
+
 export default function Dashboard() {
+  // PERMISSIONS: Récupération des droits depuis le contexte
+  const { canRead, canExport } = useAuth();
+
   const [activeTab, setActiveTab] = useState('synthese');
   const [viewMode, setViewMode] = useState('compact');
   const [loading, setLoading] = useState(true);
@@ -325,6 +348,7 @@ export default function Dashboard() {
   const docsReview = useMemo(() => documentation.rows.filter((x) => x.status === 'a-revoir').slice(0, 6).map((x) => ({ nom: x.name, type: x.type, maj: dmy(x.updatedAt) })), [documentation.rows]);
   const controlsCritical = useMemo(() => controls.rows.filter((x) => x.statut === 'NCMajeure' || x.statut === 'Remarque').slice(0, 6).map((x) => ({ controle: x.code || '-', domaine: x.domaine || '-', statut: x.statut === 'NCMajeure' ? 'NC majeure' : 'Remarque' })), [controls.rows]);
   const sensitiveAssets = useMemo(() => assets.rows.filter((x) => ['secret', 'topsecret'].includes(classifKey(x.classification))).slice(0, 6).map((x) => ({ actif: x.nom, type: x.type, classif: x.classification })), [assets.rows]);
+  
   const riskMetrics = useMemo(() => {
     const studyStatus = { non_evalue: 0, en_cours: 0, a_valider: 0, termine: 0, bloque: 0 };
     const workshopStatus = { non_evalue: 0, en_cours: 0, a_valider: 0, termine: 0, bloque: 0 };
@@ -433,10 +457,12 @@ export default function Dashboard() {
       topCritical,
     };
   }, [riskStudies]);
+  
   const riskMeasureDoneRate = pct(riskMetrics.measureDone, riskMetrics.totalMeasures);
   const isoTotal = riskMetrics.isoApplied + riskMetrics.isoPartial + riskMetrics.isoNotApplied;
   const isoAppliedRate = pct(riskMetrics.isoApplied, isoTotal);
   const docsApprovedRate = pct(documentation.approuve, documentation.total);
+  
   const priorityKpis = useMemo(
     () => [
       {
@@ -494,7 +520,9 @@ export default function Dashboard() {
       assets.total,
     ],
   );
+  
   const isCompact = viewMode === 'compact';
+  
   const executiveTones = useMemo(() => ({
     conformite: toneFromRate(stats.averageConformity),
     risquesCritiques: toneFromAlertCount(riskMetrics.criticalRisks),
@@ -512,6 +540,7 @@ export default function Dashboard() {
     riskMetrics.avgProgress,
     isoAppliedRate,
   ]);
+  
   const alertRows = useMemo(
     () => ([
       { label: 'Risques critiques', value: riskMetrics.criticalRisks, color: '#dc2626' },
@@ -522,6 +551,7 @@ export default function Dashboard() {
     ]).filter((item) => num(item.value) > 0),
     [riskMetrics.criticalRisks, riskMetrics.workshopsBlocked, stats.delayedActions, controls.ncMajeure, documentation.aRevoir],
   );
+  
   const pulseRows = useMemo(
     () => [
       { label: 'Conformite globale', value: Math.round(num(stats.averageConformity)), color: '#16a34a' },
@@ -533,6 +563,22 @@ export default function Dashboard() {
     [stats.averageConformity, pdca.global, riskMetrics.avgProgress, riskMeasureDoneRate, controls.taux],
   );
 
+  // ============================================================
+  // PERMISSIONS: Vérification après tous les Hooks
+  // ============================================================
+  const hasReadAccess = canRead('dashboard');
+  const hasExportAccess = canExport('dashboard');
+
+  if (!hasReadAccess) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-8">
+        <div className="mx-auto max-w-7xl">
+          <UnauthorizedAccess moduleName="Tableau de bord" />
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-slate-100 p-8"><div className="mx-auto max-w-7xl animate-pulse space-y-4"><div className="h-40 rounded-3xl bg-slate-200" /><div className="h-96 rounded-3xl bg-slate-200" /></div></div>;
   }
@@ -543,7 +589,16 @@ export default function Dashboard() {
         <header className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 px-6 py-7 text-white shadow-xl md:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider"><TrendingUp size={14} /> Executive dashboard SMSI</p>
+              <div className="mb-2 flex items-center gap-2">
+                <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+                  <TrendingUp size={14} /> Executive dashboard SMSI
+                </p>
+                {hasExportAccess && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-200">
+                    <FileDown size={10} /> Export autorisé
+                  </span>
+                )}
+              </div>
               <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Tableau de bord global</h1>
               <p className="mt-2 max-w-2xl text-sm text-blue-100">Vision centralisee des KPI conformite, controles, documentation, actifs, PDCA et cartographie.</p>
             </div>
@@ -570,6 +625,8 @@ export default function Dashboard() {
             <div className="flex flex-wrap gap-2">
               {DASHBOARD_TABS.map((tab) => {
                 const active = activeTab === tab.key;
+                const canAccessTab = canRead(tab.moduleCode);
+                if (!canAccessTab) return null;
                 return (
                   <button
                     key={tab.key}
@@ -604,154 +661,163 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {activeTab === 'synthese' ? (
-          <>
-            <Block title="KPI prioritaires">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {priorityKpis.map((kpi) => (
-                  <LeanKpi key={kpi.title} title={kpi.title} value={kpi.value} sub={kpi.sub} tone={kpi.tone} />
-                ))}
-              </div>
-            </Block>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Alertes immediates">
-                {alertRows.length ? (
-                  <div className="space-y-2">
-                    {alertRows.map((item) => (
-                      <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                        <span className="rounded-full px-2 py-0.5 text-sm font-bold text-white" style={{ background: item.color }}>{item.value}</span>
+        {activeTab === 'synthese' && (
+          <PermissionGate canAccess={canRead('dashboard')} fallback={<UnauthorizedAccess moduleName="Synthèse" />}>
+            <>
+              <Block title="KPI prioritaires">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {priorityKpis.map((kpi) => (
+                    <LeanKpi key={kpi.title} title={kpi.title} value={kpi.value} sub={kpi.sub} tone={kpi.tone} />
+                  ))}
+                </div>
+              </Block>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Alertes immediates">
+                  {alertRows.length ? (
+                    <div className="space-y-2">
+                      {alertRows.map((item) => (
+                        <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                          <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                          <span className="rounded-full px-2 py-0.5 text-sm font-bold text-white" style={{ background: item.color }}>{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">Aucune alerte immediate.</div>
+                  )}
+                </Block>
+                <Block title="Pulse global (%)">
+                  <Bars rows={pulseRows} />
+                </Block>
+              </section>
+              {!isCompact ? (
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Block title="Top etudes a risque critique">
+                    <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
+                  </Block>
+                  <Block title="Plans d'action par etat">
+                    <Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} />
+                  </Block>
+                </section>
+              ) : null}
+            </>
+          </PermissionGate>
+        )}
+
+        {activeTab === 'risques' && (
+          <PermissionGate canAccess={canRead('risques')} fallback={<UnauthorizedAccess moduleName="Risques" />}>
+            <>
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Card title="Progression risques" value={`${riskMetrics.avgProgress}%`} sub={`${riskMetrics.studiesInProgress} en cours`} icon={<TrendingUp size={18} />} tone={executiveTones.progressionRisques} />
+                <Card title="Risques residuels" value={riskMetrics.residualRisks} sub="Apres traitement" icon={<Ban size={18} />} tone={toneFromAlertCount(riskMetrics.residualRisks)} />
+                <Card title="Mesures securite" value={riskMetrics.totalMeasures} sub={`${riskMetrics.measureDone} faites`} icon={<CheckCircle2 size={18} />} tone="green" />
+                <Card title="ISO non appliques" value={riskMetrics.isoNotApplied} sub="A traiter / justifier" icon={<AlertTriangle size={18} />} tone={toneFromAlertCount(riskMetrics.isoNotApplied)} />
+              </section>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Etudes de risques par statut">
+                  <Donut data={[{ label: 'Terminees', value: riskMetrics.studyStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.studyStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.studyStatus.en_cours, color: '#2563eb' }, { label: 'Non evaluees', value: riskMetrics.studyStatus.non_evalue, color: '#94a3b8' }]} />
+                </Block>
+                <Block title="Ateliers de risques par statut">
+                  <Bars rows={[{ label: 'Termines', value: riskMetrics.workshopStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.workshopStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.workshopStatus.en_cours, color: '#2563eb' }, { label: 'Bloques', value: riskMetrics.workshopStatus.bloque, color: '#dc2626' }, { label: 'Non evalues', value: riskMetrics.workshopStatus.non_evalue, color: '#94a3b8' }]} />
+                </Block>
+              </section>
+              {!isCompact ? (
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Block title="Mesures de securite - Atelier 5">
+                    <Donut data={[{ label: 'Faites', value: riskMetrics.measureDone, color: '#16a34a' }, { label: 'En cours', value: riskMetrics.measureInProgress, color: '#2563eb' }, { label: 'A faire', value: riskMetrics.measureTodo, color: '#94a3b8' }]} />
+                  </Block>
+                  <Block title="Top etudes a risque critique">
+                    <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
+                  </Block>
+                </section>
+              ) : null}
+            </>
+          </PermissionGate>
+        )}
+
+        {activeTab === 'conformite' && (
+          <PermissionGate canAccess={canRead('dashboard')} fallback={<UnauthorizedAccess moduleName="Conformité" />}>
+            <>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Conformite par clause"><Bars rows={clauseBars} /></Block>
+                <Block title="Controles par domaine"><Bars rows={Object.entries(controls.byDomain).map(([label, value]) => ({ label, value, color: '#4f46e5' }))} /></Block>
+              </section>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Clauses conformes / non conformes"><Donut data={[{ label: 'Conformes', value: num(stats.conformeClauses), color: '#16a34a' }, { label: 'Non conformes', value: num(stats.nonConformeClauses), color: '#dc2626' }]} /></Block>
+                <Block title="Controles par statut"><Donut data={[{ label: 'Conformes', value: controls.conforme, color: '#16a34a' }, { label: 'Remarques', value: controls.remarque, color: '#2563eb' }, { label: 'NC mineures', value: controls.ncMineure, color: '#f59e0b' }, { label: 'NC majeures', value: controls.ncMajeure, color: '#dc2626' }, { label: 'Non evalues', value: controls.nonEvalue, color: '#94a3b8' }]} /></Block>
+              </section>
+              {!isCompact ? (
+                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Block title="Top clauses non conformes"><Table columns={[{ key: 'clause', label: 'Clause' }, { key: 'titre', label: 'Titre' }, { key: 'score', label: 'Score' }, { key: 'ecart', label: 'Ecart' }]} rows={clausesNC} /></Block>
+                  <Block title="Controles critiques"><Table columns={[{ key: 'controle', label: 'Controle' }, { key: 'domaine', label: 'Domaine' }, { key: 'statut', label: 'Statut' }]} rows={controlsCritical} /></Block>
+                </section>
+              ) : null}
+            </>
+          </PermissionGate>
+        )}
+
+        {activeTab === 'pdca' && (
+          <PermissionGate canAccess={canRead('pdca')} fallback={<UnauthorizedAccess moduleName="PDCA" />}>
+            <>
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Card title="PDCA global" value={`${pdca.global}%`} sub={`${pdca.done}/${Math.max(pdca.total, 1)} termines`} icon={<ClipboardList size={18} />} tone={executiveTones.pdca} />
+                <Card title="Taches terminees" value={pdca.done} sub={`${pdca.total} au total`} icon={<CheckCircle2 size={18} />} tone="green" />
+                <Card title="Taches en cours" value={pdca.ip} sub="Execution active" icon={<Clock3 size={18} />} tone="blue" />
+                <Card title="Taches a faire" value={pdca.todo} sub="Backlog" icon={<Ban size={18} />} tone="slate" />
+              </section>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Progression PDCA par phase"><Bars rows={Object.keys(pdca.phase).map((k) => ({ label: PHS[k], value: pdca.phase[k], color: k === 'plan' ? '#a855f7' : k === 'do' ? '#2563eb' : k === 'check' ? '#0891b2' : '#ef4444' }))} /></Block>
+                <Block title="PDCA taches"><Donut data={[{ label: 'Terminees', value: pdca.done, color: '#16a34a' }, { label: 'En cours', value: pdca.ip, color: '#f59e0b' }, { label: 'A faire', value: pdca.todo, color: '#94a3b8' }]} /></Block>
+              </section>
+              {!isCompact ? (
+                <section className="grid grid-cols-1 gap-4">
+                  <Block title="Plans d'action par etat"><Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} /></Block>
+                </section>
+              ) : null}
+            </>
+          </PermissionGate>
+        )}
+
+        {activeTab === 'operations' && (
+          <PermissionGate canAccess={canRead('dashboard')} fallback={<UnauthorizedAccess moduleName="Opérations" />}>
+            <>
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Card title="Documents a revoir" value={documentation.aRevoir} sub={`${documentation.total} documents`} icon={<FileText size={18} />} tone={toneFromAlertCount(documentation.aRevoir)} />
+                <Card title="Actifs sensibles" value={assets.sensibles} sub={`${assets.total} actifs`} icon={<Lock size={18} />} tone={toneFromAlertCount(assets.sensibles)} />
+                <Card title="Actifs primaires" value={assets.primaires} sub={`${assets.support} actifs support`} icon={<Building2 size={18} />} tone="slate" />
+                <Card title="Total controles" value={controls.total} sub={`Conformite ${controls.taux}%`} icon={<Users size={18} />} tone="blue" />
+              </section>
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <Block title="Documentation par statut"><Donut data={[{ label: 'Approuves', value: documentation.approuve, color: '#16a34a' }, { label: 'En validation', value: documentation.validation, color: '#f59e0b' }, { label: 'Brouillons', value: documentation.brouillon, color: '#64748b' }, { label: 'A revoir', value: documentation.aRevoir, color: '#ef4444' }]} /></Block>
+                <Block title="Cartographie: processus par categorie"><Bars rows={Object.entries(cartography.by).map(([k, value]) => ({ label: CAT_LABELS[k] || k, value, color: k === 'mgmt' ? '#0ea5e9' : k === 'real' ? '#8b5cf6' : '#10b981' }))} /></Block>
+              </section>
+              {!isCompact ? (
+                <>
+                  <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <Block title="Documents a revoir"><Table columns={[{ key: 'nom', label: 'Document' }, { key: 'type', label: 'Type' }, { key: 'maj', label: 'Derniere MAJ' }]} rows={docsReview} /></Block>
+                    <Block title="Actifs sensibles"><Table columns={[{ key: 'actif', label: 'Actif' }, { key: 'type', label: 'Type' }, { key: 'classif', label: 'Classification' }]} rows={sensitiveAssets} /></Block>
+                  </section>
+                  <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <Block title="Cartographie">
+                      <div className="space-y-2 text-sm text-slate-700">
+                        <div className="flex justify-between"><span>Total processus</span><span className="font-bold">{cartography.total}</span></div>
+                        <div className="flex justify-between"><span>Documents associes</span><span className="font-bold">{cartography.docs}</span></div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">Aucune alerte immediate.</div>
-                )}
-              </Block>
-              <Block title="Pulse global (%)">
-                <Bars rows={pulseRows} />
-              </Block>
-            </section>
-            {!isCompact ? (
-              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <Block title="Top etudes a risque critique">
-                  <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
-                </Block>
-                <Block title="Plans d'action par etat">
-                  <Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} />
-                </Block>
-              </section>
-            ) : null}
-          </>
-        ) : null}
-
-        {activeTab === 'risques' ? (
-          <>
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Card title="Progression risques" value={`${riskMetrics.avgProgress}%`} sub={`${riskMetrics.studiesInProgress} en cours`} icon={<TrendingUp size={18} />} tone={executiveTones.progressionRisques} />
-              <Card title="Risques residuels" value={riskMetrics.residualRisks} sub="Apres traitement" icon={<Ban size={18} />} tone={toneFromAlertCount(riskMetrics.residualRisks)} />
-              <Card title="Mesures securite" value={riskMetrics.totalMeasures} sub={`${riskMetrics.measureDone} faites`} icon={<CheckCircle2 size={18} />} tone="green" />
-              <Card title="ISO non appliques" value={riskMetrics.isoNotApplied} sub="A traiter / justifier" icon={<AlertTriangle size={18} />} tone={toneFromAlertCount(riskMetrics.isoNotApplied)} />
-            </section>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Etudes de risques par statut">
-                <Donut data={[{ label: 'Terminees', value: riskMetrics.studyStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.studyStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.studyStatus.en_cours, color: '#2563eb' }, { label: 'Non evaluees', value: riskMetrics.studyStatus.non_evalue, color: '#94a3b8' }]} />
-              </Block>
-              <Block title="Ateliers de risques par statut">
-                <Bars rows={[{ label: 'Termines', value: riskMetrics.workshopStatus.termine, color: '#16a34a' }, { label: 'A valider', value: riskMetrics.workshopStatus.a_valider, color: '#f59e0b' }, { label: 'En cours', value: riskMetrics.workshopStatus.en_cours, color: '#2563eb' }, { label: 'Bloques', value: riskMetrics.workshopStatus.bloque, color: '#dc2626' }, { label: 'Non evalues', value: riskMetrics.workshopStatus.non_evalue, color: '#94a3b8' }]} />
-              </Block>
-            </section>
-            {!isCompact ? (
-              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <Block title="Mesures de securite - Atelier 5">
-                  <Donut data={[{ label: 'Faites', value: riskMetrics.measureDone, color: '#16a34a' }, { label: 'En cours', value: riskMetrics.measureInProgress, color: '#2563eb' }, { label: 'A faire', value: riskMetrics.measureTodo, color: '#94a3b8' }]} />
-                </Block>
-                <Block title="Top etudes a risque critique">
-                  <Table columns={[{ key: 'etude', label: 'Etude' }, { key: 'critiques', label: 'Risques critiques' }, { key: 'registre', label: 'Registre' }, { key: 'progression', label: 'Progression' }]} rows={riskMetrics.topCritical} />
-                </Block>
-              </section>
-            ) : null}
-          </>
-        ) : null}
-
-        {activeTab === 'conformite' ? (
-          <>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Conformite par clause"><Bars rows={clauseBars} /></Block>
-              <Block title="Controles par domaine"><Bars rows={Object.entries(controls.byDomain).map(([label, value]) => ({ label, value, color: '#4f46e5' }))} /></Block>
-            </section>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Clauses conformes / non conformes"><Donut data={[{ label: 'Conformes', value: num(stats.conformeClauses), color: '#16a34a' }, { label: 'Non conformes', value: num(stats.nonConformeClauses), color: '#dc2626' }]} /></Block>
-              <Block title="Controles par statut"><Donut data={[{ label: 'Conformes', value: controls.conforme, color: '#16a34a' }, { label: 'Remarques', value: controls.remarque, color: '#2563eb' }, { label: 'NC mineures', value: controls.ncMineure, color: '#f59e0b' }, { label: 'NC majeures', value: controls.ncMajeure, color: '#dc2626' }, { label: 'Non evalues', value: controls.nonEvalue, color: '#94a3b8' }]} /></Block>
-            </section>
-            {!isCompact ? (
-              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <Block title="Top clauses non conformes"><Table columns={[{ key: 'clause', label: 'Clause' }, { key: 'titre', label: 'Titre' }, { key: 'score', label: 'Score' }, { key: 'ecart', label: 'Ecart' }]} rows={clausesNC} /></Block>
-                <Block title="Controles critiques"><Table columns={[{ key: 'controle', label: 'Controle' }, { key: 'domaine', label: 'Domaine' }, { key: 'statut', label: 'Statut' }]} rows={controlsCritical} /></Block>
-              </section>
-            ) : null}
-          </>
-        ) : null}
-
-        {activeTab === 'pdca' ? (
-          <>
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Card title="PDCA global" value={`${pdca.global}%`} sub={`${pdca.done}/${Math.max(pdca.total, 1)} termines`} icon={<ClipboardList size={18} />} tone={executiveTones.pdca} />
-              <Card title="Taches terminees" value={pdca.done} sub={`${pdca.total} au total`} icon={<CheckCircle2 size={18} />} tone="green" />
-              <Card title="Taches en cours" value={pdca.ip} sub="Execution active" icon={<Clock3 size={18} />} tone="blue" />
-              <Card title="Taches a faire" value={pdca.todo} sub="Backlog" icon={<Ban size={18} />} tone="slate" />
-            </section>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Progression PDCA par phase"><Bars rows={Object.keys(pdca.phase).map((k) => ({ label: PHS[k], value: pdca.phase[k], color: k === 'plan' ? '#a855f7' : k === 'do' ? '#2563eb' : k === 'check' ? '#0891b2' : '#ef4444' }))} /></Block>
-              <Block title="PDCA taches"><Donut data={[{ label: 'Terminees', value: pdca.done, color: '#16a34a' }, { label: 'En cours', value: pdca.ip, color: '#f59e0b' }, { label: 'A faire', value: pdca.todo, color: '#94a3b8' }]} /></Block>
-            </section>
-            {!isCompact ? (
-              <section className="grid grid-cols-1 gap-4">
-                <Block title="Plans d'action par etat"><Bars rows={[{ label: 'Terminees', value: num(stats.completedActions), color: '#16a34a' }, { label: 'En cours', value: num(stats.inProgressActions), color: '#2563eb' }, { label: 'En retard', value: num(stats.delayedActions), color: '#ef4444' }]} /></Block>
-              </section>
-            ) : null}
-          </>
-        ) : null}
-
-        {activeTab === 'operations' ? (
-          <>
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Card title="Documents a revoir" value={documentation.aRevoir} sub={`${documentation.total} documents`} icon={<FileText size={18} />} tone={toneFromAlertCount(documentation.aRevoir)} />
-              <Card title="Actifs sensibles" value={assets.sensibles} sub={`${assets.total} actifs`} icon={<Lock size={18} />} tone={toneFromAlertCount(assets.sensibles)} />
-              <Card title="Actifs primaires" value={assets.primaires} sub={`${assets.support} actifs support`} icon={<Building2 size={18} />} tone="slate" />
-              <Card title="Total controles" value={controls.total} sub={`Conformite ${controls.taux}%`} icon={<Users size={18} />} tone="blue" />
-            </section>
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Block title="Documentation par statut"><Donut data={[{ label: 'Approuves', value: documentation.approuve, color: '#16a34a' }, { label: 'En validation', value: documentation.validation, color: '#f59e0b' }, { label: 'Brouillons', value: documentation.brouillon, color: '#64748b' }, { label: 'A revoir', value: documentation.aRevoir, color: '#ef4444' }]} /></Block>
-              <Block title="Cartographie: processus par categorie"><Bars rows={Object.entries(cartography.by).map(([k, value]) => ({ label: CAT_LABELS[k] || k, value, color: k === 'mgmt' ? '#0ea5e9' : k === 'real' ? '#8b5cf6' : '#10b981' }))} /></Block>
-            </section>
-            {!isCompact ? (
-              <>
-                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  <Block title="Documents a revoir"><Table columns={[{ key: 'nom', label: 'Document' }, { key: 'type', label: 'Type' }, { key: 'maj', label: 'Derniere MAJ' }]} rows={docsReview} /></Block>
-                  <Block title="Actifs sensibles"><Table columns={[{ key: 'actif', label: 'Actif' }, { key: 'type', label: 'Type' }, { key: 'classif', label: 'Classification' }]} rows={sensitiveAssets} /></Block>
-                </section>
-                <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  <Block title="Cartographie">
-                    <div className="space-y-2 text-sm text-slate-700">
-                      <div className="flex justify-between"><span>Total processus</span><span className="font-bold">{cartography.total}</span></div>
-                      <div className="flex justify-between"><span>Documents associes</span><span className="font-bold">{cartography.docs}</span></div>
-                    </div>
-                  </Block>
-                  <Block title="Conformite controles">
-                    <div className="space-y-2 text-sm text-slate-700">
-                      <div className="flex justify-between"><span>Conformes</span><span className="font-bold text-emerald-600">{controls.conforme}</span></div>
-                      <div className="flex justify-between"><span>NC mineures</span><span className="font-bold text-amber-600">{controls.ncMineure}</span></div>
-                      <div className="flex justify-between"><span>NC majeures</span><span className="font-bold text-red-600">{controls.ncMajeure}</span></div>
-                    </div>
-                  </Block>
-                </section>
-              </>
-            ) : null}
-          </>
-        ) : null}
+                    </Block>
+                    <Block title="Conformite controles">
+                      <div className="space-y-2 text-sm text-slate-700">
+                        <div className="flex justify-between"><span>Conformes</span><span className="font-bold text-emerald-600">{controls.conforme}</span></div>
+                        <div className="flex justify-between"><span>NC mineures</span><span className="font-bold text-amber-600">{controls.ncMineure}</span></div>
+                        <div className="flex justify-between"><span>NC majeures</span><span className="font-bold text-red-600">{controls.ncMajeure}</span></div>
+                      </div>
+                    </Block>
+                  </section>
+                </>
+              ) : null}
+            </>
+          </PermissionGate>
+        )}
       </div>
     </div>
   );
 }
-

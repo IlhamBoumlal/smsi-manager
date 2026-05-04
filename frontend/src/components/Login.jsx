@@ -1,11 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
 
-// Composant Login : Page de connexion avec formulaire email/mot de passe
-// Gère l'authentification et la redirection selon le rôle utilisateur
+// Fonction pour décoder le token JWT et extraire le rôle
+const decodeToken = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Erreur décodage token:', error);
+    return null;
+  }
+};
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -14,6 +26,19 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const { loginUser, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirection basée sur le user du contexte
+  useEffect(() => {
+    if (user) {
+      console.log('User dans contexte:', user);
+      const userRole = user.role;
+      if (userRole === 'Super Admin') {
+        navigate('/super-admin');
+      } else {
+        navigate('/tableau-bord');
+      }
+    }
+  }, [user, navigate]);
 
   let logoImage = isoLogo;
   if (user) {
@@ -41,10 +66,35 @@ export default function Login() {
     setError('');
     try {
       const res = await login(form);
-      loginUser(res.data);
-      // Rediriger vers le tableau de bord (même pour l'admin)
-      navigate('/tableau-bord');
+      console.log('Réponse API:', res.data);
+      
+      const { token, nomComplet, email, societe } = res.data;
+      
+      // Décoder le token pour extraire le rôle
+      const decodedToken = decodeToken(token);
+      console.log('Token décodé:', decodedToken);
+      
+      // Extraire le rôle du token (claim "role")
+      const userRole = decodedToken?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken?.role;
+      console.log('Rôle extrait:', userRole);
+      
+      // Créer l'objet utilisateur avec le rôle
+      const userData = {
+        id: decodedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
+        token,
+        nomComplet,
+        email,
+        societe,
+        role: userRole,
+        roleName: userRole // Pour compatibilité
+      };
+      
+      console.log('UserData à stocker:', userData);
+      loginUser(userData);
+      
+      // La redirection se fera dans useEffect quand user sera mis à jour
     } catch (err) {
+      console.error('Erreur:', err);
       setError(err.response?.data || 'Identifiants incorrects.');
     } finally {
       setLoading(false);
@@ -265,7 +315,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '48px',
-    position: 'relative', // Ajouté pour le positionnement du bouton retour
+    position: 'relative',
   },
   backBtn: {
     position: 'absolute',

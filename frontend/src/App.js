@@ -90,6 +90,9 @@ export default function App() {
 
       {/* Route 404 - redirection vers l'accueil */}
       <Route path="*" element={<Navigate to="/" replace />} />
+
+
+      <Route path="/super-admin" element={<SuperAdminSpace />} />
     </Routes>
   );
 }

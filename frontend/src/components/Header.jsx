@@ -20,7 +20,7 @@ import { resolveAssetUrl } from "../api/url";
 // Définition de tous les axes possibles avec leur moduleCode
 const allMainAxes = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
-  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashbord" },
+  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashboard" },  // ✅ CORRIGÉ: dashboard au lieu de dashbord
   { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
   { id: "controles", label: "Contrôles", path: "/controles", moduleCode: "controles" },
@@ -29,7 +29,7 @@ const allMainAxes = [
 ];
 
 const allMoreAxes = [
-  { id: "audits", label: "Audits", path: "/audits", moduleCode: "audits", icon: <ClipboardCheck size={20} /> },
+  { id: "audits", label: "Audits", path: "/audits", moduleCode: "audit", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", moduleCode: "actifs", icon: <Database size={20} /> },
   { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", moduleCode: "sensibilisation", icon: <Network size={20} /> },
   { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },
@@ -37,7 +37,7 @@ const allMoreAxes = [
 
 const allAdminMenuItems = [
   { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques" },
-  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "utilisateurs" },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "users" },  // ✅ CORRIGÉ: users au lieu de utilisateurs
   { label: "Sociétés", Icon: Factory, path: "/admin/societes", moduleCode: "societes" },
   { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings" },
 ];
@@ -166,7 +166,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
         {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
-          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
+          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord", moduleCode: "dashboard" })}
         >
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">

@@ -3,7 +3,6 @@ using backend.Domain.Entities;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using Action = backend.Domain.Entities.Action;
 
 namespace backend.Application.Services
@@ -40,77 +39,46 @@ namespace backend.Application.Services
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("PendingModelChangesWarning"))
             {
-                // In local development, allow startup even when a migration is missing.
                 await dbContext.Database.EnsureCreatedAsync();
             }
 
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            // ============================================================
-            // ÉTAPE 1 : INITIALISATION DES RÔLES (si absents)
-            // ============================================================
-            await SeedRolesAsync(roleManager);
+            // ══════════════════════════════════════════════════════════════
+            //  TOUTES LES INITIALISATIONS SONT ACTIVES
+            // ══════════════════════════════════════════════════════════════
 
-            // ============================================================
-            // INITIALISATION DES ACTIONS (une seule fois)
-            // ============================================================
-            //await SeedActionsAsync(dbContext);
+            // ÉTAPE 1 : Rôles
+          //  await SeedRolesAsync(roleManager);
 
-            // ============================================================
-            // INITIALISATION DES MODULES (une seule fois)
-            // ============================================================
+            // ÉTAPE 2 : Actions
+          //  await SeedActionsAsync(dbContext);
+
+            // ÉTAPE 3 : Modules
             //await SeedModulesAsync(dbContext);
 
-            // ============================================================
-            // INITIALISATION DES PERMISSIONS (module x action)
-            // ============================================================
+            // ÉTAPE 4 : Permissions
             //await SeedPermissionsAsync(dbContext);
 
-            // ============================================================
-            // INITIALISATION DES CONTRÔLES (une seule fois)
-            // ============================================================
-            await SeedControlesAsync(serviceProvider);
+            // ÉTAPE 5 : Contrôles ISO 27001 (depuis fichier JSON)
+           // await SeedControlesAsync(serviceProvider);
 
-            // ============================================================
-            // ÉTAPE 2 : INITIALISATION DES UTILISATEURS SYSTÈME
-            // ============================================================
+            // ÉTAPE 6 : Utilisateurs système
+            //await SeedUsersAsync(userManager, config);
 
-            // --- Admin système par défaut ---
-            var adminEmail = config["SeedUsers:Admin:Email"] ?? "admin@alexsys.com";
-            var adminPassword = config["SeedUsers:Admin:Password"] ?? "Admin@123456!";
-            var adminName = config["SeedUsers:Admin:NomComplet"] ?? "Administrateur Système";
-            var adminRole = config["SeedUsers:Admin:Role"] ?? "Admin";
+            // ÉTAPE 7 : Démo RBAC (utilisateurs démo + documents)
+           // await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
 
-            // --- Utilisateur standard par défaut ---
-            var standardEmail = config["SeedUsers:Standard:Email"] ?? "user@alexsys.com";
-            var standardPassword = config["SeedUsers:Standard:Password"] ?? "User@123456!";
-            var standardName = config["SeedUsers:Standard:NomComplet"] ?? "Utilisateur Standard";
-            var standardRole = config["SeedUsers:Standard:Role"] ?? "Utilisateur Standard";
+            // ══════════════════════════════════════════════════════════════
 
-            // --- Utilisateurs prédéfinis ---
-            await SeedUserIfMissingAsync(userManager, adminEmail, adminPassword, adminName, adminRole);
-            await SeedUserIfMissingAsync(userManager, standardEmail, standardPassword, standardName, standardRole);
-            await SeedUserIfMissingAsync(userManager, "boumlalilham@gmail.com", "Admin@123456!", "Ilham Boumlal", "Super Admin");
-            await SeedUserIfMissingAsync(userManager, "auditeur@gmail.com", "Auditeur@123456!", "Auditeur Système", "Auditeur");
-            await SeedUserIfMissingAsync(userManager, "consultant@gmail.com", "Consul@123456!", "Consultant Système", "Consultant");
-            await SeedUserIfMissingAsync(userManager, "rssi@gmail.com", "Rssi@123456!", "RSSI Système", "RSSI");
-
-            Console.WriteLine("✅ Initialisation des utilisateurs système terminée");
-
-            // ============================================================
-            // ÉTAPE 3 : SEED DÉMO RBAC (utilisateurs + documents)
-            // ============================================================
-            await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
+            Console.WriteLine("✅ Toutes les initialisations sont terminées !");
         }
 
         // ============================================================
-        // SEED DES RÔLES
+        // ÉTAPE 1 — RÔLES
         // ============================================================
 
-        /// <summary>
-        /// Crée les rôles système s'ils n'existent pas encore dans la base de données.
-        /// </summary>
         private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
         {
             foreach (var roleName in SystemRoles)
@@ -131,18 +99,14 @@ namespace backend.Application.Services
         }
 
         // ============================================================
-        // SEED DES ACTIONS
+        // ÉTAPE 2 — ACTIONS
         // ============================================================
 
-        /// <summary>
-        /// Initialise les actions prédéfinies (Lecture, Écriture, Modification, etc.)
-        /// À COMMENTER APRÈS LA PREMIÈRE EXÉCUTION
-        /// </summary>
-        private static async Task SeedActionsAsync(AppDbContext dbContext)
+        private static async Task SeedActionsAsync(AppDbContext db)
         {
-            if (await dbContext.Actions.AnyAsync())
+            if (await db.Actions.AnyAsync())
             {
-                Console.WriteLine("ℹ️ Les actions existent déjà. Seed ignoré.");
+                Console.WriteLine("ℹ️  Actions déjà présentes — seed ignoré.");
                 return;
             }
 
@@ -152,235 +116,347 @@ namespace backend.Application.Services
                 new() { Id = Guid.NewGuid().ToString(), Code = "create", Name = "Écriture"     },
                 new() { Id = Guid.NewGuid().ToString(), Code = "edit",   Name = "Modification" },
                 new() { Id = Guid.NewGuid().ToString(), Code = "delete", Name = "Suppression"  },
-                new() { Id = Guid.NewGuid().ToString(), Code = "manage", Name = "Gestion"      },
                 new() { Id = Guid.NewGuid().ToString(), Code = "export", Name = "Export"       },
+                new() { Id = Guid.NewGuid().ToString(), Code = "manage", Name = "Gestion"      },
             };
 
-            await dbContext.Actions.AddRangeAsync(actions);
-            await dbContext.SaveChangesAsync();
-            Console.WriteLine($"✅ {actions.Count} actions prédéfinies créées");
+            await db.Actions.AddRangeAsync(actions);
+            await db.SaveChangesAsync();
+            Console.WriteLine($"✅ {actions.Count} actions créées.");
         }
 
         // ============================================================
-        // SEED DES MODULES
+        // ÉTAPE 3 — MODULES
         // ============================================================
 
-        /// <summary>
-        /// Initialise les modules par défaut.
-        /// À COMMENTER APRÈS LA PREMIÈRE EXÉCUTION
-        /// </summary>
-        private static async Task SeedModulesAsync(AppDbContext dbContext)
+        private static async Task SeedModulesAsync(AppDbContext db)
         {
+            if (await db.Modules.AnyAsync())
+            {
+                Console.WriteLine("ℹ️  Modules déjà présents — seed ignoré.");
+                return;
+            }
+
+            // ⚠️ Les codes doivent correspondre EXACTEMENT aux moduleCode
+            //    utilisés dans Header.jsx côté React.
             var modules = new List<Module>
             {
-                new() { Code = "dashboard", Name = "Tableau De Bord" },
-                new() { Code = "holdings",  Name = "Holdings"        },
-                new() { Code = "societes",  Name = "Sociétés"        },
-                new() { Code = "users",     Name = "Utilisateurs"    },
-                new() { Code = "roles",     Name = "Rôles"           },
-                new() { Code = "incidents", Name = "Incidents"       },
-                new() { Code = "risques",   Name = "Risques"         },
-                new() { Code = "audit",     Name = "Audit"           },
-                new() { Code = "config",    Name = "Configuration"   },
+                new() { Id = Guid.NewGuid().ToString(), Code = "dashboard",       Name = "Tableau De Bord",  CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "cartographie",    Name = "Cartographie",     CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "pdca",            Name = "PDCA",             CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "clauses",         Name = "Clauses",          CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "controles",       Name = "Contrôles",        CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "documentation",   Name = "Documentation",    CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "risques",         Name = "Risques",          CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "audit",           Name = "Audits",           CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "actifs",          Name = "Actifs",           CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "sensibilisation", Name = "Sensibilisation",  CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "incidents",       Name = "Incidents",        CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "statistiques",    Name = "Statistiques",     CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "users",           Name = "Utilisateurs",     CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "societes",        Name = "Sociétés",         CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "holdings",        Name = "Holdings",         CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "roles",           Name = "Rôles",            CreatedAt = DateTime.UtcNow },
+                new() { Id = Guid.NewGuid().ToString(), Code = "config",          Name = "Configuration",    CreatedAt = DateTime.UtcNow },
             };
 
-            await dbContext.Modules.AddRangeAsync(modules);
-            await dbContext.SaveChangesAsync();
-            Console.WriteLine($"✅ {modules.Count} modules créés");
+            await db.Modules.AddRangeAsync(modules);
+            await db.SaveChangesAsync();
+            Console.WriteLine($"✅ {modules.Count} modules créés.");
         }
 
         // ============================================================
-        // SEED DES PERMISSIONS
+        // ÉTAPE 4 — PERMISSIONS
         // ============================================================
 
-        /// <summary>
-        /// Initialise les permissions (combinaison module x action).
-        /// À COMMENTER APRÈS LA PREMIÈRE EXÉCUTION
-        /// </summary>
-        private static async Task SeedPermissionsAsync(AppDbContext dbContext)
+        private static async Task SeedPermissionsAsync(AppDbContext db)
         {
-            if (await dbContext.Permissions.AnyAsync())
+            if (await db.Permissions.AnyAsync())
             {
-                Console.WriteLine("ℹ️ Les permissions existent déjà. Seed ignoré.");
+                Console.WriteLine("ℹ️  Permissions déjà présentes — seed ignoré.");
                 return;
             }
 
-            var modules = await dbContext.Modules.ToListAsync();
-            var actions = await dbContext.Actions.ToListAsync();
+            // Lecture des IDs réels depuis la BD
+            var modules = await db.Modules.ToDictionaryAsync(m => m.Code, m => m.Id);
+            var actions = await db.Actions.ToDictionaryAsync(a => a.Code, a => a.Id);
+            var roles = await db.Set<IdentityRole>().ToDictionaryAsync(r => r.Name!, r => r.Id);
 
-            if (!modules.Any() || !actions.Any())
+            // Helpers — lèvent une exception claire si un code est manquant
+            string M(string code)
             {
-                Console.WriteLine("⚠️ Impossible de créer les permissions: modules ou actions manquants");
-                return;
+                if (modules.TryGetValue(code, out var id)) return id;
+                throw new InvalidOperationException($"Module introuvable : '{code}'. Vérifiez SeedModulesAsync.");
             }
 
-            var permissions = new List<Permission>();
-            foreach (var module in modules)
+            string A(string code)
             {
-                foreach (var action in actions)
-                {
-                    permissions.Add(new Permission
+                if (actions.TryGetValue(code, out var id)) return id;
+                throw new InvalidOperationException($"Action introuvable : '{code}'. Vérifiez SeedActionsAsync.");
+            }
+
+            string Ro(string name)
+            {
+                if (roles.TryGetValue(name, out var id)) return id;
+                throw new InvalidOperationException($"Rôle introuvable : '{name}'. Vérifiez SeedRolesAsync.");
+            }
+
+            var perms = new List<Permission>();
+
+            // Ajouter des actions spécifiques sur un module pour un rôle
+            void Add(string role, string module, params string[] actionCodes)
+            {
+                foreach (var ac in actionCodes)
+                    perms.Add(new Permission
                     {
                         Id = Guid.NewGuid().ToString(),
-                        ModuleId = module.Id,
-                        ActionId = action.Id,
+                        RoleId = Ro(role),
+                        ModuleId = M(module),
+                        ActionId = A(ac),
                     });
-                }
             }
 
-            await dbContext.Permissions.AddRangeAsync(permissions);
-            await dbContext.SaveChangesAsync();
-            Console.WriteLine($"✅ {permissions.Count} permissions créées ({modules.Count} modules × {actions.Count} actions)");
+            // Toutes les actions (view, create, edit, delete, export, manage)
+            void AddAll(string role, string module)
+                => Add(role, module, "view", "create", "edit", "delete", "export", "manage");
+
+            // Lecture + Export seulement
+            void AddViewExport(string role, string module)
+                => Add(role, module, "view", "export");
+
+            // Lecture + Écriture + Modification + Export (sans suppression)
+            void AddWritable(string role, string module)
+                => Add(role, module, "view", "create", "edit", "export");
+
+            // ──────────────────────────────────────────────────────────
+            // SUPER ADMIN — accès total à tous les modules
+            // ──────────────────────────────────────────────────────────
+            foreach (var modCode in modules.Keys)
+                AddAll("Super Admin", modCode);
+
+            // ──────────────────────────────────────────────────────────
+            // ADMIN
+            //   • Modules métier   → accès total
+            //   • dashboard        → view + export
+            //   • statistiques     → view + export
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[]
+            {
+                "cartographie", "pdca", "clauses", "controles", "documentation",
+                "risques", "audit", "actifs", "sensibilisation", "incidents",
+                "users", "societes", "holdings", "roles", "config"
+            })
+                AddAll("Admin", mod);
+
+            AddViewExport("Admin", "dashboard");
+            AddViewExport("Admin", "statistiques");
+
+            // ──────────────────────────────────────────────────────────
+            // CONSULTANT — lecture + export sur tous les modules métier
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[]
+            {
+                "dashboard", "cartographie", "pdca", "clauses", "controles",
+                "documentation", "risques", "audit", "actifs",
+                "sensibilisation", "incidents", "statistiques"
+            })
+                AddViewExport("Consultant", mod);
+
+            // ──────────────────────────────────────────────────────────
+            // AUDITEUR
+            //   • Modules consultation      → view + export
+            //   • Modules actions correctives → view + create + edit + export
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[]
+                { "dashboard", "cartographie", "clauses", "documentation", "actifs", "sensibilisation", "statistiques" })
+                AddViewExport("Auditeur", mod);
+
+            foreach (var mod in new[] { "pdca", "controles", "risques", "audit", "incidents" })
+                AddWritable("Auditeur", mod);
+
+            // ──────────────────────────────────────────────────────────
+            // RSSI
+            //   • Modules sécurité → accès total
+            //   • Autres modules   → view + export
+            //   • users            → view + create + edit + export
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[]
+                { "pdca", "controles", "documentation", "risques", "audit", "actifs", "sensibilisation", "incidents" })
+                AddAll("RSSI", mod);
+
+            foreach (var mod in new[] { "dashboard", "cartographie", "clauses", "statistiques" })
+                AddViewExport("RSSI", mod);
+
+            AddWritable("RSSI", "users");
+
+            // ──────────────────────────────────────────────────────────
+            // DSI
+            //   • Modules techniques → accès total
+            //   • Autres modules     → view + export
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[] { "actifs", "incidents", "risques", "audit", "sensibilisation" })
+                AddAll("DSI", mod);
+
+            foreach (var mod in new[]
+                { "dashboard", "cartographie", "pdca", "clauses", "controles", "documentation", "statistiques" })
+                AddViewExport("DSI", mod);
+
+            // ──────────────────────────────────────────────────────────
+            // DRH
+            //   • Modules RH     → accès total
+            //   • Autres modules → view + export
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[] { "sensibilisation", "users", "incidents" })
+                AddAll("DRH", mod);
+
+            foreach (var mod in new[]
+            {
+                "dashboard", "cartographie", "pdca", "clauses",
+                "controles", "documentation", "risques", "audit", "actifs", "statistiques"
+            })
+                AddViewExport("DRH", mod);
+
+            // ──────────────────────────────────────────────────────────
+            // EMPLOYÉ — lecture uniquement sur modules de base
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[] { "dashboard", "sensibilisation", "incidents" })
+                Add("Employé", mod, "view");
+
+            // ──────────────────────────────────────────────────────────
+            // UTILISATEUR STANDARD — lecture + export sur modules de base
+            // ──────────────────────────────────────────────────────────
+            foreach (var mod in new[]
+                { "dashboard", "cartographie", "clauses", "documentation", "sensibilisation" })
+                AddViewExport("Utilisateur Standard", mod);
+
+            await db.Permissions.AddRangeAsync(perms);
+            await db.SaveChangesAsync();
+            Console.WriteLine($"✅ {perms.Count} permissions créées.");
         }
 
         // ============================================================
-        // SEED DES CONTRÔLES
+        // ÉTAPE 5 — CONTRÔLES ISO 27001
         // ============================================================
 
-        /// <summary>
-        /// Initialise les contrôles ISO 27001:2022 à partir du fichier controles.json
-        /// </summary>
         public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
 
             if (await dbContext.Controles.AnyAsync())
             {
-                Console.WriteLine("Controles deja presents. Seed ignore.");
+                Console.WriteLine("ℹ️  Contrôles déjà présents — seed ignoré.");
                 return;
             }
 
-            // Chercher le fichier JSON a differents emplacements
+            // Chercher le fichier JSON à différents emplacements
             var candidatePaths = new[]
             {
-        Path.Combine(AppContext.BaseDirectory, "controles.json"),
-        Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
-        Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
-        Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
-        Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json")
-    };
+                Path.Combine(AppContext.BaseDirectory, "controles.json"),
+                Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json"),
+            };
 
             var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
             if (string.IsNullOrWhiteSpace(jsonPath))
             {
-                Console.WriteLine("Fichier controles.json non trouve. Chemins testes:");
+                Console.WriteLine("⚠️  Fichier controles.json non trouvé. Chemins testés :");
                 foreach (var path in candidatePaths)
-                {
-                    Console.WriteLine($" - {path}");
-                }
-
+                    Console.WriteLine($"   - {path}");
                 return;
             }
 
-            Console.WriteLine($"Fichier trouve: {jsonPath}");
-
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-            };
+            Console.WriteLine($"📄 Fichier trouvé : {jsonPath}");
 
             try
             {
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+
                 var jsonContent = await File.ReadAllTextAsync(jsonPath);
                 var dtos = System.Text.Json.JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
 
                 if (dtos is null || dtos.Count == 0)
                 {
-                    Console.WriteLine("Aucune donnee trouvee dans le fichier JSON");
+                    Console.WriteLine("⚠️  Aucune donnée trouvée dans controles.json.");
                     return;
                 }
 
-                var controles = new List<Controle>();
-
-                foreach (var dto in dtos)
+                var controles = dtos.Select(dto => new Controle
                 {
-                    var controle = new Controle
-                    {
-                        Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
-                        Code = dto.Code,
-                        Titre = dto.Titre,
-                        Description = dto.Description,
-                        Domaine = dto.Domaine,
-                        Applicable = dto.Applicable,
-                        RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
-                            ? System.Text.Json.JsonSerializer.Serialize(dto.RaisonsApplicabilite)
-                            : null,
-                        RaisonExclusion = dto.RaisonExclusion,
-                        Statut = dto.Statut,
-                        JustificationConformite = dto.JustificationConformite,
-                        Remarque = dto.Remarque,
-                        Preuves = dto.Preuves,
-                        Steps = dto.Steps != null
-                            ? System.Text.Json.JsonSerializer.Serialize(dto.Steps)
-                            : null,
-                        Priorite = dto.Priorite,
-                        StatutPlan = dto.StatutPlan,
-                        ResponsablePlan = dto.ResponsablePlan,
-                        DateEcheance = dto.DateEcheance,
-                        DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
-                        DernierModificateurId = dto.DernierModificateurId,
-                        DernierModificateurNom = dto.DernierModificateurNom
-                    };
-
-                    controles.Add(controle);
-                }
+                    Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                    Code = dto.Code,
+                    Titre = dto.Titre,
+                    Description = dto.Description,
+                    Domaine = dto.Domaine,
+                    Applicable = dto.Applicable,
+                    RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
+                                                ? System.Text.Json.JsonSerializer.Serialize(dto.RaisonsApplicabilite)
+                                                : null,
+                    RaisonExclusion = dto.RaisonExclusion,
+                    Statut = dto.Statut,
+                    JustificationConformite = dto.JustificationConformite,
+                    Remarque = dto.Remarque,
+                    Preuves = dto.Preuves,
+                    Steps = dto.Steps != null
+                                                ? System.Text.Json.JsonSerializer.Serialize(dto.Steps)
+                                                : null,
+                    Priorite = dto.Priorite,
+                    StatutPlan = dto.StatutPlan,
+                    ResponsablePlan = dto.ResponsablePlan,
+                    DateEcheance = dto.DateEcheance,
+                    DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
+                    DernierModificateurId = dto.DernierModificateurId,
+                    DernierModificateurNom = dto.DernierModificateurNom,
+                }).ToList();
 
                 await dbContext.Controles.AddRangeAsync(controles);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"OK: {controles.Count} controles ISO 27001 inseres.");
+                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Erreur lors du seed des controles: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"❌ Erreur seed contrôles : {ex.Message}");
+                Console.WriteLine($"   Stack trace : {ex.StackTrace}");
             }
         }
+
         // ============================================================
-        // HELPER : créer un utilisateur s'il est absent
+        // ÉTAPE 6 — UTILISATEURS SYSTÈME
         // ============================================================
 
-        private static async Task SeedUserIfMissingAsync(
+        private static async Task SeedUsersAsync(
             UserManager<ApplicationUser> userManager,
-            string email,
-            string password,
-            string nomComplet,
-            string role)
+            IConfiguration config)
         {
-            var existing = await userManager.FindByEmailAsync(email);
-            if (existing is not null)
+            // Liste complète des utilisateurs à créer
+            var users = new[]
             {
-                Console.WriteLine($"ℹ️  Utilisateur déjà existant : {email}");
-                return;
-            }
+                // ── Administrateur (Admin) ──────────────────────────────────────
+                new { Email = "admin@alexsys.com",    Password = "Admin@123456!",    NomComplet = "Administrateur Système", Role = "Admin" },
 
-            var user = new ApplicationUser
-            {
-                UserName = email,
-                Email = email,
-                NomComplet = nomComplet,
-                EmailConfirmed = true,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
+                // ── Super Admin ──────────────────────────────────────────────────
+                new { Email = "boumlalilham@gmail.com",  Password = "Admin@123456!",    NomComplet = "Ilham Boumlal",          Role = "Super Admin" },
+
+              
+                // ── Métier ────────────────────────────────────────────────────────
+                new { Email = "rssi@gmail.com",          Password = "Rssi@123456!",     NomComplet = "RSSI Système",           Role = "RSSI" },
+                new { Email = "consultant@gmail.com",    Password = "Consul@123456!",   NomComplet = "Consultant Système",     Role = "Consultant" },
+                new { Email = "auditeur@gmail.com",      Password = "Auditeur@123456!", NomComplet = "Auditeur Système",       Role = "Auditeur" },
             };
 
-            var result = await userManager.CreateAsync(user, password);
-            if (result.Succeeded)
-            {
-                var roleResult = await userManager.AddToRoleAsync(user, role);
-                if (roleResult.Succeeded)
-                    Console.WriteLine($"✅ Utilisateur créé : {email}  →  rôle [{role}]");
-                else
-                    Console.WriteLine($"⚠️  Utilisateur créé mais rôle non assigné ({email}) : {string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
-            }
-            else
-            {
-                Console.WriteLine($"❌ Erreur création utilisateur {email} : {string.Join(", ", result.Errors.Select(e => e.Description))}");
-            }
+            foreach (var u in users)
+                await SeedUserIfMissingAsync(userManager, u.Email, u.Password, u.NomComplet, u.Role);
+
+            Console.WriteLine("✅ Utilisateurs système initialisés.");
         }
 
         // ============================================================
-        // SEED DÉMO RBAC
+        // ÉTAPE 7 — DÉMO RBAC (utilisateurs démo + documents)
         // ============================================================
 
         private static async Task SeedDocumentationMvpDemoAsync(
@@ -400,10 +476,10 @@ namespace backend.Application.Services
 
             var demoUsers = new[]
             {
-                new DemoUserSeed("rssi.demo@smsi.local",    "RssiDemo@123",    "RSSI Demo",    "RSSI"      ),
-                new DemoUserSeed("drh.demo@smsi.local",     "DrhDemo@123",     "DRH Demo",     "DRH"       ),
-                new DemoUserSeed("dsi.demo@smsi.local",     "DsiDemo@123",     "DSI Demo",     "DSI"       ),
-                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"   ),
+                new DemoUserSeed("rssi.demo@smsi.local",    "RssiDemo@123",    "RSSI Demo",    "RSSI"   ),
+                new DemoUserSeed("drh.demo@smsi.local",     "DrhDemo@123",     "DRH Demo",     "DRH"    ),
+                new DemoUserSeed("dsi.demo@smsi.local",     "DsiDemo@123",     "DSI Demo",     "DSI"    ),
+                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"),
             };
 
             var usersByRole = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
@@ -503,17 +579,57 @@ namespace backend.Application.Services
             {
                 var exists = await dbContext.DocumentationDocuments.AnyAsync(d =>
                     d.SocieteId == societe.Id && d.Name == seedDoc.Name);
-
                 if (!exists)
                     dbContext.DocumentationDocuments.Add(seedDoc);
             }
 
             await dbContext.SaveChangesAsync();
-            Console.WriteLine("✅ Documentation seed terminée");
+            Console.WriteLine("✅ Documentation démo seed terminée.");
         }
 
         // ============================================================
-        // HELPER : créer / mettre à jour un utilisateur démo
+        // HELPER — créer un utilisateur s'il est absent
+        // ============================================================
+
+        private static async Task SeedUserIfMissingAsync(
+            UserManager<ApplicationUser> userManager,
+            string email, string password, string nomComplet, string role)
+        {
+            if (await userManager.FindByEmailAsync(email) is not null)
+            {
+                Console.WriteLine($"ℹ️  Utilisateur déjà existant : {email}");
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                NomComplet = nomComplet,
+                EmailConfirmed = true,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            var result = await userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                var roleResult = await userManager.AddToRoleAsync(user, role);
+                if (roleResult.Succeeded)
+                    Console.WriteLine($"✅ Utilisateur créé : {email}  →  rôle [{role}]");
+                else
+                    Console.WriteLine($"⚠️  Utilisateur créé mais rôle non assigné ({email}) : " +
+                                      $"{string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Erreur création utilisateur {email} : " +
+                                  $"{string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+        }
+
+        // ============================================================
+        // HELPER — créer / mettre à jour un utilisateur démo
         // ============================================================
 
         private static async Task<ApplicationUser> EnsureDemoUserAsync(
@@ -539,7 +655,8 @@ namespace backend.Application.Services
                 var createResult = await userManager.CreateAsync(user, seed.Password);
                 if (!createResult.Succeeded)
                     throw new InvalidOperationException(
-                        $"Impossible de créer l'utilisateur démo {seed.Email} : {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
+                        $"Impossible de créer l'utilisateur démo {seed.Email} : " +
+                        $"{string.Join(", ", createResult.Errors.Select(e => e.Description))}");
 
                 Console.WriteLine($"✅ Utilisateur démo créé : {seed.Email}");
             }
@@ -564,7 +681,8 @@ namespace backend.Application.Services
                     var updateResult = await userManager.UpdateAsync(user);
                     if (!updateResult.Succeeded)
                         throw new InvalidOperationException(
-                            $"Impossible de mettre à jour l'utilisateur démo {seed.Email} : {string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
+                            $"Impossible de mettre à jour l'utilisateur démo {seed.Email} : " +
+                            $"{string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
                 }
 
                 // Réinitialiser le mot de passe
@@ -576,7 +694,8 @@ namespace backend.Application.Services
                     var addPwdResult = await userManager.AddPasswordAsync(user, seed.Password);
                     if (!addPwdResult.Succeeded)
                         throw new InvalidOperationException(
-                            $"Impossible de définir le mot de passe démo pour {seed.Email} : {string.Join(", ", addPwdResult.Errors.Select(e => e.Description))}");
+                            $"Impossible de définir le mot de passe démo pour {seed.Email} : " +
+                            $"{string.Join(", ", addPwdResult.Errors.Select(e => e.Description))}");
                 }
             }
 
@@ -587,13 +706,15 @@ namespace backend.Application.Services
                 var removeResult = await userManager.RemoveFromRolesAsync(user, currentRoles);
                 if (!removeResult.Succeeded)
                     throw new InvalidOperationException(
-                        $"Impossible de réinitialiser les rôles pour {seed.Email} : {string.Join(", ", removeResult.Errors.Select(e => e.Description))}");
+                        $"Impossible de réinitialiser les rôles pour {seed.Email} : " +
+                        $"{string.Join(", ", removeResult.Errors.Select(e => e.Description))}");
             }
 
             var addRoleResult = await userManager.AddToRoleAsync(user, seed.Role);
             if (!addRoleResult.Succeeded)
                 throw new InvalidOperationException(
-                    $"Impossible d'assigner le rôle {seed.Role} à {seed.Email} : {string.Join(", ", addRoleResult.Errors.Select(e => e.Description))}");
+                    $"Impossible d'assigner le rôle {seed.Role} à {seed.Email} : " +
+                    $"{string.Join(", ", addRoleResult.Errors.Select(e => e.Description))}");
 
             return user;
         }
