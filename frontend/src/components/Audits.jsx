@@ -2,17 +2,15 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Search, ChevronDown, ChevronUp,
   Edit3, Trash2, Download, BarChart3, Check, X,
-  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2, Flag,
-  FileText, Tag, Target, Briefcase, FileCheck, Scale,
-  Users, UserCheck, Signature, CalendarDays,
+  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2,
+  FileText, Tag, Target, Briefcase, FileCheck,
+  UserCheck, Signature, CalendarDays,
   Activity, Info, Building2,
-  User, MapPin, Cpu, RefreshCw, Sparkles, Link2,
-  GitBranch, BookOpen, AlertOctagon, CircleDot, Eye,
-  ChevronRight as ArrowRight, Save, History, FolderOpen,
+  RefreshCw, Sparkles, GitBranch, BookOpen, Eye,
+  ChevronRight as ArrowRight, Save, History,
 } from 'lucide-react';
 import {
   getAllAudits,
-  getAuditById,
   createAudit,
   updateAudit,
   deleteAudit,
@@ -22,8 +20,8 @@ import {
   deleteNC,
   getAllSimulations,
   createSimulation,
-  deleteSimulation,
 } from '../api/audits';
+import { useAuth } from '../context/AuthContext';
 
 // ─── ISO 27001:2022 — 93 contrôles ───────────────────────────────────────────
 const ISO_THEMES = [
@@ -32,7 +30,7 @@ const ISO_THEMES = [
     controls: [
       { id:'5.1',  name:'Politiques de sécurité',               question:'Votre organisation dispose-t-elle de politiques de sécurité de l\'information formalisées et approuvées par la direction ?' },
       { id:'5.2',  name:'Rôles et responsabilités',             question:'Les rôles et responsabilités en matière de sécurité sont-ils clairement définis et attribués ?' },
-      { id:'5.3',  name:'Séparation des tâches',                question:'La séparation des tâches est-elle appliquée pour éviter les conflits d\'intérêts ?' },
+      { id:'5.3',  name:'Separation des taches',                question:'La separation des taches est-elle appliquee pour eviter les conflits d\'interets ?' },
       { id:'5.4',  name:'Responsabilités de la direction',      question:'La direction s\'engage-t-elle activement dans le soutien à la sécurité de l\'information ?' },
       { id:'5.5',  name:'Contact avec les autorités',           question:'Des contacts appropriés sont-ils maintenus avec les autorités compétentes ?' },
       { id:'5.6',  name:'Contact avec groupes spécialisés',     question:'Des contacts sont-ils maintenus avec des groupes d\'intérêt spéciaux en sécurité ?' },
@@ -96,7 +94,7 @@ const ISO_THEMES = [
       { id:'7.9',  name:'Actifs hors site',                     question:'La sécurité des équipements utilisés hors des locaux est-elle assurée ?' },
       { id:'7.10', name:'Supports de stockage',                 question:'Les supports amovibles sont-ils gérés et sécurisés conformément à une politique définie ?' },
       { id:'7.11', name:'Services utilitaires',                 question:'Les services essentiels (énergie, climatisation) sont-ils protégés et surveillés ?' },
-      { id:'7.12', name:'Câblage de sécurité',                  question:'Les infrastructures de câblage réseau sont-elles protégées contre les interceptions ?' },
+      { id:'7.12', name:'Cablage de securite',                  question:'Les infrastructures de cablage reseau sont-elles protegees contre les interceptions ?' },
       { id:'7.13', name:'Maintenance des équipements',          question:'Les équipements font-ils l\'objet d\'une maintenance régulière et documentée ?' },
       { id:'7.14', name:'Élimination sécurisée des supports',   question:'Les supports en fin de vie sont-ils détruits de manière sécurisée avant élimination ?' },
     ],
@@ -269,9 +267,9 @@ const Toast = ({ msg, type, onClose }) => {
 const MODULES = [
   { id:'plan',     label:'Planifier',   icon:CalendarDays,  accent:'indigo', desc:'Audits : certification / surveillance / fournisseur' },
   { id:'simulate', label:'Simuler',     icon:Sparkles,      accent:'indigo', desc:'Auto-évaluation Oui/Non des 93 contrôles — entraînement uniquement' },
-  { id:'post',     label:'Post-Audit',  icon:BarChart3,     accent:'indigo',desc:'Vérifier chaque contrôle : Conforme (C) ou Non-Conforme (NC)' },
-  { id:'nc',       label:'NC',          icon:AlertTriangle, accent:'indigo',    desc:'Suivi et traitement des non-conformités avec actions correctives' },
-  { id:'gap',      label:'Écart / SoA', icon:GitBranch,     accent:'indigo',  desc:'Statement of Applicability et analyse comparative simulation vs audit' },
+  { id:'post',     label:'Post-Audit',  icon:BarChart3,     accent:'indigo', desc:'Vérifier chaque contrôle : Conforme (C) ou Non-Conforme (NC)' },
+  { id:'nc',       label:'NC',          icon:AlertTriangle, accent:'indigo', desc:'Suivi et traitement des non-conformités avec actions correctives' },
+  { id:'gap',      label:'Écart / SoA', icon:GitBranch,     accent:'indigo', desc:'Statement of Applicability et analyse comparative simulation vs audit' },
 ];
 
 const ACC_ACTIVE = {
@@ -305,7 +303,7 @@ function ActionBar({ active, onChange }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 1 — PLANIFIER
 // ═══════════════════════════════════════════════════════════════════════════════
-function PlanModule({ audits, saving, onSave, onDelete }) {
+function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDelete }) {
   const EMPTY = { title:'', type:'external_cert', startDate:'', endDate:'', auditor:'', org:'', scope:'Tous les contrôles ISO 27001:2022', objectives:'', rssi:'', approver:'', status:'planned' };
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
@@ -340,7 +338,7 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
       </div>
 
       <div className="flex justify-end">
-        {!showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit </Btn>}
+        {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit </Btn>}
       </div>
 
       {showForm && (
@@ -407,8 +405,8 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
                     {a.scope && <p className="text-xs text-gray-400 mt-1">{a.scope}</p>}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-gray-400 hover:text-indigo-600"/></button>
-                    <button onClick={()=>onDelete(a.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>
+                    {canEdit && <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-gray-400 hover:text-indigo-600"/></button>}
+                    {canDelete && <button onClick={()=>onDelete(a.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
               </Card>
@@ -423,7 +421,7 @@ function PlanModule({ audits, saving, onSave, onDelete }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 2 — SIMULER
 // ═══════════════════════════════════════════════════════════════════════════════
-function SimulateModule({ simHistory, onSaveSimulation }) {
+function SimulateModule({ simHistory, onSaveSimulation, canWrite, canExport }) {
   const [view, setView] = useState('list');
   const [simName, setSimName] = useState('');
   const [simAuthor, setSimAuthor] = useState('');
@@ -442,6 +440,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
   const score = totalAnswered > 0 ? Math.round((totalOui / totalAnswered) * 100) : 0;
 
   const handleSave = () => {
+    if (!canWrite) return;
     const sim = { id:`sim-${Date.now()}`, name:simName, author:simAuthor, date:simDate, answers:{...answers}, comments:{...comments}, score, totalAnswered, oui:totalOui, non:totalNon };
     onSaveSimulation(sim);
     setSavedToast(true);
@@ -500,7 +499,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
           <h3 className="font-bold text-gray-900">Historique des simulations</h3>
           <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full border border-gray-200">{simHistory.length}</span>
         </div>
-        <Btn icon={Plus} onClick={()=>setView('setup')}>Nouvelle simulation</Btn>
+        {canWrite && <Btn icon={Plus} onClick={()=>setView('setup')}>Nouvelle simulation</Btn>}
       </div>
 
       {simHistory.length === 0 && (
@@ -582,9 +581,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
                 <CheckCircle2 className="w-3.5 h-3.5"/>Simulation enregistrée !
               </span>
             )}
-            <Btn variant="save" icon={Save} size="sm" onClick={handleSave} disabled={savedToast}>
-              {savedToast ? 'Enregistré ✓' : 'Enregistrer'}
-            </Btn>
+            {canWrite && <Btn variant="save" icon={Save} size="sm" onClick={handleSave} disabled={savedToast}>{savedToast ? 'Enregistré ✓' : 'Enregistrer'}</Btn>}
             <Btn variant="outline" icon={RefreshCw} size="sm" onClick={handleReset}>Nouvelle simulation</Btn>
           </div>
         </div>
@@ -635,10 +632,8 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
               <span className="text-red-500">{totalNon} Non</span>
               <span className="text-gray-300">{TOTAL_CONTROLS-totalAnswered} sans réponse</span>
             </div>
-            {totalAnswered > 0 && (
-              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>
-                {savedToast ? '✓ Enregistré' : 'Enregistrer'}
-              </Btn>
+            {totalAnswered > 0 && canWrite && (
+              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
             )}
             {totalAnswered===TOTAL_CONTROLS && (
               <Btn size="sm" icon={BarChart3} onClick={()=>setView('results')}>Résultats</Btn>
@@ -707,16 +702,14 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
         })}
       </div>
 
-      {totalAnswered > 0 && (
+      {totalAnswered > 0 && canWrite && (
         <div className="sticky bottom-4 z-20">
           <div className="bg-gray-900 rounded-2xl shadow-2xl p-4 flex items-center justify-between gap-4">
             <div className="text-sm text-white font-medium">
               <span className="font-bold">{totalAnswered}/{TOTAL_CONTROLS}</span> répondus · <span className="text-gray-300">{score}% conforme</span>
             </div>
             <div className="flex gap-2">
-              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>
-                {savedToast ? '✓ Enregistré' : 'Enregistrer'}
-              </Btn>
+              <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
               {totalAnswered === TOTAL_CONTROLS && (
                 <Btn size="sm" variant="outline" icon={BarChart3} onClick={()=>setView('results')}>Résultats</Btn>
               )}
@@ -731,7 +724,7 @@ function SimulateModule({ simHistory, onSaveSimulation }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 3 — POST-AUDIT
 // ═══════════════════════════════════════════════════════════════════════════════
-function PostAuditModule({ onToast, onNCCreated, allAudits }) {
+function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   const [view, setView] = useState('list');
   const [localAudits, setLocalAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
@@ -767,11 +760,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
 
   const handleCreateAudit = () => {
     if(!validateAudit()) return;
-    const a = {
-      id: `local-${Date.now()}`,
-      ...auditForm,
-      type: auditForm.type || 'external_cert'
-    };
+    const a = { id: `local-${Date.now()}`, ...auditForm, type: auditForm.type || 'external_cert' };
     setLocalAudits(p=>[a,...p]);
     setAuditForm(EMPTY_AUDIT);
     setView('list');
@@ -779,10 +768,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
 
   const mergedAudits = useMemo(() => {
     const baseAudits = allAudits || [];
-    const localWithType = localAudits.map(a => ({
-      ...a,
-      type: a.type || 'external_cert'
-    }));
+    const localWithType = localAudits.map(a => ({ ...a, type: a.type || 'external_cert' }));
     return [...baseAudits, ...localWithType.filter(a=>!baseAudits.find(m=>m.id===a.id))];
   }, [localAudits, allAudits]);
 
@@ -804,18 +790,12 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
     const auditName = selectedAudit.title || selectedAudit.name || '';
     const isLocalId = !selectedAudit.id || String(selectedAudit.id).startsWith('local-');
     const auditId   = isLocalId ? null : selectedAudit.id;
-
     ALL_CONTROLS.filter(c=>statuses[c.id]==='NC').forEach(c=>{
       const f = ncForms[c.id]||{};
       onNCCreated({
-        controlId:        c.id,
-        title:            f.title || c.name,
-        description:      f.desc  || comments[c.id] || '',
-        correctiveAction: f.action   || '',
-        responsible:      f.resp     || '',
-        deadline:         f.deadline || '',
-        auditName,
-        auditId,
+        controlId: c.id, title: f.title || c.name, description: f.desc || comments[c.id] || '',
+        correctiveAction: f.action || '', responsible: f.resp || '', deadline: f.deadline || '',
+        auditName, auditId,
       });
     });
     setSoaGenerated(true);
@@ -831,14 +811,15 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
           <p className="text-xs text-gray-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
         </div>
       </div>
-
+      <div className="flex justify-end">
+        {canWrite && <Btn icon={Plus} onClick={()=>setView('create')}>Créer un audit</Btn>}
+      </div>
       {mergedAudits.length===0 && (
         <Card className="text-center py-14 border border-dashed border-gray-300">
           <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
           <p className="font-semibold text-gray-500">Aucun audit créé</p>
         </Card>
       )}
-
       {mergedAudits.map(a=>{
         const sc = STATUS_CFG[a.status]||STATUS_CFG['in-progress'];
         return (
@@ -1025,7 +1006,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
                       {!statuses[c.id]       && <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-gray-400 max-w-xs">{comments[c.id]||'—'}</td>
-                  </tr>
+                  </tr>    
                 ))}
               </tbody>
             </table>
@@ -1039,7 +1020,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 4 — NC
 // ═══════════════════════════════════════════════════════════════════════════════
-function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
+function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite, canEdit, canDelete }) {
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAudit, setFilterAudit] = useState('');
@@ -1099,7 +1080,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
           <option value="">Tous les statuts</option>
           {Object.entries(NC_STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
-        <Btn icon={Plus} variant="danger" onClick={()=>setShowForm(true)}>Nouvelle NC</Btn>
+        {canWrite && <Btn icon={Plus} variant="danger" onClick={()=>setShowForm(true)}>Nouvelle NC</Btn>}
       </div>
 
       {showForm && (
@@ -1160,7 +1141,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
                     <button onClick={()=>setExpandedNC(isExp?null:nc.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
                       {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
                     </button>
-                    <button onClick={()=>onDelete(nc.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>
+                    {canDelete && <button onClick={()=>onDelete(nc.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{nc.description}</p>
@@ -1212,11 +1193,11 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
                           }}><Plus className="w-3.5 h-3.5"/>Ajouter</Btn>
                         </div>
                       </div>
-                    ):(
+                    ) : (canEdit && (
                       <button onClick={()=>setShowActionFor(nc.id)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100 transition-colors w-fit">
                         <Plus className="w-3.5 h-3.5"/>Ajouter une action corrective
                       </button>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
@@ -1231,7 +1212,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 5 — ÉCART / SoA
 // ═══════════════════════════════════════════════════════════════════════════════
-function GapSoAModule({ ncs, onToast, allAudits }) {
+function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   const [activeTab, setActiveTab] = useState('soa');
   const [themeFilter, setThemeFilter] = useState(null);
   const [filterAudit, setFilterAudit] = useState('');
@@ -1263,7 +1244,7 @@ function GapSoAModule({ ncs, onToast, allAudits }) {
             <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500"/>Statement of Applicability (SoA)</h3>
             <p className="text-xs text-gray-400 mt-0.5">ISO/IEC 27001:2022 · Clause 6.1.3d · Mis à jour depuis les NC enregistrées</p>
           </div>
-          <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>
+          {canExport && <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>}
         </div>
         <div className="mb-4">
           <label className="text-xs font-semibold text-gray-600 mb-1 block">Filtrer par audit</label>
@@ -1380,6 +1361,10 @@ const CircleIcon = ({ className }) => (
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 export function Audits() {
+  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "audits";
+  const hasAccess = canRead(moduleCode);
+
   const [audits,     setAudits]     = useState([]);
   const [ncs,        setNcs]        = useState([]);
   const [simHistory, setSimHistory] = useState([]);
@@ -1411,35 +1396,35 @@ export function Audits() {
   useEffect(()=>{ load(); },[load]);
 
   const handleSaveSimulation = useCallback(async (sim) => {
+    if (!canWrite(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de créer des simulations', 'error');
+      return;
+    }
     try {
       const saved = await createSimulation({
-        name:          sim.name,
-        author:        sim.author,
-        date:          sim.date,
-        score:         sim.score,
-        totalAnswered: sim.totalAnswered,
-        oui:           sim.oui,
-        non:           sim.non,
-        answers:       sim.answers,
-        comments:      sim.comments,
+        name: sim.name, author: sim.author, date: sim.date,
+        score: sim.score, totalAnswered: sim.totalAnswered,
+        oui: sim.oui, non: sim.non,
+        answers: sim.answers, comments: sim.comments,
       });
       setSimHistory(prev => [saved, ...prev.filter(s => s.id !== saved.id)]);
       showToast('Simulation enregistrée dans l\'historique', 'success');
     } catch {
       showToast('Erreur lors de la sauvegarde de la simulation');
     }
-  }, [showToast]);
+  }, [showToast, canWrite, moduleCode]);
 
   const stats = useMemo(()=>({
-    total:    audits.length,
-    planned:  audits.filter(a=>a.status==='planned').length,
-    inProg:   audits.filter(a=>a.status==='in-progress').length,
-    completed:audits.filter(a=>a.status==='completed').length,
-    openNCs:  ncs.filter(n=>n.status==='open').length,
-    sims:     simHistory.length,
+    total:     audits.length,
+    planned:   audits.filter(a=>a.status==='planned').length,
+    inProg:    audits.filter(a=>a.status==='in-progress').length,
+    completed: audits.filter(a=>a.status==='completed').length,
+    openNCs:   ncs.filter(n=>n.status==='open').length,
+    sims:      simHistory.length,
   }),[audits,ncs,simHistory]);
 
   const handleSavePlan = async (data, editId) => {
+    if (!canWrite(moduleCode)) { showToast('Vous n\'avez pas la permission de créer des audits', 'error'); return; }
     setSaving(true);
     try {
       if (editId) {
@@ -1451,96 +1436,56 @@ export function Audits() {
         setAudits(p => [...p, c]);
         showToast('Audit planifié', 'success');
       }
-    } catch {
-      showToast('Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
-    }
+    } catch { showToast('Erreur lors de la sauvegarde'); }
+    finally { setSaving(false); }
   };
 
   const handleDeletePlan = async (id) => {
+    if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des audits', 'error'); return; }
     if (!window.confirm('Supprimer cet audit ?')) return;
-    try {
-      await deleteAudit(id);
-      setAudits(p => p.filter(a => a.id !== id));
-      showToast('Audit supprimé', 'success');
-    } catch {
-      showToast('Erreur');
-    }
+    try { await deleteAudit(id); setAudits(p => p.filter(a => a.id !== id)); showToast('Audit supprimé', 'success'); }
+    catch { showToast('Erreur'); }
   };
 
   const handleAddNC = async (data) => {
+    if (!canWrite(moduleCode)) { showToast('Vous n\'avez pas la permission de créer des NC', 'error'); return; }
     setSaving(true);
-    try {
-      const c = await createNC({ ...data, correctiveActions: [] });
-      setNcs(p => [...p, c]);
-      showToast('NC créée', 'success');
-    } catch {
-      showToast('Erreur');
-    } finally {
-      setSaving(false);
-    }
+    try { const c = await createNC({ ...data, correctiveActions: [] }); setNcs(p => [...p, c]); showToast('NC créée', 'success'); }
+    catch { showToast('Erreur'); }
+    finally { setSaving(false); }
   };
 
   const handleUpdateNC = async (id, data) => {
-    try {
-      const u = await updateNC(id, data);
-      setNcs(p => p.map(n => n.id === id ? u : n));
-    } catch {
-      showToast('Erreur mise à jour NC');
-    }
+    if (!canEdit(moduleCode)) { showToast('Vous n\'avez pas la permission de modifier des NC', 'error'); return; }
+    try { const u = await updateNC(id, data); setNcs(p => p.map(n => n.id === id ? u : n)); }
+    catch { showToast('Erreur mise à jour NC'); }
   };
 
   const handleDeleteNC = async (id) => {
+    if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des NC', 'error'); return; }
     if (!window.confirm('Supprimer cette NC ?')) return;
-    try {
-      await deleteNC(id);
-      setNcs(p => p.filter(n => n.id !== id));
-      showToast('NC supprimée', 'success');
-    } catch {
-      showToast('Erreur');
-    }
+    try { await deleteNC(id); setNcs(p => p.filter(n => n.id !== id)); showToast('NC supprimée', 'success'); }
+    catch { showToast('Erreur'); }
   };
 
   const handleNCFromPostAudit = async (ncData) => {
     const localId = `local-nc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const localNc = {
-      id: localId,
-      ...ncData,
-      status: 'open',
+      id: localId, ...ncData, status: 'open',
       correctiveActions: ncData.correctiveAction
-        ? [{
-            id:          `act-${Date.now()}`,
-            description: ncData.correctiveAction,
-            responsible: ncData.responsible || null,
-            deadline:    ncData.deadline    || null,
-            status:      'pending',
-          }]
+        ? [{ id:`act-${Date.now()}`, description:ncData.correctiveAction, responsible:ncData.responsible||null, deadline:ncData.deadline||null, status:'pending' }]
         : [],
     };
     setNcs(p => [...p, localNc]);
-
     const dto = {
-      title:            ncData.title            || '',
-      description:      ncData.description      || '',
-      controlId:        ncData.controlId        || '',
-      actor:            ncData.actor            || null,
-      correctiveAction: ncData.correctiveAction || null,
-      responsible:      ncData.responsible      || null,
-      deadline:         ncData.deadline         || null,
-      status:           'open',
-      auditName:        ncData.auditName        || null,
-      auditId:          ncData.auditId          || null,
+      title: ncData.title||'', description: ncData.description||'', controlId: ncData.controlId||'',
+      actor: ncData.actor||null, correctiveAction: ncData.correctiveAction||null,
+      responsible: ncData.responsible||null, deadline: ncData.deadline||null,
+      status: 'open', auditName: ncData.auditName||null, auditId: ncData.auditId||null,
       correctiveActions: ncData.correctiveAction
-        ? [{
-            description: ncData.correctiveAction,
-            responsible: ncData.responsible || null,
-            deadline:    ncData.deadline    || null,
-            status:      'pending',
-          }]
+        ? [{ description:ncData.correctiveAction, responsible:ncData.responsible||null, deadline:ncData.deadline||null, status:'pending' }]
         : [],
     };
-
     try {
       const saved = await createNC(dto);
       setNcs(p => p.map(n => n.id === localId ? saved : n));
@@ -1549,6 +1494,18 @@ export function Audits() {
       setNcs(p => p.filter(n => n.id !== localId));
     }
   };
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder aux audits.</p>
+        </div>
+      </div>
+    );
+  }
 
   if(loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -1564,78 +1521,60 @@ export function Audits() {
     <div className="min-h-screen w-full bg-gray-50" style={{fontFamily:"'Inter','DM Sans',system-ui,sans-serif"}}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
 
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Shield className="w-5 h-5 text-white"/>
-            </div>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
             <div>
-              <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Audit ISO 27001:2022</h1>
-              <p className="text-xs text-gray-400">4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI</p>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+                Audit ISO 27001:2022
+              </h1>
+              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+                4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI
+              </p>
             </div>
+            <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
+              <RefreshCw className="w-4 h-4 text-gray-400"/>
+            </button>
           </div>
-          <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-            <RefreshCw className="w-4 h-4 text-gray-400"/>
-          </button>
-        </div>
-      </div>
-
-      <div className="w-full px-6 py-6 space-y-5">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
-          {[
-            { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
-            { label: 'Planifiés',        value: stats.planned,   sub: 'À venir' },
-            { label: 'En cours',         value: stats.inProg,    sub: stats.inProg > 0 ? 'Actifs' : 'Aucun' },
-            { label: 'Terminés',         value: stats.completed, sub: 'Archivés' },
-            { label: 'NC Ouvertes',      value: stats.openNCs,   sub: stats.openNCs > 0 ? 'Action requise' : 'RAS' },
-            { label: 'Simulations',      value: stats.sims,      sub: 'Historique' },
-          ].map((k, i) => (
-            <div key={i} style={{
-              background: k.highlight ? 'linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)' : '#fff',
-              borderRadius: 14,
-              padding: '18px 20px',
-              boxShadow: k.highlight
-                ? '0 8px 24px rgba(29,78,216,.35)'
-                : '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
-              animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 60}ms both`,
-            }}>
-              <div style={{
-                fontSize: 30, fontWeight: 800, lineHeight: 1,
-                color: k.highlight ? '#fff' : '#111827',
-                fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px',
-              }}>{k.value}</div>
-              <div style={{
-                fontSize: 12, fontWeight: 600, marginTop: 6,
-                color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151',
-              }}>{k.label}</div>
-              <div style={{
-                fontSize: 11, marginTop: 2,
-                color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF',
-              }}>{k.sub}</div>
-              {k.highlight && (
-                <div style={{ marginTop: 10, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%`,
-                    background: 'rgba(255,255,255,.8)',
-                    borderRadius: 99,
-                    transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s',
-                  }} />
-                </div>
-              )}
-            </div>
-          ))}
         </div>
 
-        <ActionBar active={module} onChange={setModule}/>
+        <div className="space-y-5">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
+            {[
+              { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
+              { label: 'Planifiés',        value: stats.planned,   sub: 'À venir' },
+              { label: 'En cours',         value: stats.inProg,    sub: stats.inProg > 0 ? 'Actifs' : 'Aucun' },
+              { label: 'Terminés',         value: stats.completed, sub: 'Archivés' },
+              { label: 'NC Ouvertes',      value: stats.openNCs,   sub: stats.openNCs > 0 ? 'Action requise' : 'RAS' },
+              { label: 'Simulations',      value: stats.sims,      sub: 'Historique' },
+            ].map((k, i) => (
+              <div key={i} style={{
+                background: k.highlight ? 'linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)' : '#fff',
+                borderRadius: 14, padding: '18px 20px',
+                boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
+                animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 60}ms both`,
+              }}>
+                <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
+                <div style={{ fontSize: 11, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
+                {k.highlight && (
+                  <div style={{ marginTop: 10, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%`, background: 'rgba(255,255,255,.8)', borderRadius: 99, transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s' }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan}/>}
-        {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation}/>}
-        {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits}/>}
-        {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits}/>}
-        {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits}/>}
-      </div>
+          <ActionBar active={module} onChange={setModule}/>
+
+          {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+          {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)} canExport={canExport(moduleCode)}/>}
+          {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
+          {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
+          {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}
+        </div>
+      </main>
 
       <style>{`
         body,html{margin:0;padding:0;width:100%;overflow-x:hidden}

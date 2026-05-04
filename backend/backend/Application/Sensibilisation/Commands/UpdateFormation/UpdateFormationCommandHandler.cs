@@ -9,7 +9,7 @@ public class UpdateFormationCommandHandler(IFormationRepository repo)
 {
     public async Task<bool> Handle(UpdateFormationCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.Id, ct);
+        var f = await repo.GetByIdAsync(cmd.Id, cmd.SocieteId, ct);
         if (f is null) return false;
 
         var datePart = DateOnly.Parse(cmd.Date);

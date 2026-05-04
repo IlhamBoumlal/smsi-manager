@@ -1,3 +1,3 @@
 using MediatR;
 namespace Application.PDCA.Commands.UpdateItem;
-public record UpdateItemCommand(Guid Id, string? Status = null, string? Text = null) : IRequest;
+public record UpdateItemCommand(Guid Id, string? Status = null, string? Text = null, int? SocieteId = null) : IRequest;

@@ -20,7 +20,7 @@ public record CreateFormationCommand(
     bool NotifRappel,
     // Participants nommés avec emails (saisis dans le formulaire)
     List<ParticipantInput> Participants,
-    Guid? SocieteId
+    int? SocieteId
 ) : IRequest<Guid>;
 
 public record ParticipantInput(string FullName, string Email, string Department);

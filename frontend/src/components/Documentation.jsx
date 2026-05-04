@@ -33,7 +33,7 @@ import {
 const API = "/api/documentation";
 
 const defaultPermissions = {
-  role: "EMPLOYE",
+  role: "CONSULTANT",
   canConsult: false,
   canCreate: false,
   canEditOwn: false,
@@ -58,6 +58,7 @@ const typeColor = {
   Registre: "#d48319",
   Rapport: "#de4a4a",
   Charte: "#6b7a93",
+  Chart: "#7c3aed",
 };
 const typeBadgeClass = {
   Politique: "bg-blue-100 text-blue-600",
@@ -66,6 +67,7 @@ const typeBadgeClass = {
   Registre: "bg-amber-100 text-amber-700",
   Rapport: "bg-red-100 text-red-600",
   Charte: "bg-slate-200 text-slate-600",
+  Chart: "bg-violet-100 text-violet-700",
 };
 const categoryToneTokens = [
   {
@@ -119,7 +121,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const categories = ["Gouvernance", "RGPD", "Continuite", "Technique", "RH", "Audit"];
-const types = ["Politique", "Procedure", "Plan", "Registre", "Rapport", "Charte"];
+const types = ["Politique", "Procedure", "Plan", "Registre", "Rapport", "Charte", "Chart"];
 const buildSeries = (prefix, max) => Array.from({ length: max }, (_, index) => `${prefix}.${index + 1}`);
 const isoClauseGroups = [
   { title: "Contexte & leadership", color: "#2f66dc", items: ["4.1", "4.2", "4.3", "4.4", "5.1", "5.2", "5.3"] },
@@ -495,7 +497,7 @@ export default function Documentation() {
     {
       key: "global",
       primary: true,
-      label: "Conformite globale",
+      label: "Taux de conformite documentaire",
       value: `${globalConformity}%`,
       subLabel: `${stats.total} document${stats.total > 1 ? "s" : ""}`,
       progress: globalConformity,
@@ -717,7 +719,7 @@ export default function Documentation() {
               <p className="mt-1 text-[13.5px] text-slate-500">Pilotage documentaire ISO 27001 - suivi des versions, validation et conformite.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <input ref={importRef} className="hidden" type="file" accept=".pdf,.docx,.xlsx" onChange={async (e) => {
+              <input ref={importRef} className="hidden" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.svg,.zip,.rar,.7z" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 const importCategory = allowedCategoryOptions[0] || "Technique";
@@ -1495,7 +1497,7 @@ export default function Documentation() {
                   ref={versionFileRef}
                   className="hidden"
                   type="file"
-                  accept=".pdf,.docx,.xlsx"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.svg,.zip,.rar,.7z"
                   onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null, removeFile: false })}
                 />
                 <div className="flex flex-wrap items-center gap-2">
@@ -1757,7 +1759,7 @@ export default function Documentation() {
             {newStep === 2 && (
               <div className="space-y-4">
                 <p className="text-base text-slate-500">Joignez le fichier source du document (optionnel).</p>
-                <input ref={wizardFileRef} className="hidden" type="file" accept=".pdf,.docx,.xlsx" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} />
+                <input ref={wizardFileRef} className="hidden" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.svg,.zip,.rar,.7z" onChange={(e) => setForm({ ...form, file: e.target.files?.[0] || null })} />
                 <button type="button" onClick={() => wizardFileRef.current?.click()} className="w-full border-2 border-dashed border-slate-300 rounded-2xl h-[200px] bg-slate-50/70 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors">
                   <Upload size={36} className="text-slate-400 mb-3" />
                   <p className="text-[15px] leading-tight font-semibold text-slate-700 mb-1">Cliquez pour selectionner un fichier</p>

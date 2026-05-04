@@ -7,12 +7,15 @@ import {
   G_LABELS,
   MEASURE_CATEGORIES,
   MITRE_TACTICS,
+  RISK_ENTRY_STATUS_OPTIONS,
   V_LABELS,
   getWorkshopMeta,
   getEffectiveWorkshopStatus,
   getWorkshopProgress,
   isWorkshopBlocked,
+  normalizeRiskEntryStatus,
   riskLevel,
+  riskEntryStatusLabel,
 } from "./riskModel";
 import { printWorkshopLivrable } from "./riskExport";
 import { RiskCallout, RiskCard, RiskCrudTable, RiskKpiTile, RiskPageHeader, RiskSectionHeader, RiskStatusBadge } from "./RiskUi";
@@ -28,7 +31,7 @@ const TREATMENT_OPTIONS = [
   { value: "Refus", label: "Refus" },
 ];
 const TREATMENT_LABEL_BY_VALUE = new Map(TREATMENT_OPTIONS.map((option) => [option.value, option.label]));
-const TEAM_ROLE_OPTIONS = ["RSSI", "DSI", "Direction metier", "Architecte", "Exploitant", "Conformite", "Juridique", "DPO", "Autre"].map((value) => ({ value, label: value }));
+const TEAM_ROLE_OPTIONS = ["Super Admin", "Admin Societe", "Auditeur", "Consultant", "RSSI"].map((value) => ({ value, label: value }));
 const BUSINESS_VALUE_TYPE_OPTIONS = ["Donnees", "Service", "Processus", "Image", "Conformite", "Financier", "Autre"].map((value) => ({ value, label: value }));
 const SUPPORTING_ASSET_TYPE_OPTIONS = ["Application", "Serveur", "Base de donnees", "Reseau", "Cloud", "Poste", "Prestataire", "Autre"].map((value) => ({ value, label: value }));
 const CRITICALITY_OPTIONS = ["Faible", "Moyenne", "Elevee", "Critique"].map((value) => ({ value, label: value }));
@@ -251,7 +254,7 @@ function getVisibleWorkshopSteps(study, workshopMeta) {
   return workshopMeta.steps.filter((step) => !hiddenStepIds.has(step.id));
 }
 
-function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updateContext, readOnly }) {
+function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updateContext, readOnly, riskOwners }) {
   const w1 = study.workshop1;
   const w2 = study.workshop2;
   const w3 = study.workshop3;
@@ -285,6 +288,16 @@ function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updat
   const operationalScenarioOptions = (w4.operationalScenarios || []).map((scenario) => ({ value: scenario.id, label: scenario.name }));
   const riskEntryOptions = (w5.riskEntries || []).map((risk) => ({ value: risk.id, label: w4.operationalScenarios.find((scenario) => scenario.id === risk.operationalScenarioId)?.name || "Risque" }));
   const measureOptions = (w5.measures || []).map((measure) => ({ value: measure.id, label: measure.name }));
+  const ownerNameById = new Map((riskOwners || []).map((owner) => [owner.id, owner.name]));
+  const ownerOptionsMap = new Map(
+    (riskOwners || []).map((owner) => [owner.id, owner.email ? `${owner.name} (${owner.email})` : owner.name]),
+  );
+  (w5.riskEntries || []).forEach((entry) => {
+    const ownerId = String(entry?.ownerUserId || "").trim();
+    if (!ownerId || ownerOptionsMap.has(ownerId)) return;
+    ownerOptionsMap.set(ownerId, entry.ownerName || ownerId);
+  });
+  const ownerOptions = Array.from(ownerOptionsMap.entries()).map(([value, label]) => ({ value, label }));
 
   if (workshopId === 1 && stepId === "team") {
     return (
@@ -974,6 +987,8 @@ function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updat
           { key: "gravity", label: "Gravite", render: (row) => `G${row.gravity} - ${G_LABELS[row.gravity] || "-"}` },
           { key: "likelihood", label: "Vraisemblance", render: (row) => `V${row.likelihood} - ${V_LABELS[row.likelihood] || "-"}` },
           { key: "level", label: "Niveau", render: (row) => `${riskLevel(row.gravity, row.likelihood).label} (${riskLevel(row.gravity, row.likelihood).score})` },
+          { key: "status", label: "Statut", render: (row) => riskEntryStatusLabel(row.status) },
+          { key: "ownerUserId", label: "Responsable", render: (row) => ownerNameById.get(row.ownerUserId) || row.ownerName || "-" },
           { key: "treatment", label: "Traitement", render: (row) => TREATMENT_LABEL_BY_VALUE.get(normalizeTreatmentValue(row.treatment)) || row.treatment || "-" },
           { key: "notes", label: "Notes", render: (row) => truncateLabel(row.notes || "-", 110) },
         ]}
@@ -981,6 +996,21 @@ function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updat
           { key: "operationalScenarioId", label: "Scenario operationnel", type: "select", required: true, options: operationalScenarioOptions },
           { key: "gravity", label: "Gravite", type: "select", options: GRAVITY_OPTIONS, required: true },
           { key: "likelihood", label: "Vraisemblance", type: "select", options: LIKELIHOOD_OPTIONS, required: true },
+          { key: "status", label: "Statut", type: "select", required: true, options: RISK_ENTRY_STATUS_OPTIONS },
+          {
+            key: "ownerUserId",
+            label: "Responsable",
+            type: "select",
+            options: ownerOptions,
+            requiredWhen: (draft) => ["en_traitement", "traite", "accepte"].includes(normalizeRiskEntryStatus(draft.status)),
+            validate: (value, draft) => {
+              const status = normalizeRiskEntryStatus(draft.status);
+              if (["en_traitement", "traite", "accepte"].includes(status) && !String(value || "").trim()) {
+                return "Le responsable est requis pour ce statut.";
+              }
+              return "";
+            },
+          },
           { key: "treatment", label: "Traitement", type: "select", required: true, options: TREATMENT_OPTIONS },
           { key: "notes", label: "Notes", type: "textarea", full: true },
         ]}
@@ -988,6 +1018,9 @@ function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updat
           ...item,
           gravity: normalizeScale(item.gravity),
           likelihood: normalizeScale(item.likelihood),
+          status: normalizeRiskEntryStatus(item.status),
+          ownerUserId: String(item.ownerUserId || "").trim(),
+          ownerName: ownerNameById.get(String(item.ownerUserId || "").trim()) || "",
           treatment: normalizeTreatmentValue(item.treatment),
         })}
         onDelete={(id) => remove(5, "riskEntries", id)}
@@ -1102,7 +1135,7 @@ export default function RiskWorkshopPage() {
   const { id, atelierId } = useParams();
   const workshopId = Number(atelierId);
 
-  const { getStudyById, updateWorkshopContext, upsertWorkshopItem, deleteWorkshopItem } = useRiskStudies();
+  const { getStudyById, updateWorkshopContext, upsertWorkshopItem, deleteWorkshopItem, owners, refreshOwners, loading } = useRiskStudies();
   const study = getStudyById(id);
   const workshopMeta = getWorkshopMeta(workshopId);
   const visibleSteps = useMemo(() => getVisibleWorkshopSteps(study, workshopMeta), [study, workshopMeta]);
@@ -1120,6 +1153,22 @@ export default function RiskWorkshopPage() {
       return visibleSteps[0].id;
     });
   }, [visibleSteps]);
+
+  useEffect(() => {
+    if (Array.isArray(owners) && owners.length > 0) return;
+    void refreshOwners();
+  }, [owners, refreshOwners]);
+
+  if (loading && !study) {
+    return (
+      <div className="risk-page p-6">
+        <RiskCard className="mx-auto max-w-3xl p-8 text-center">
+          <h2 className="text-xl font-black text-slate-900">Chargement de l'atelier...</h2>
+          <p className="mt-2 text-sm text-slate-500">Recuperation des donnees de l'etude en cours.</p>
+        </RiskCard>
+      </div>
+    );
+  }
 
   if (!study || !workshopMeta) {
     return (
@@ -1283,6 +1332,7 @@ export default function RiskWorkshopPage() {
               remove: (wid, key, itemId) => deleteWorkshopItem(study.id, wid, key, itemId),
               updateContext: (wid, payload) => updateWorkshopContext(study.id, wid, payload),
               readOnly: blocked,
+              riskOwners: owners,
             })}
         </main>
       </div>

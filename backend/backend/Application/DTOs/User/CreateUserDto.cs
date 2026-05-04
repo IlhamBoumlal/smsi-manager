@@ -1,11 +1,11 @@
-﻿namespace backend.Application.DTOs.User
+namespace backend.Application.DTOs.User
 {
     public record CreateUserDto(
-    string NomComplet,
-    string Email,
-    string Password,
-    string ConfirmPassword,
-    int SocieteId,
-    string RoleId
-);
+        string NomComplet,
+        string Email,
+        string Password,
+        string ConfirmPassword,
+        int? SocieteId,
+        string RoleId
+    );
 }

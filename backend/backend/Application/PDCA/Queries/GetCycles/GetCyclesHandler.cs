@@ -10,7 +10,7 @@ public class GetCyclesHandler : IRequestHandler<GetCyclesQuery, List<CycleSummar
 
     public async Task<List<CycleSummaryDto>> Handle(GetCyclesQuery request, CancellationToken ct)
     {
-        var cycles = await _repo.GetAllAsync(ct);
+        var cycles = await _repo.GetAllAsync(request.SocieteId, ct);
         return cycles.Select(c => new CycleSummaryDto(c.Id, c.Name, c.IsActive, c.CreatedAt)).ToList();
     }
 }

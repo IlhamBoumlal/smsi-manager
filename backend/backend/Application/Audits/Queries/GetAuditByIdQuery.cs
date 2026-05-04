@@ -10,10 +10,11 @@ namespace backend.Application.Audits.Queries
         private readonly AppDbContext _db;
         public GetAuditByIdQuery(AppDbContext db) => _db = db;
 
-        public async Task<AuditDto?> ExecuteAsync(Guid id)
+        public async Task<AuditDto?> ExecuteAsync(Guid id, int? societeId)
         {
             var audit = await _db.Audits
                 .Include(a => a.ControlStatuses)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync(a => a.Id == id);
 
             return audit is null ? null : CreateAuditCommand.MapToDto(audit);

@@ -9,7 +9,7 @@ public class DeleteItemHandler : IRequestHandler<DeleteItemCommand>
 
     public async Task Handle(DeleteItemCommand cmd, CancellationToken ct)
     {
-        var item = await _repo.GetItemByIdAsync(cmd.Id, ct)
+        var item = await _repo.GetItemByIdAsync(cmd.Id, cmd.SocieteId, ct)
             ?? throw new InvalidOperationException("Item introuvable.");
         _repo.RemoveItem(item);
         await _repo.SaveChangesAsync(ct);

@@ -1,0 +1,330 @@
+// 📋 EXEMPLES DE REQUÊTE API - TRAÇABILITÉ CONTRÔLES
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. UPDATE (PUT) - Mise à jour d'un contrôle EXISTANT
+// ═══════════════════════════════════════════════════════════════════════════
+
+PUT /api/controles/1
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN
+
+{
+  "id": 1,
+  "code": "A.1",
+  "titre": "Politique de sécurité générale",
+  "description": "Établir et maintenir une politique de sécurité...",
+  "domaine": "Organisationnel",
+  "applicable": true,
+  "statut": "Conforme",
+  "raisonsApplicabilite": ["legale", "reconnue"],
+  "justificationConformite": "La politique est documentée et approuvée par la direction...",
+  "societeId": 1,
+  
+  // ═══════════════════════════════════════════════════════════
+  // 🆕 CHAMPS DE TRAÇABILITÉ (envoyés par le FRONTEND)
+  // ═══════════════════════════════════════════════════════════
+  "dateModification": "2026-01-15T14:30:00Z",
+  "modifiePar": "Jean Dupont"
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ✅ RÉPONSE BACKEND (200 OK)
+// ─────────────────────────────────────────────────────────────────────────
+
+{
+  "id": 1,
+  "code": "A.1",
+  "titre": "Politique de sécurité générale",
+  "description": "Établir et maintenir une politique de sécurité...",
+  "domaine": "Organisationnel",
+  "applicable": true,
+  "statut": "Conforme",
+  "raisonsApplicabilite": ["legale", "reconnue"],
+  "justificationConformite": "La politique est documentée et approuvée par la direction...",
+  "societeId": 1,
+  
+  // ═══════════════════════════════════════════════════════════
+  // 🆕 CHAMPS DE TRAÇABILITÉ (retournés par le BACKEND)
+  // ═══════════════════════════════════════════════════════════
+  "dateModification": "2026-01-15T14:30:00Z",
+  "modifiePar": "Jean Dupont",
+  "dateCreation": "2026-01-13T09:15:00Z",
+  "creePar": "Marie Durand"
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. CREATE (POST) - Création d'un NOUVEAU contrôle
+// ═══════════════════════════════════════════════════════════════════════════
+
+POST /api/controles
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN
+
+{
+  "code": "A.12.5.2",
+  "titre": "Gestion des actifs télécommutés",
+  "description": "Appliquer les mesures de sécurité appropriées...",
+  "domaine": "Technologique",
+  "applicable": true,
+  "statut": "NonEvalue",
+  "raisonsApplicabilite": [],
+  "societeId": 1,
+  
+  // LE BACKEND GÉNÈRE DATE/UTILISATEUR AUTOMATIQUEMENT
+  // Optionnel si fourni par le frontend :
+  "modifiePar": "Jean Dupont"
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ✅ RÉPONSE BACKEND (201 Created)
+// ─────────────────────────────────────────────────────────────────────────
+
+{
+  "id": 125,
+  "code": "A.12.5.2",
+  "titre": "Gestion des actifs télécommutés",
+  "description": "Appliquer les mesures de sécurité appropriées...",
+  "domaine": "Technologique",
+  "applicable": true,
+  "statut": "NonEvalue",
+  "raisonsApplicabilite": [],
+  "societeId": 1,
+  
+  // ═══════════════════════════════════════════════════════════
+  // 🆕 TRAÇABILITÉ AUTO-GÉNÉRÉE À LA CRÉATION
+  // ═══════════════════════════════════════════════════════════
+  "dateCreation": "2026-01-15T14:35:00Z",      // Défini une fois
+  "creePar": "Jean Dupont",                     // Défini une fois
+  "dateModification": "2026-01-15T14:35:00Z",  // Même date au départ
+  "modifiePar": "Jean Dupont"                   // Même utilisateur au départ
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. GET (Lecture) - Récupérer un contrôle avec traçabilité
+// ═══════════════════════════════════════════════════════════════════════════
+
+GET /api/controles/1
+Authorization: Bearer YOUR_JWT_TOKEN
+
+// ✅ RÉPONSE
+{
+  "id": 1,
+  "code": "A.1",
+  "titre": "Politique de sécurité générale",
+  // ... autres champs ...
+  
+  // TRAÇABILITÉ INCLUSE
+  "dateModification": "2026-01-15T14:30:00Z",
+  "modifiePar": "Jean Dupont",
+  "dateCreation": "2026-01-13T09:15:00Z",
+  "creePar": "Marie Durand"
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4. GET LIST (Tous les contrôles) - Avec traçabilité
+// ═══════════════════════════════════════════════════════════════════════════
+
+GET /api/controles
+Authorization: Bearer YOUR_JWT_TOKEN
+
+// ✅ RÉPONSE
+[
+  {
+    "id": 1,
+    "code": "A.1",
+    "titre": "Politique de sécurité générale",
+    "domaine": "Organisationnel",
+    "statut": "Conforme",
+    // TRAÇABILITÉ
+    "dateModification": "2026-01-15T14:30:00Z",
+    "modifiePar": "Jean Dupont",
+    "dateCreation": "2026-01-13T09:15:00Z",
+    "creePar": "Marie Durand"
+  },
+  {
+    "id": 2,
+    "code": "A.2",
+    "titre": "Responsabilités de la direction",
+    "domaine": "Organisationnel",
+    "statut": "NonEvalue",
+    // TRAÇABILITÉ
+    "dateModification": null,  // N'a jamais été modifié
+    "modifiePar": null,
+    "dateCreation": "2026-01-13T09:20:00Z",
+    "creePar": "Marie Durand"
+  }
+]
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. EXEMPLE COMPLET AVEC TOUS LES CHAMPS
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  // Identifiants
+  "id": 1,
+  "code": "A.1",
+  
+  // Données métier
+  "titre": "Politique de sécurité générale",
+  "description": "Établir et maintenir une politique...",
+  "domaine": "Organisationnel",
+  "applicable": true,
+  "priorite": "Très élevée",
+  "societeId": 1,
+  
+  // Évaluation de conformité
+  "statut": "Conforme",
+  "raisonsApplicabilite": [
+    "legale",
+    "reconnue"
+  ],
+  "justificationConformite": "La politique est documentée...",
+  
+  // Plan d'action (si NC)
+  "statutPlan": null,
+  "planCorrectif": null,
+  "responsablePlan": null,
+  "dateEcheance": null,
+  
+  // Preuves
+  "preuves": "Politique_de_securite_v2.pdf",
+  "indicateurs": "Compréhension de la politique vérifiée via audit",
+  "dateVerification": "2026-01-14",
+  
+  // Clôture
+  "commentaireCloture": null,
+  "cloturePar": null,
+  "dateCloture": null,
+  
+  // ═══════════════════════════════════════════════════════════
+  // 🆕 TRAÇABILITÉ (4 NOUVEAUX CHAMPS)
+  // ═══════════════════════════════════════════════════════════
+  "dateModification": "2026-01-15T14:30:45Z",
+  "modifiePar": "Jean Dupont",
+  "dateCreation": "2026-01-13T09:15:00Z",
+  "creePar": "Marie Durand"
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. CAS D'USAGE : Contrôle jamais modifié
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  "id": 2,
+  "code": "A.2",
+  "titre": "Responsabilités de la direction",
+  
+  // Traçabilité
+  "dateCreation": "2026-01-13T09:20:00Z",
+  "creePar": "Marie Durand",
+  
+  // Jamais modifié = null
+  "dateModification": null,
+  "modifiePar": null
+  
+  // Frontend affichera : aucune ligne "Modifié le..."
+  // Affichera seulement "Créé le..." si DateCreation existe
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. CAS D'USAGE : Contrôle modifié plusieurs fois
+// ═══════════════════════════════════════════════════════════════════════════
+
+{
+  "id": 1,
+  "code": "A.1",
+  "titre": "...",
+  
+  // Création - JAMAIS MODIFIÉ
+  "dateCreation": "2026-01-13T09:15:00Z",
+  "creePar": "Marie Durand",
+  
+  // DERNIÈRE modification stockée (pas d'historique côté BD)
+  "dateModification": "2026-01-15T14:30:45Z",  // 3e modification
+  "modifiePar": "Jean Dupont"                   // Dernier modifiant
+  
+  // NOTES :
+  // - DateCreation et CreePar JAMAIS changés
+  // - DateModification et ModifiePar = DERNIÈRE seule
+  // - Pour historique : créer table ControleHistorique
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. CAS D'ERREUR : Données invalides
+// ═══════════════════════════════════════════════════════════════════════════
+
+PUT /api/controles/1
+Content-Type: application/json
+
+{
+  "id": 1,
+  "titre": ""  // Titre obligatoire manquant
+}
+
+// ❌ RÉPONSE (400 Bad Request)
+{
+  "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "traceId": "0HN0T...",
+  "errors": {
+    "Titre": ["Le titre est obligatoire"]
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. TESTS AVEC curl
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Test UPDATE avec traçabilité
+curl -X PUT http://localhost:5006/api/controles/1 \
+  -H "Authorization: Bearer eyJhbGc..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": 1,
+    "titre": "Politique mise à jour",
+    "statut": "Conforme",
+    "dateModification": "2026-01-15T14:30:00Z",
+    "modifiePar": "Jean Dupont"
+  }' | jq '.'
+
+// Test GET avec traçabilité
+curl -X GET http://localhost:5006/api/controles/1 \
+  -H "Authorization: Bearer eyJhbGc..." | jq '.dateModification, .modifiePar'
+
+// → Résultat :
+// "2026-01-15T14:30:00Z"
+// "Jean Dupont"
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. NOTES IMPORTANTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/*
+✅ BON :
+- Frontend envoie dateModification et modifiePar
+- Backend valide et stocke
+- DateCreation jamais modifié
+- Format ISO 8601 pour dates
+
+⚠️ À ÉVITER :
+- Ne jamais faire confiance au timestamp client uniquement
+- Ne pas mettre à jour DateCreation après la création
+- Ne pas oublier d'inclure le champ dans le DTO de réponse
+- Ne pas modifier les dates dans les migrations ultérieures
+
+🔐 SÉCURITÉ :
+- Utiliser DateTime.UtcNow côté serveur pour vérification
+- Valider que ModifiePar correspond à l'utilisateur connecté
+- Logger tous les accès à la traçabilité
+- Exporter les données d'audit régulièrement
+*/

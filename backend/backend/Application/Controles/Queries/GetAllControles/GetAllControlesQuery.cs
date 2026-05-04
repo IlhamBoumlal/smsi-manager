@@ -3,6 +3,6 @@ using MediatR;
 
 namespace backend.Application.Controles.Queries.GetAllControles
 {
-    public record GetAllControlesQuery() : IRequest<List<ControleDto>>;
+    public record GetAllControlesQuery(int? SocieteId = null) : IRequest<List<ControleDto>>;
 
 }

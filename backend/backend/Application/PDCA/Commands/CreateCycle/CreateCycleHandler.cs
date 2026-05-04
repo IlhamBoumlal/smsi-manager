@@ -10,7 +10,12 @@ public class CreateCycleHandler : IRequestHandler<CreateCycleCommand, Guid>
 
     public async Task<Guid> Handle(CreateCycleCommand cmd, CancellationToken ct)
     {
-        var cycle = new PdcaCycle { Name = cmd.Name };
+        if (!cmd.SocieteId.HasValue)
+        {
+            throw new InvalidOperationException("Société introuvable.");
+        }
+
+        var cycle = new PdcaCycle { Name = cmd.Name, SocieteId = cmd.SocieteId };
         foreach (var (key, label, order) in new[] {
             ("plan","PLAN",0), ("do","DO",1), ("check","CHECK",2), ("act","ACT",3) })
         {

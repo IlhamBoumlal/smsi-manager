@@ -18,7 +18,7 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
 
         public async Task<(bool Success, string? Error, DocumentationResponseDto? Data)> Handle(UpdateDocumentationCommand request, CancellationToken cancellationToken)
         {
-            var existing = await _repository.GetByIdAsync(request.Id);
+            var existing = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (existing is null)
                 return (false, "NOT_FOUND", null);
 
@@ -41,7 +41,7 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
                 return (false, "L'auteur est requis.", null);
 
             if (!DocumentationHelpers.IsAllowedFile(request.File))
-                return (false, "Fichier invalide. Formats autorisés: PDF, DOCX, XLSX. Taille max: 20 Mo.", null);
+                return (false, "Fichier invalide. Taille max: 20 Mo.", null);
 
             var updated = new DocumentationDocument
             {
@@ -66,7 +66,8 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
                 UpdatedAt = DateTime.UtcNow,
                 FilePath = existing.FilePath,
                 OriginalFileName = existing.OriginalFileName,
-                FileSizeBytes = existing.FileSizeBytes
+                FileSizeBytes = existing.FileSizeBytes,
+                FileHash = existing.FileHash
             };
 
             if (normalizedStatus == "approuve")
@@ -89,6 +90,7 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
                 updated.FilePath = await _fileStorage.SaveDocumentAsync(request.File);
                 updated.OriginalFileName = request.File.FileName;
                 updated.FileSizeBytes = request.File.Length;
+                updated.FileHash = await DocumentationHashing.ComputeSha256HexAsync(request.File, cancellationToken);
             }
             else if (request.RemoveFile)
             {
@@ -96,6 +98,7 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
                 updated.FilePath = null;
                 updated.OriginalFileName = null;
                 updated.FileSizeBytes = null;
+                updated.FileHash = null;
             }
 
             var saved = await _repository.UpdateAsync(updated);
@@ -111,3 +114,5 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
         }
     }
 }
+
+

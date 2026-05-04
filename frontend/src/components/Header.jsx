@@ -10,37 +10,50 @@ import {
   Users,
   Factory,
   Building2,
-  Shield,
   ClipboardCheck,
   Network,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { resolveAssetUrl } from "../api/url";
+import { getScopedRoles } from "../utils/roleScopes";
 
-const mainAxes = [
-  { id: "cartographie", label: "Cartographie", path: "/cartographie" },
-  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord" },
-  { id: "pdca", label: "PDCA", path: "/pdca" },
-  { id: "clauses", label: "Clauses", path: "/clauses" },
-  { id: "controles", label: "Contrôles", path: "/controles" },
-  { id: "documentation", label: "Documentation", path: "/documentation" },
-  { id: "risques", label: "Risques", path: "/risques" },
+const allMainAxes = [
+  { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
+  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashbord" },
+  { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
+  { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
+  { id: "controles", label: "Controles", path: "/controles", moduleCode: "controles" },
+  { id: "documentation", label: "Documentation", path: "/documentation", moduleCode: "documentation" },
+  { id: "risques", label: "Risques", path: "/risques", moduleCode: "risques" },
 ];
 
-const moreAxes = [
-  { id: "audits", label: "Audits", path: "/audits", icon: <ClipboardCheck size={20} /> },
-  { id: "actifs", label: "Actifs", path: "/actifs", icon: <Database size={20} /> },
-  { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", icon: <Network size={20} /> },
+const allMoreAxes = [
+  { id: "audits", label: "Audits", path: "/audits", moduleCode: "audits", icon: <ClipboardCheck size={20} /> },
+  { id: "actifs", label: "Actifs", path: "/actifs", moduleCode: "actifs", icon: <Database size={20} /> },
+  { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", moduleCode: "sensibilisation", icon: <Network size={20} /> },
+  { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },
 ];
 
-const adminMenuItems = [
-  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats" },
-  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs" },
-  { label: "Sociétés", Icon: Factory, path: "/admin/societes" },
-  { label: "Holdings", Icon: Building2, path: "/admin/holdings" },
+const allAdminMenuItems = [
+  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques", allowedRoles: ["super_admin", "admin_societe"] },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "utilisateurs", allowedRoles: ["super_admin", "admin_societe"] },
+  { label: "Societes", Icon: Factory, path: "/admin/societes", moduleCode: "societes", allowedRoles: ["super_admin"] },
+  { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings", allowedRoles: ["super_admin"] },
 ];
 
-const ADMIN_EMAIL = "admin@alexsys.com";
+const knownAdminRoutes = new Set([
+  "/admin/stats",
+  "/admin/utilisateurs",
+  "/admin/societes",
+  "/admin/holdings",
+  "/admin/roles",
+  "/superadmin",
+]);
+
+const rolePermissionPath = knownAdminRoutes.has("/admin/roles")
+  ? "/admin/roles"
+  : null;
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -49,17 +62,31 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logoutUser } = useAuth();
+  const { user, logoutUser, canRead, permissionsLoaded } = useAuth();
 
-  // Détecte automatiquement l'axe actif depuis l'URL courante
+  const mainAxes = allMainAxes.filter((axe) => canRead(axe.moduleCode));
+  const moreAxes = allMoreAxes.filter((axe) => canRead(axe.moduleCode));
+  const scopedRoles = getScopedRoles(user);
+
+
+  const rolesPermissionsMenuItem = rolePermissionPath
+    ? [{ label: "Roles / Permissions", Icon: KeyRound, path: rolePermissionPath, allowedRoles: ["super_admin"] }]
+    : [];
+
+  const adminMenuItems = [...allAdminMenuItems, ...rolesPermissionsMenuItem]
+    .filter((item) => item.allowedRoles.some((role) => scopedRoles.has(role)))
+    .filter((item) => !item.moduleCode || canRead(item.moduleCode));
+  const defaultLandingPath = mainAxes.length > 0
+    ? "/tableau-bord"
+    : (adminMenuItems[0]?.path ?? "/");
+
   const allAxes = [...mainAxes, ...moreAxes];
   const activeAxe =
     activeAxeProp ??
     allAxes.find((a) => a.path === location.pathname)?.id ??
-    "tableau-bord";
+    (mainAxes.length > 0 ? mainAxes[0]?.id : "tableau-bord");
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
-  const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
 
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";
@@ -101,13 +128,68 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     if (axe.path) navigate(axe.path);
   };
 
+  if (!permissionsLoaded) {
+    return (
+      <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
+        <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
+                SMSI <span className="text-blue-600">Manager</span>
+              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+                ISO 27001
+              </span>
+            </div>
+          </div>
+          <div className="animate-pulse text-slate-400">Chargement...</div>
+        </div>
+      </header>
+    );
+  }
+
+  if (mainAxes.length === 0 && moreAxes.length === 0 && adminMenuItems.length === 0) {
+    return (
+      <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
+        <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate("/")}>
+            <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
+                SMSI <span className="text-blue-600">Manager</span>
+              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+                ISO 27001
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              logoutUser();
+              navigate("/");
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <LogOut size={18} /> Deconnexion
+          </button>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
-        {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
-          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
+          onClick={() => {
+            if (mainAxes.length > 0) {
+              handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" });
+              return;
+            }
+            navigate(defaultLandingPath);
+          }}
         >
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
@@ -120,47 +202,49 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </div>
         </div>
 
-        {/* NAVIGATION */}
-        <nav className="flex items-center gap-2 flex-1 justify-center">
-          {mainAxes.map((axe) => (
-            <NavButton
-              key={axe.id}
-              label={axe.label}
-              isActive={activeAxe === axe.id}
-              onClick={() => handleAxeChange(axe)}
-            />
-          ))}
-          <div ref={dropdownRef} className="relative">
-            <NavButton
-              label="Plus"
-              isActive={isMoreActive || dropdownOpen}
-              onClick={() => setDropdownOpen((p) => !p)}
-              suffix={
-                <ChevronDown
-                  size={18}
-                  className={`transition-transform duration-300 ${dropdownOpen ? "rotate-180" : ""}`}
+        {mainAxes.length > 0 && (
+          <nav className="flex items-center gap-2 flex-1 justify-center">
+            {mainAxes.map((axe) => (
+              <NavButton
+                key={axe.id}
+                label={axe.label}
+                isActive={activeAxe === axe.id}
+                onClick={() => handleAxeChange(axe)}
+              />
+            ))}
+            {moreAxes.length > 0 && (
+              <div ref={dropdownRef} className="relative">
+                <NavButton
+                  label="Plus"
+                  isActive={isMoreActive || dropdownOpen}
+                  onClick={() => setDropdownOpen((p) => !p)}
+                  suffix={
+                    <ChevronDown
+                      size={18}
+                      className={`transition-transform duration-300 ${dropdownOpen ? "rotate-180" : ""}`}
+                    />
+                  }
                 />
-              }
-            />
-            {dropdownOpen && (
-              <div className="absolute left-0 top-full mt-4 w-60 bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden z-50 py-2">
-                {moreAxes.map((axe) => (
-                  <DropdownItem
-                    key={axe.id}
-                    axe={axe}
-                    isActive={activeAxe === axe.id}
-                    onClick={() => {
-                      handleAxeChange(axe);
-                      setDropdownOpen(false);
-                    }}
-                  />
-                ))}
+                {dropdownOpen && (
+                  <div className="absolute left-0 top-full mt-4 w-60 bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden z-50 py-2">
+                    {moreAxes.map((axe) => (
+                      <DropdownItem
+                        key={axe.id}
+                        axe={axe}
+                        isActive={activeAxe === axe.id}
+                        onClick={() => {
+                          handleAxeChange(axe);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </nav>
+          </nav>
+        )}
 
-        {/* PROFIL */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
@@ -195,7 +279,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     </div>
                   </div>
 
-                  {isAdmin && (
+                  {adminMenuItems.length > 0 && (
                     <div className="py-2 border-b border-slate-100">
                       {adminMenuItems.map(({ label, Icon, path }) => (
                         <button
@@ -226,7 +310,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                       <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                         <LogOut size={18} className="text-red-500" />
                       </span>
-                      Déconnexion
+                      Deconnexion
                     </button>
                   </div>
                 </div>

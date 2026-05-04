@@ -9,7 +9,7 @@ public class DeleteFormationCommandHandler(IFormationRepository repo)
 {
     public async Task<bool> Handle(DeleteFormationCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.Id, ct);
+        var f = await repo.GetByIdAsync(cmd.Id, cmd.SocieteId, ct);
         if (f is null) return false;
 
         // Supprimer les fichiers physiques associés

@@ -7,5 +7,6 @@ namespace backend.Application.Sensibilisation.Commands.UploadFormationDocument;
 
 public record UploadFormationDocumentCommand(
     Guid FormationId,
-    IFormFile File
+    IFormFile File,
+    int? SocieteId
 ) : IRequest<DocumentDto>;

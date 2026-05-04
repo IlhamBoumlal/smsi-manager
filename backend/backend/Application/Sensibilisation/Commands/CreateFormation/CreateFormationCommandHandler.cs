@@ -3,16 +3,20 @@ using MediatR;
 using backend.Domain.Entities;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using backend.Domain.Interfaces;
 
 namespace backend.Application.Sensibilisation.Commands.CreateFormation;
 
 public class CreateFormationCommandHandler(
     IFormationRepository repo,
-    IEmailService emailService)
+    IEmailServiceSens emailService)
     : IRequestHandler<CreateFormationCommand, Guid>
 {
     public async Task<Guid> Handle(CreateFormationCommand cmd, CancellationToken ct)
     {
+        if (!cmd.SocieteId.HasValue || cmd.SocieteId.Value <= 0)
+            throw new InvalidOperationException("SocieteId obligatoire pour creer une formation.");
+
         // Construire la DateTime complète
         var datePart = DateOnly.Parse(cmd.Date);
         var heurePart = TimeOnly.Parse(cmd.Heure);

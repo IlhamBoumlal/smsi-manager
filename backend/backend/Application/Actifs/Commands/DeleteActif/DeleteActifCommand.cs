@@ -2,5 +2,5 @@
 
 namespace backend.Application.Actifs.Commands.DeleteActif
 {
-    public record DeleteActifCommand(Guid Id) : IRequest<bool>;
+    public record DeleteActifCommand(Guid Id, int? SocieteId) : IRequest<bool>;
 }

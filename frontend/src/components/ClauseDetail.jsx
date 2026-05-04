@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faLandmark, faCrown, faBullseye, faCog, faWrench, faChartBar, faArrowsRotate,
   faChevronLeft, faChevronDown, faChevronRight,
   faPen, faTrash, faPlus, faCircleCheck, faListCheck,
-  faMagnifyingGlass, faShieldHalved, faFloppyDisk, faTriangleExclamation,
+  faMagnifyingGlass, faFloppyDisk, faTriangleExclamation,
   faCircleInfo, faPaperclip, faUser, faCalendar, faHashtag,
   faCheckCircle, faCircleXmark, faCircleMinus,
   faArrowLeft, faSpinner, faLightbulb, faClipboardList,
@@ -31,6 +30,25 @@ const BG_PAGE = "#F4F6FA";
 const BORDER  = "#E2E5EA";
 const TEXT1   = "#0D1117";
 const TEXT3   = "#9CA3AF";
+const DOCUMENT_TYPE_OPTIONS = ["Politique", "Procedure", "Plan", "Registre", "Rapport", "Charte", "Chart"];
+
+function inferDocumentTypeFromFileName(fileName = "") {
+  const name = String(fileName || "").toLowerCase();
+  const ext = name.split(".").pop() || "";
+
+  if (name.includes("procedure") || name.includes("proc") || name.includes("mode-operatoire")) return "Procedure";
+  if (name.includes("plan") || name.includes("pca") || name.includes("pra")) return "Plan";
+  if (name.includes("registre") || name.includes("log") || name.includes("inventaire")) return "Registre";
+  if (name.includes("politique") || name.includes("policy")) return "Politique";
+  if (name.includes("charte")) return "Charte";
+  if (name.includes("chart") || name.includes("graph") || name.includes("dashboard")) return "Chart";
+
+  if (["xls", "xlsx", "csv"].includes(ext)) return "Registre";
+  if (["ppt", "pptx"].includes(ext)) return "Plan";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "Chart";
+  if (ext === "txt") return "Procedure";
+  return "Rapport";
+}
 
 /* ════════════════════════════════════════════════════════════
    CLAUSE META
@@ -74,7 +92,7 @@ const CLAUSE_SPECIFIC_FIELDS = {
   5: { title:"Leadership et Gouvernance SMSI", hasEnjeuxTables:false, fields:[
     {key:"etatPolitique",label:"État de la politique SMSI existante",type:"textarea",placeholder:"Version actuelle, date de validation..."},
     {key:"engagementDirection",label:"Niveau d'engagement de la direction",type:"textarea",placeholder:"Réunions SMSI, budget alloué, sponsors..."},
-    {key:"rolesDefinis",label:"Rôles et responsabilités définis",type:"textarea",placeholder:"RSSI, DPO, responsables métier..."},
+    {key:"rolesDefinis",label:"Rôles et responsabilités définis",type:"textarea",placeholder:"RSSI, Consultant, responsables métier..."},
   ]},
   6: { title:"Gestion des Risques SSI", hasEnjeuxTables:false, fields:[
     {key:"etatAppreciationRisques",label:"État de l'appréciation des risques",type:"textarea",placeholder:"Dernière analyse, périmètre couvert..."},
@@ -218,7 +236,7 @@ async function flushPendingFiles(planId, form, setForm) {
    HYBRID LIST FIELD
 ════════════════════════════════════════════════════════════ */
 function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, accentColor, label, labelStyle }) {
-  const items = Array.isArray(itemsProp) ? itemsProp : [];
+  const items = useMemo(() => (Array.isArray(itemsProp) ? itemsProp : []), [itemsProp]);
 
   // On utilise un ref pour avoir accès à la liste courante dans les callbacks
   // async sans dépendre d'une closure périmée.
@@ -488,6 +506,7 @@ function ConformityProofPanel({ sub, meta, proofs, onProofUploaded, onProofFileD
   const [uploading, setUploading]           = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [desc, setDesc]                     = useState("");
+  const [documentType, setDocumentType]     = useState("Rapport");
   const fileRef                             = useRef(null);
   const [dragOver, setDragOver]             = useState(false);
 
@@ -497,7 +516,13 @@ function ConformityProofPanel({ sub, meta, proofs, onProofUploaded, onProofFileD
     setUploading(true); setUploadProgress(0);
     try {
       const proof = proofs[0] || await upsertConformityProof(sub.id, desc);
-      const f = await uploadConformityProofFile(proof.id, file, desc||undefined, setUploadProgress);
+      const selectedType = documentType || inferDocumentTypeFromFileName(file?.name);
+      const f = await uploadConformityProofFile(
+        proof.id,
+        file,
+        desc || undefined,
+        setUploadProgress,
+        selectedType);
       onProofUploaded(proof, f);
     } catch(e){ console.error(e); }
     finally { setUploading(false); setUploadProgress(null); }
@@ -565,6 +590,18 @@ function ConformityProofPanel({ sub, meta, proofs, onProofUploaded, onProofFileD
           onFocus={e=>{e.target.style.borderColor="#16A34A";e.target.style.boxShadow="0 0 0 3px #16A34A18";}}
           onBlur={e=>{e.target.style.borderColor="#BBF7D0";e.target.style.boxShadow="none";}}
         />
+      </div>
+
+      <div style={{marginBottom:8}}>
+        <select
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          style={{width:"100%",padding:"7px 10px",borderRadius:7,border:"1px solid #BBF7D0",fontSize:11,outline:"none",color:"#374151",background:"#fff",fontFamily:"inherit",boxSizing:"border-box"}}
+        >
+          {DOCUMENT_TYPE_OPTIONS.map((type) => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
       </div>
 
       <div
@@ -1217,8 +1254,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
   const [proofsLoaded, setPL]         = useState(false);
   // Fichiers ajoutés PENDANT l'évaluation (avant save) quand statut = conforme
   const [pendingProofFiles, setPendingProofFiles] = useState([]);
-  const [uploadingProof,    setUploadingProof]    = useState(false);
-  const [uploadProofPct,    setUploadProofPct]    = useState(0);
+  const [proofDocumentType, setProofDocumentType] = useState("Rapport");
   const proofFileRef = useRef(null);
 
   useEffect(()=>{ if(conformity) setForm({status:conformity.status,score:conformity.score||0,lastAudit:conformity.lastAudit||"",nextAudit:conformity.nextAudit||"",comments:conformity.comments||""}); },[conformity]);
@@ -1239,15 +1275,20 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
   const saveConformity = async () => {
     setSaving(true);
     try {
-      const saved = await upsertConformity(sub.id, form);
-      onConformitySaved(saved);
+      let uploadedCount = 0;
 
       // Si conforme et fichiers en attente → créer la preuve puis uploader
       if (form.status === "conforme" && pendingProofFiles.length > 0) {
         const proof = await upsertConformityProof(sub.id, "");
-        for (const file of pendingProofFiles) {
+        for (const pending of pendingProofFiles) {
           try {
-            const f = await uploadConformityProofFile(proof.id, file, undefined);
+            const f = await uploadConformityProofFile(
+              proof.id,
+              pending.file,
+              undefined,
+              undefined,
+              pending.documentType || inferDocumentTypeFromFileName(pending?.file?.name));
+            uploadedCount += 1;
             setProofs(prev => {
               const idx = prev.findIndex(p => p.id === proof.id);
               if (idx >= 0) {
@@ -1259,18 +1300,33 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
             });
           } catch { /* continue */ }
         }
+        if (uploadedCount === 0 && allProofFiles.length === 0) {
+          throw new Error("Aucune preuve n'a pu être ajoutée. Le statut conforme n'a pas été enregistré.");
+        }
         setPendingProofFiles([]);
         setPL(false); // forcer le rechargement des preuves
       }
 
+      const saved = await upsertConformity(sub.id, form);
+      onConformitySaved(saved);
+
       setEvalOpen(false);
-    } catch(e) { console.error(e); }
+    } catch(e) {
+      console.error(e);
+      alert(e?.message || "Erreur lors de l'enregistrement de la conformité.");
+    }
     finally { setSaving(false); }
   };
 
   // Upload immédiat d'un fichier preuve dans le panel d'évaluation
   const handleEvalProofFile = async (file) => {
-    setPendingProofFiles(prev => [...prev, file]);
+    setPendingProofFiles(prev => [
+      ...prev,
+      {
+        file,
+        documentType: proofDocumentType || inferDocumentTypeFromFileName(file?.name),
+      },
+    ]);
   };
 
   const removeEvalProofFile = (idx) => {
@@ -1345,12 +1401,15 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
               {/* Fichiers en attente (ajoutés maintenant, uploadés au save) */}
               {pendingProofFiles.length > 0 && (
                 <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:8}}>
-                  {pendingProofFiles.map((file,idx)=>{
-                    const fi=fileIconInfo(file.type||"",file.name||"");
+                  {pendingProofFiles.map((pending,idx)=>{
+                    const fi=fileIconInfo(pending?.file?.type||"",pending?.file?.name||"");
                     return (
                       <div key={idx} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:7,background:"#fff",border:"1px solid #86EFAC"}}>
                         <FontAwesomeIcon icon={fi.icon} style={{fontSize:13,color:fi.color,flexShrink:0}}/>
-                        <span style={{flex:1,fontSize:11,fontWeight:600,color:"#0D1117",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file.name}</span>
+                        <span style={{flex:1,fontSize:11,fontWeight:600,color:"#0D1117",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pending?.file?.name}</span>
+                        <span style={{fontSize:10,color:"#15803D",fontWeight:700,background:"#DCFCE7",border:"1px solid #BBF7D0",padding:"2px 6px",borderRadius:99}}>
+                          {pending?.documentType || "Rapport"}
+                        </span>
                         <span style={{fontSize:10,color:"#D97706",fontWeight:600}}>En attente</span>
                         <button onClick={()=>removeEvalProofFile(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#CBD5E1",fontSize:12,padding:0,flexShrink:0,transition:"color .15s"}}
                           onMouseEnter={e=>e.currentTarget.style.color="#F87171"}
@@ -1361,6 +1420,18 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                   })}
                 </div>
               )}
+
+              <div style={{marginBottom:8}}>
+                <select
+                  value={proofDocumentType}
+                  onChange={(e) => setProofDocumentType(e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:7,border:"1px solid #BBF7D0",fontSize:11,outline:"none",color:"#15803D",background:"#fff",fontFamily:"inherit",boxSizing:"border-box"}}
+                >
+                  {DOCUMENT_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Bouton d'ajout */}
               <button onClick={()=>proofFileRef.current?.click()}
@@ -1498,7 +1569,6 @@ function LoadingSkeleton() {
 ════════════════════════════════════════════════════════════ */
 export default function ClauseDetail() {
   const { id }           = useParams();
-  const { logout }       = useAuth();
   const navigate         = useNavigate();
 
   const [clause,             setClause]            = useState(null);

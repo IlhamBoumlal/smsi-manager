@@ -10,10 +10,11 @@ namespace backend.Application.Audits.Queries
         private readonly AppDbContext _db;
         public GetAllAuditsQuery(AppDbContext db) => _db = db;
 
-        public async Task<List<AuditDto>> ExecuteAsync()
+        public async Task<List<AuditDto>> ExecuteAsync(int? societeId)
         {
             var audits = await _db.Audits
                 .Include(a => a.ControlStatuses)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
 

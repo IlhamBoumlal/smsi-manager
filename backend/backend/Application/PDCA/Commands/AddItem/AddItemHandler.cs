@@ -13,7 +13,7 @@ public class AddItemHandler : IRequestHandler<AddItemCommand, Guid>
     public async Task<Guid> Handle(AddItemCommand cmd, CancellationToken ct)
     {
         // Vérifier que la section existe
-        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, ct);
+        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, cmd.SocieteId, ct);
         if (section == null)
         {
             throw new InvalidOperationException($"Section introuvable avec l'ID: {cmd.SectionId}");

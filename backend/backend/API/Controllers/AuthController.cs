@@ -1,6 +1,7 @@
-﻿using backend.Application.Auth.Commands.Login;
+using backend.Application.Auth.Commands.Login;
 using backend.Application.Auth.Commands.Register;
 using backend.Application.DTOs.Authentification;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,7 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public AuthController(IMediator mediator) => _mediator = mediator;
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = AppRoles.AdminScopes)]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {

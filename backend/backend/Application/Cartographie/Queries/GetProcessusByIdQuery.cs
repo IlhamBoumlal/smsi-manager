@@ -5,7 +5,7 @@ using MediatR;
 
 namespace Application.Cartographie.Queries;
 
-public record GetProcessusByIdQuery(Guid Id) : IRequest<ProcessusDto?>;
+public record GetProcessusByIdQuery(Guid Id, int? SocieteId) : IRequest<ProcessusDto?>;
 
 public class GetProcessusByIdQueryHandler : IRequestHandler<GetProcessusByIdQuery, ProcessusDto?>
 {
@@ -14,7 +14,7 @@ public class GetProcessusByIdQueryHandler : IRequestHandler<GetProcessusByIdQuer
 
     public async Task<ProcessusDto?> Handle(GetProcessusByIdQuery request, CancellationToken ct)
     {
-        var p = await _repo.GetByIdAsync(request.Id, ct);
+        var p = await _repo.GetByIdAsync(request.Id, request.SocieteId, ct);
         if (p is null) return null;
         return new ProcessusDto(
             p.Id, p.Categorie, p.Nom, p.Responsable, p.Description,

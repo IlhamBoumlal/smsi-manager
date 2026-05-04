@@ -6,5 +6,6 @@ namespace backend.Application.Sensibilisation.Commands.UpdateParticipantStatus;
 public record UpdateParticipantStatusCommand(
     Guid FormationId,
     Guid ParticipantId,
-    string Status   // "Invité" | "Présent"
+    string Status,   // "Invité" | "Présent"
+    int? SocieteId
 ) : IRequest<bool>;

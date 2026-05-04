@@ -10,7 +10,7 @@ public class GetCycleByIdHandler : IRequestHandler<GetCycleByIdQuery, CycleDetai
 
     public async Task<CycleDetailDto?> Handle(GetCycleByIdQuery query, CancellationToken ct)
     {
-        var cycle = await _repo.GetByIdAsync(query.Id, ct);
+        var cycle = await _repo.GetByIdAsync(query.Id, query.SocieteId, ct);
         if (cycle is null) return null;
 
         return new CycleDetailDto(cycle.Id, cycle.Name, cycle.IsActive,

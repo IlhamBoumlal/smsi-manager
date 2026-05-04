@@ -1,16 +1,19 @@
-﻿namespace backend.Domain.Entities;
+namespace backend.Domain.Entities;
 
 public class Document
 {
     public Guid Id { get; private set; }
     public Guid ProcessusId { get; private set; }
-    public string Nom { get; private set; }
-    public string Type { get; private set; }
-    public string Reference { get; private set; }
-    public string Statut { get; private set; }
+    public Processus? Processus { get; private set; }
+    public string Nom { get; private set; } = string.Empty;
+    public string Type { get; private set; } = string.Empty;
+    public string Reference { get; private set; } = string.Empty;
+    public string Statut { get; private set; } = string.Empty;
     public string? FichierNom { get; private set; }  // nom original ex: "procedure.pdf"
     public string? FichierType { get; private set; }  // MIME ex: "application/pdf"
     public byte[]? FichierData { get; private set; }  // contenu binaire
+    public int? SocieteId { get; private set; }
+    public Societe? Societe { get; private set; }
 
     private Document() { }
 
@@ -18,7 +21,8 @@ public class Document
                                   string reference, string statut,
                                   string? fichierNom = null,
                                   string? fichierType = null,
-                                  byte[]? fichierData = null)
+                                  byte[]? fichierData = null,
+                                  int? societeId = null)
     {
         return new Document
         {
@@ -31,6 +35,7 @@ public class Document
             FichierNom = fichierNom,
             FichierType = fichierType,
             FichierData = fichierData,
+            SocieteId = societeId,
         };
     }
 }

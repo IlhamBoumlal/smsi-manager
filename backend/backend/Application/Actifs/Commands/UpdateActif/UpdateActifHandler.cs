@@ -15,12 +15,13 @@ namespace backend.Application.Actifs.Commands.UpdateActif
             var actif = new Actif
             {
                 Id = request.Id,
-                Nom = request.Nom,
-                Description = request.Description,
+                Nom = (request.Nom ?? string.Empty).Trim(),
+                Description = request.Description?.Trim() ?? string.Empty,
                 Type = request.Type,
                 Categorie = request.Categorie,
                 Classification = request.Classification,
-                ProprietaireId = request.ProprietaireId
+                ProprietaireId = request.ProprietaireId,
+                SocieteId = request.SocieteId
             };
             var updated = await _repository.UpdateAsync(actif);
             if (updated is null) return null;

@@ -9,6 +9,6 @@ namespace backend.Application.DTOs.ActifDTOs
         TypeActif Type,
         CategorieActif Categorie,
         ClassificationActif Classification,
-        Guid ProprietaireId
+        Guid? ProprietaireId
     );
 }

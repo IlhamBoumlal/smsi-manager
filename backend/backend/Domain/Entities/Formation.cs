@@ -23,7 +23,8 @@ public class Formation
     public bool NotifInvit { get; private set; }
     public bool NotifRappel { get; private set; }
     public DateTime CreatedAt { get; private set; }
-    public Guid? SocieteId { get; private set; }
+    public int? SocieteId { get; private set; }
+    public Societe? Societe { get; private set; }
     
     public ICollection<FormationParticipant> Participants { get; private set; } = new List<FormationParticipant>();
     public ICollection<FormationDocument> FormationDocuments { get; private set; } = new List<FormationDocument>();
@@ -38,7 +39,7 @@ public class Formation
         string formateur, FormateurType formateurType,
         string departement, string role,
         string? lmsLink, bool notifInvit, bool notifRappel,
-        Guid? societeId)
+        int? societeId)
     {
         // Génère une référence unique : F-YYYY-XXXX
         var seq = new Random().Next(1, 9999).ToString("D3");

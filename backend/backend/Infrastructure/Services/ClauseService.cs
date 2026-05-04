@@ -3,21 +3,31 @@ using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
 using backend.Domain.Entities;
+using backend.Domain.Interfaces;
+using Microsoft.AspNetCore.StaticFiles;
 namespace backend.Infrastructure.Services
 {
     public class ClauseService : IClauseService
     {
         private readonly AppDbContext _db;
+        private readonly IDocumentationProofLinkService _documentationProofLinkService;
 
         private static readonly JsonSerializerOptions _json = new()
         {
             PropertyNameCaseInsensitive = true
         };
         private readonly IWebHostEnvironment _env;
-        public ClauseService(AppDbContext db, IWebHostEnvironment env)
-        { _db = db; _env = env; }
+        private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-        public ClauseService(AppDbContext db) => _db = db;
+        public ClauseService(
+            AppDbContext db,
+            IWebHostEnvironment env,
+            IDocumentationProofLinkService documentationProofLinkService)
+        {
+            _db = db;
+            _env = env;
+            _documentationProofLinkService = documentationProofLinkService;
+        }
 
         // ── MAPPERS ───────────────────────────────────────────────────────────
 
@@ -214,22 +224,36 @@ namespace backend.Infrastructure.Services
 
         // ── CONFORMITY ────────────────────────────────────────────────────────
 
-        public async Task<ConformityStatusDto?> GetConformityAsync(int clauseId, string userId)
+        public async Task<ConformityStatusDto?> GetConformityAsync(int clauseId, string userId, int? societeId)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                return null;
+
             var cs = await _db.ConformityStatuses
-                .FirstOrDefaultAsync(c => c.IsoClauseId == clauseId && c.UserId == userId);
+                .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
+                .Where(c => societeId.HasValue && c.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             return cs is null ? null : MapConformity(cs);
         }
 
-        public async Task<ConformityStatusDto> UpsertConformityAsync(int clauseId, string userId, UpsertConformityDto dto)
+        public async Task<ConformityStatusDto> UpsertConformityAsync(int clauseId, string userId, int? societeId, UpsertConformityDto dto)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour enregistrer la conformite.");
+
             var cs = await _db.ConformityStatuses
-                .FirstOrDefaultAsync(c => c.IsoClauseId == clauseId && c.UserId == userId);
+                .Where(c => c.IsoClauseId == clauseId && c.UserId == userId)
+                .Where(c => societeId.HasValue && c.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
 
             if (cs is null)
             {
-                cs = new ConformityStatus { IsoClauseId = clauseId, UserId = userId };
+                cs = new ConformityStatus { IsoClauseId = clauseId, UserId = userId, SocieteId = societeId };
                 _db.ConformityStatuses.Add(cs);
+            }
+            else if (!cs.SocieteId.HasValue && societeId.HasValue)
+            {
+                cs.SocieteId = societeId;
             }
 
             cs.Status = dto.Status;
@@ -245,46 +269,60 @@ namespace backend.Infrastructure.Services
 
         // ── ACTION PLANS ──────────────────────────────────────────────────────
 
-        public async Task<List<ActionPlanDto>> GetActionPlansAsync(int clauseId, string userId)
+        public async Task<List<ActionPlanDto>> GetActionPlansAsync(int clauseId, string userId, int? societeId)
         {
             var plans = await _db.ActionPlans
                 .Where(ap => ap.IsoClauseId == clauseId && ap.UserId == userId)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .OrderByDescending(ap => ap.CreatedAt)
                 .ToListAsync();
             return plans.Select(MapActionPlan).ToList();
         }
 
-        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId)
+        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId, int? societeId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             return ap is null ? null : MapActionPlan(ap);
         }
 
-        public async Task<ActionPlanDto> CreateActionPlanAsync(string userId, CreateActionPlanDto dto)
+        public async Task<ActionPlanDto> CreateActionPlanAsync(string userId, int? societeId, CreateActionPlanDto dto)
         {
-            var ap = new ActionPlan { UserId = userId };
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour creer un plan d'action.");
+
+            var ap = new ActionPlan { UserId = userId, SocieteId = societeId };
             ApplyDto(ap, dto);
             _db.ActionPlans.Add(ap);
             await _db.SaveChangesAsync();
             return MapActionPlan(ap);
         }
 
-        public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, UpdateActionPlanDto dto)
+        public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, int? societeId, UpdateActionPlanDto dto)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             if (ap is null) return null;
             ApplyDto(ap, dto);
+            if (!ap.SocieteId.HasValue && societeId.HasValue)
+            {
+                ap.SocieteId = societeId;
+            }
             ap.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return MapActionPlan(ap);
         }
 
-        public async Task<bool> DeleteActionPlanAsync(int id, string userId)
+        public async Task<bool> DeleteActionPlanAsync(int id, string userId, int? societeId)
         {
             var ap = await _db.ActionPlans
-                .FirstOrDefaultAsync(a => a.Id.Equals(id) && a.UserId == userId);
+                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             if (ap is null) return false;
             _db.ActionPlans.Remove(ap);
             await _db.SaveChangesAsync();
@@ -293,7 +331,7 @@ namespace backend.Infrastructure.Services
 
         // ── DASHBOARD ─────────────────────────────────────────────────────────
 
-        public async Task<List<ClauseDashboardDto>> GetDashboardAsync(string userId)
+        public async Task<List<ClauseDashboardDto>> GetDashboardAsync(string userId, int? societeId)
         {
             var clauses = await _db.IsoClauses
                 .Include(c => c.SubClauses)
@@ -303,10 +341,12 @@ namespace backend.Infrastructure.Services
 
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
+                .Where(cs => societeId.HasValue && cs.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var actionPlans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .ToListAsync();
 
             return clauses.Select(c =>
@@ -345,14 +385,16 @@ namespace backend.Infrastructure.Services
 
         // ── GLOBAL STATS ──────────────────────────────────────────────────────
 
-        public async Task<GlobalStatsDto> GetGlobalStatsAsync(string userId)
+        public async Task<GlobalStatsDto> GetGlobalStatsAsync(string userId, int? societeId)
         {
             var conformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
+                .Where(cs => societeId.HasValue && cs.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var plans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
+                .Where(ap => societeId.HasValue && ap.SocieteId == societeId.Value)
                 .ToListAsync();
 
             var totalClauses = await _db.IsoClauses
@@ -443,11 +485,12 @@ namespace backend.Infrastructure.Services
 
         // ── CONFORMITY PROOFS ─────────────────────────────────────────────────
 
-        public async Task<List<ConformityProofDto>> GetConformityProofsAsync(int subClauseId, string userId)
+        public async Task<List<ConformityProofDto>> GetConformityProofsAsync(int subClauseId, string userId, int? societeId)
         {
             var proofs = await _db.ConformityProofs
                 .Include(p => p.Files)
                 .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
@@ -455,16 +498,25 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<ConformityProofDto> UpsertConformityProofAsync(
-            int subClauseId, string userId, UpsertConformityProofDto dto)
+            int subClauseId, string userId, int? societeId, UpsertConformityProofDto dto)
         {
+            if (!societeId.HasValue || societeId.Value <= 0)
+                throw new InvalidOperationException("SocieteId obligatoire pour enregistrer une preuve.");
+
             var proof = await _db.ConformityProofs
                 .Include(p => p.Files)
-                .FirstOrDefaultAsync(p => p.IsoClauseId == subClauseId && p.UserId == userId);
+                .Where(p => p.IsoClauseId == subClauseId && p.UserId == userId)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
 
             if (proof is null)
             {
-                proof = new ConformityProof { IsoClauseId = subClauseId, UserId = userId };
+                proof = new ConformityProof { IsoClauseId = subClauseId, UserId = userId, SocieteId = societeId };
                 _db.ConformityProofs.Add(proof);
+            }
+            else if (!proof.SocieteId.HasValue && societeId.HasValue)
+            {
+                proof.SocieteId = societeId;
             }
 
             proof.Description = dto.Description;
@@ -474,24 +526,62 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
-            int proofId, string userId, IFormFile file, string? description)
+            int proofId, string userId, int? societeId, IFormFile file, string? description, string? documentType = null)
         {
-            // Vérifier que la preuve appartient à cet utilisateur
             var proof = await _db.ConformityProofs
-                .FirstOrDefaultAsync(p => p.Id == proofId && p.UserId == userId)
+                .Where(p => p.Id == proofId && p.UserId == userId)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Preuve introuvable.");
 
-            var content = await ReadAndValidateAsync(file);
+            var clauseReference = await _db.IsoClauses
+                .Where(c => c.Id == proof.IsoClauseId)
+                .Select(c => c.Number)
+                .FirstOrDefaultAsync();
+
+            var documentationDocument = await _documentationProofLinkService.FindOrCreateFromFormFileAndLinkAsync(
+                file,
+                userId,
+                clauseReference,
+                controleReference: null,
+                description,
+                requestedType: documentType,
+                sourceModule: "Clause",
+                controleDomaine: null,
+                CancellationToken.None);
+
+            var existingLink = await _db.FileAttachments
+                .FirstOrDefaultAsync(x =>
+                    x.ConformityProofId == proofId
+                    && x.UserId == userId
+                    && x.DocumentationDocumentId == documentationDocument.Id);
+
+            if (existingLink is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(description))
+                {
+                    existingLink.Description = description.Trim();
+                    existingLink.UploadedAt = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+
+                return MapFile(existingLink);
+            }
 
             var attachment = new FileAttachment
             {
                 UserId = userId,
+                SocieteId = proof.SocieteId,
                 ConformityProofId = proofId,
-                OriginalName = Path.GetFileName(file.FileName),
-                ContentType = file.ContentType,
-                FileSize = file.Length,
+                DocumentationDocumentId = documentationDocument.Id,
+                OriginalName = documentationDocument.OriginalFileName ?? Path.GetFileName(file.FileName),
+                ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                    ? GuessContentTypeFromFileName(documentationDocument.OriginalFileName ?? file.FileName)
+                    : file.ContentType,
+                FileSize = documentationDocument.FileSizeBytes ?? file.Length,
                 Description = description,
-                Content = content,        // ← stocké en base
+                // Pas de duplication binaire: le fichier reste centralise dans Documentation.
+                Content = Array.Empty<byte>(),
                 UploadedAt = DateTime.UtcNow,
             };
 
@@ -500,12 +590,12 @@ namespace backend.Infrastructure.Services
             return MapFile(attachment);
         }
 
-        public async Task<bool> DeleteConformityProofFileAsync(int fileId, string userId)
+        public async Task<bool> DeleteConformityProofFileAsync(int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId
-                                       && x.UserId == userId
-                                       && x.ConformityProofId != null);
+                .Where(x => x.Id == fileId && x.UserId == userId && x.ConformityProofId != null)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             if (f is null) return false;
 
             _db.FileAttachments.Remove(f);
@@ -515,10 +605,11 @@ namespace backend.Infrastructure.Services
 
         // ── ACTION PLAN DOCUMENTS ─────────────────────────────────────────────
 
-        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId)
+        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId, int? societeId)
         {
             var files = await _db.FileAttachments
                 .Where(f => f.ActionPlanId == planId && f.UserId == userId)
+                .Where(f => societeId.HasValue && f.SocieteId == societeId.Value)
                 .OrderByDescending(f => f.UploadedAt)
                 // On ne charge PAS Content ici pour éviter de ramener des Mo inutilement
                 .Select(f => new FileAttachment
@@ -539,10 +630,12 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<FileAttachmentDto> UploadActionPlanFileAsync(
-            int planId, string userId, IFormFile file, string? description)
+            int planId, string userId, int? societeId, IFormFile file, string? description)
         {
             var plan = await _db.ActionPlans
-                .FirstOrDefaultAsync(p => p.Id.Equals(planId) && p.UserId == userId)
+                .Where(p => p.Id.Equals(planId) && p.UserId == userId)
+                .Where(p => societeId.HasValue && p.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException("Plan d'action introuvable.");
 
             var content = await ReadAndValidateAsync(file);
@@ -550,6 +643,7 @@ namespace backend.Infrastructure.Services
             var attachment = new FileAttachment
             {
                 UserId = userId,
+                SocieteId = plan.SocieteId,
                 ActionPlanId = planId,
                 OriginalName = Path.GetFileName(file.FileName),
                 ContentType = file.ContentType,
@@ -564,12 +658,12 @@ namespace backend.Infrastructure.Services
             return MapFile(attachment);
         }
 
-        public async Task<bool> DeleteActionPlanFileAsync(int fileId, string userId)
+        public async Task<bool> DeleteActionPlanFileAsync(int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId
-                                       && x.UserId == userId
-                                       && x.ActionPlanId != null);
+                .Where(x => x.Id == fileId && x.UserId == userId && x.ActionPlanId != null)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
             if (f is null) return false;
 
             _db.FileAttachments.Remove(f);
@@ -581,15 +675,56 @@ namespace backend.Infrastructure.Services
         // Charge uniquement la ligne demandée, avec le contenu binaire.
 
         public async Task<(byte[] content, string contentType, string fileName)?> DownloadFileAsync(
-            int fileId, string userId)
+            int fileId, string userId, int? societeId)
         {
             var f = await _db.FileAttachments
-                .FirstOrDefaultAsync(x => x.Id == fileId && x.UserId == userId);
+                .Where(x => x.Id == fileId && x.UserId == userId)
+                .Where(x => societeId.HasValue && x.SocieteId == societeId.Value)
+                .FirstOrDefaultAsync();
 
-            if (f is null || f.Content.Length == 0) return null;
+            if (f is null) return null;
 
-            return (f.Content, f.ContentType, f.OriginalName);
+            if (f.DocumentationDocumentId.HasValue)
+            {
+                var doc = await _db.DocumentationDocuments
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == f.DocumentationDocumentId.Value);
+
+                var absolutePath = ResolveAbsoluteDocumentPath(doc?.FilePath);
+                if (!string.IsNullOrWhiteSpace(absolutePath) && File.Exists(absolutePath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(absolutePath);
+                    var fileName = string.IsNullOrWhiteSpace(doc?.OriginalFileName) ? f.OriginalName : doc!.OriginalFileName!;
+                    var contentType = GuessContentTypeFromFileName(fileName);
+                    return (bytes, contentType, fileName);
+                }
+            }
+
+            if (f.Content.Length == 0) return null;
+
+            return (f.Content, string.IsNullOrWhiteSpace(f.ContentType) ? GuessContentTypeFromFileName(f.OriginalName) : f.ContentType, f.OriginalName);
+        }
+
+        private string? ResolveAbsoluteDocumentPath(string? storedPath)
+        {
+            if (string.IsNullOrWhiteSpace(storedPath)) return null;
+            if (Path.IsPathRooted(storedPath)) return storedPath;
+
+            var relative = storedPath.Trim().TrimStart('~').TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var webRoot = _env.WebRootPath;
+            if (string.IsNullOrWhiteSpace(webRoot))
+                webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+
+            return Path.Combine(webRoot, relative);
+        }
+
+        private static string GuessContentTypeFromFileName(string? fileName)
+        {
+            if (!string.IsNullOrWhiteSpace(fileName) && _contentTypeProvider.TryGetContentType(fileName, out var mime))
+                return mime;
+            return "application/octet-stream";
         }
 
     }
 }
+

@@ -8,7 +8,7 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
-[Authorize]
+[Authorize(Policy = "SmSiSocieteScope")]
 public class ClauseFileController : ControllerBase
 {
     private readonly IClauseService _svc;
@@ -17,17 +17,26 @@ public class ClauseFileController : ControllerBase
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? User.FindFirstValue("sub") ?? "";
 
-    // ══════════════════════════════════════════════════════════════════════════
+    private int? CurrentSocieteId
+    {
+        get
+        {
+            var value = User.FindFirstValue("SocieteId");
+            return int.TryParse(value, out var parsed) ? parsed : null;
+        }
+    }
+
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // CONFORMITY PROOFS
-    // ══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("proofs/{subClauseId:int}")]
     public async Task<IActionResult> GetProofs(int subClauseId)
-        => Ok(await _svc.GetConformityProofsAsync(subClauseId, UserId));
+        => Ok(await _svc.GetConformityProofsAsync(subClauseId, UserId, CurrentSocieteId));
 
     [HttpPost("proofs")]
     public async Task<IActionResult> UpsertProof([FromBody] UpsertConformityProofDto dto)
-        => Ok(await _svc.UpsertConformityProofAsync(dto.IsoClauseId, UserId, dto));
+        => Ok(await _svc.UpsertConformityProofAsync(dto.IsoClauseId, UserId, CurrentSocieteId, dto));
 
     [HttpPost("proofs/{proofId:int}/files")]
     [RequestSizeLimit(25 * 1024 * 1024)]
@@ -37,7 +46,7 @@ public class ClauseFileController : ControllerBase
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadConformityProofFileAsync(proofId, UserId, file, description));
+            return Ok(await _svc.UploadConformityProofFileAsync(proofId, UserId, CurrentSocieteId, file, description));
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
@@ -45,15 +54,15 @@ public class ClauseFileController : ControllerBase
 
     [HttpDelete("proofs/files/{fileId:int}")]
     public async Task<IActionResult> DeleteProofFile(int fileId)
-        => await _svc.DeleteConformityProofFileAsync(fileId, UserId) ? NoContent() : NotFound();
+        => await _svc.DeleteConformityProofFileAsync(fileId, UserId, CurrentSocieteId) ? NoContent() : NotFound();
 
-    // ══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ACTION PLAN DOCUMENTS
-    // ══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("plans/{planId:int}/files")]
     public async Task<IActionResult> GetPlanFiles(int planId)
-        => Ok(await _svc.GetActionPlanFilesAsync(planId, UserId));
+        => Ok(await _svc.GetActionPlanFilesAsync(planId, UserId, CurrentSocieteId));
 
     [HttpPost("plans/{planId:int}/files")]
     [RequestSizeLimit(25 * 1024 * 1024)]
@@ -63,7 +72,7 @@ public class ClauseFileController : ControllerBase
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadActionPlanFileAsync(planId, UserId, file, description));
+            return Ok(await _svc.UploadActionPlanFileAsync(planId, UserId, CurrentSocieteId, file, description));
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
@@ -71,21 +80,21 @@ public class ClauseFileController : ControllerBase
 
     [HttpDelete("plans/files/{fileId:int}")]
     public async Task<IActionResult> DeletePlanFile(int fileId)
-        => await _svc.DeleteActionPlanFileAsync(fileId, UserId) ? NoContent() : NotFound();
+        => await _svc.DeleteActionPlanFileAsync(fileId, UserId, CurrentSocieteId) ? NoContent() : NotFound();
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // DOWNLOAD — lit le contenu depuis la base, aucun fichier disque
-    // ══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // DOWNLOAD â€” lit le contenu depuis la base, aucun fichier disque
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     [HttpGet("files/{fileId:int}/download")]
     public async Task<IActionResult> Download(int fileId)
     {
-        var result = await _svc.DownloadFileAsync(fileId, UserId);
+        var result = await _svc.DownloadFileAsync(fileId, UserId, CurrentSocieteId);
         if (result is null) return NotFound();
 
         var (content, contentType, fileName) = result.Value;
 
-        // Content-Disposition: attachment → force le téléchargement côté navigateur
+        // Content-Disposition: attachment â†’ force le tÃ©lÃ©chargement cÃ´tÃ© navigateur
         Response.Headers.Append(
             "Content-Disposition",
             $"attachment; filename=\"{Uri.EscapeDataString(fileName)}\"");

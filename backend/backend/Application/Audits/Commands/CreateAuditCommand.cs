@@ -15,10 +15,14 @@ public class CreateAuditCommand
     private readonly AppDbContext _db;
     public CreateAuditCommand(AppDbContext db) => _db = db;
 
-    public async Task<AuditDto> ExecuteAsync(CreateAuditDto dto)
+    public async Task<AuditDto> ExecuteAsync(CreateAuditDto dto, int? societeId)
     {
+        if (!societeId.HasValue || societeId.Value <= 0)
+            throw new InvalidOperationException("SocieteId obligatoire pour creer un audit.");
+
         var audit = new Audit
         {
+            SocieteId = societeId.Value,
             Title = dto.Title,
             Type = dto.Type,
             Status = dto.Status,
