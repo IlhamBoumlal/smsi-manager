@@ -15,9 +15,12 @@ public class GetDocumentFichierQueryHandler : IRequestHandler<GetDocumentFichier
 
     public async Task<DocumentFichierDto?> Handle(GetDocumentFichierQuery request, CancellationToken ct)
     {
+        if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
+            return null;
+
         var doc = await _ctx.Documents
             .Where(d => d.Id == request.DocumentId)
-            .Where(d => request.SocieteId.HasValue ? d.SocieteId == request.SocieteId.Value : d.SocieteId == null)
+            .Where(d => d.SocieteId == request.SocieteId.Value)
             .Select(d => new DocumentFichierDto(d.FichierData!, d.FichierType, d.FichierNom))
             .FirstOrDefaultAsync(ct);
         return doc;

@@ -30,19 +30,19 @@ namespace backend.Application.Dashboard.Queries.GetGlobalDashboard
         public async Task<GlobalDashboardDto> Handle(GetGlobalDashboardQuery request, CancellationToken ct)
         {
             var users = (await _userRepository.GetAllWithSocieteAsync())
-                .Where(u => request.CurrentSocieteId.HasValue ? u.SocieteId == request.CurrentSocieteId.Value || u.SocieteId == null : u.SocieteId == null)
+                .Where(u => request.CurrentSocieteId.HasValue && u.SocieteId == request.CurrentSocieteId.Value)
                 .ToList();
             var societes = (await _societeRepository.GetAllAsync())
-                .Where(s => request.CurrentSocieteId.HasValue ? s.Id == request.CurrentSocieteId.Value : true)
+                .Where(s => request.CurrentSocieteId.HasValue && s.Id == request.CurrentSocieteId.Value)
                 .ToList();
             var holdings = (await _holdingRepository.GetAllAsync())
-                .Where(h => request.CurrentSocieteId.HasValue ? h.Societes.Any(s => s.Id == request.CurrentSocieteId.Value) : true)
+                .Where(h => request.CurrentSocieteId.HasValue && h.Societes.Any(s => s.Id == request.CurrentSocieteId.Value))
                 .ToList();
             var actifs = (await _actifRepository.GetAllAsync())
-                .Where(a => request.CurrentSocieteId.HasValue ? a.SocieteId == request.CurrentSocieteId.Value || a.SocieteId == null : a.SocieteId == null)
+                .Where(a => request.CurrentSocieteId.HasValue && a.SocieteId == request.CurrentSocieteId.Value)
                 .ToList();
             var controles = (await _controleRepository.GetAllAsync())
-                .Where(c => request.CurrentSocieteId.HasValue ? c.SocieteId == request.CurrentSocieteId.Value || c.SocieteId == null : c.SocieteId == null)
+                .Where(c => request.CurrentSocieteId.HasValue && c.SocieteId == request.CurrentSocieteId.Value)
                 .ToList();
 
             var totalControles = controles.Count;

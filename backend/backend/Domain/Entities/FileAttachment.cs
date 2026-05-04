@@ -1,13 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace backend.Domain.Entities
 {
     /// <summary>
-    /// Pièce jointe dont le contenu binaire est stocké directement en base de données.
-    /// Pas de système de fichiers requis — fonctionne sur tout hébergement stateless.
-    ///
-    /// Lié soit à une ConformityProof (preuve de conformité),
-    /// soit à un ActionPlan (document justificatif).
+    /// Piece jointe stockee en base de donnees.
+    /// Liee soit a une ConformityProof, soit a un ActionPlan, et optionnellement a DocumentationDocument.
     /// </summary>
     public class FileAttachment
     {
@@ -16,27 +13,26 @@ namespace backend.Domain.Entities
         public int? SocieteId { get; set; }
         public string UserId { get; set; } = "";
 
-        // ── LIENS (l'un ou l'autre est renseigné) ────────────────────────────
+        // Liens
         public int? ConformityProofId { get; set; }
         public int? ActionPlanId { get; set; }
+        public Guid? DocumentationDocumentId { get; set; }
 
-        // ── MÉTADONNÉES ───────────────────────────────────────────────────────
+        // Metadonnees
         [MaxLength(255)] public string OriginalName { get; set; } = "";
         [MaxLength(100)] public string ContentType { get; set; } = "";
         public long FileSize { get; set; }
         [MaxLength(200)] public string? Description { get; set; }
 
-        // ── CONTENU BINAIRE ───────────────────────────────────────────────────
-        // SQL Server  → varbinary(max)
-        // PostgreSQL  → bytea
-        // SQLite      → BLOB
+        // Contenu binaire
         public byte[] Content { get; set; } = Array.Empty<byte>();
 
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
-        // ── NAVIGATION ────────────────────────────────────────────────────────
+        // Navigation
         public ConformityProof? ConformityProof { get; set; }
         public ActionPlan? ActionPlan { get; set; }
+        public DocumentationDocument? DocumentationDocument { get; set; }
         public Societe? Societe { get; set; }
     }
 }

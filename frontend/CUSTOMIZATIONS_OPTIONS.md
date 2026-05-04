@@ -1,4 +1,4 @@
-# 🎨 CUSTOMISATIONS ET EXTENSIONS
+# ðŸŽ¨ CUSTOMISATIONS ET EXTENSIONS
 
 ## Options de Personnalisation
 
@@ -203,7 +203,7 @@ border: '2px solid #667eea',
   title="Cliquez pour voir la traçabilité"
   onClick={() => setShowTraceability(!showTraceability)}
 >
-  🕐 Info
+  ðŸ• Info
 </button>
 {showTraceability && <TraceabilityBanner ctrl={ctrl} />}
 ```
@@ -278,7 +278,7 @@ const isRecent = new Date() - new Date(ctrl.dateModification) < 86400000; // < 2
   borderRadius: 4,
   fontSize: 11
 }}>
-  {isRecent ? '🔥' : '🕐'} {formatDate(ctrl.dateModification)}
+  {isRecent ? 'ðŸ”¥' : 'ðŸ•'} {formatDate(ctrl.dateModification)}
 </span>
 ```
 
@@ -404,7 +404,7 @@ function exportTraceability() {
   a.click();
 }
 
-<button onClick={exportTraceability}>📥 Exporter audit</button>
+<button onClick={exportTraceability}>ðŸ“¥ Exporter audit</button>
 ```
 
 **Export JSON** :
@@ -524,7 +524,7 @@ useEffect(() => {
 
 ---
 
-## 🎯 Cas d'Usage Courants
+## ðŸŽ¯ Cas d'Usage Courants
 
 **"Je veux voir qui a modifié récemment"**
 → Ajouter tri par date décroissante
@@ -543,4 +543,4 @@ useEffect(() => {
 
 ---
 
-Choisissez les customisations qui vous conviennent ! 🎨
+Choisissez les customisations qui vous conviennent ! ðŸŽ¨

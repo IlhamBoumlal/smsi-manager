@@ -1,4 +1,6 @@
-ï»¿using backend.Domain.Interfaces;
+using backend.Application.Security;
+using backend.Domain.Entities;
+using backend.Domain.Interfaces;
 using MediatR;
 
 namespace backend.Application.Users.Commands.UpdateUser
@@ -24,13 +26,28 @@ namespace backend.Application.Users.Commands.UpdateUser
             var user = await _userRepo.GetByIdAsync(req.UserId);
             if (user == null) return (false, "Utilisateur introuvable.");
 
-            var societe = await _societeRepo.GetByIdAsync(req.SocieteId);
-            if (societe == null) return (false, "SociÃ©tÃ© introuvable.");
+            var role = await _roleRepo.GetByIdAsync(req.RoleId);
+            if (role == null || string.IsNullOrWhiteSpace(role.Name))
+                return (false, "Rôle introuvable.");
+
+            var targetRole = AppRoles.ResolveCanonicalRoleName(role.Name, req.SocieteId);
+            if (!AppRoles.IsFinalRole(targetRole))
+                return (false, "Rôle non autorisé.");
+
+            Societe? societe = null;
+            if (AppRoles.IsSocieteRequiredRole(targetRole))
+            {
+                if (!req.SocieteId.HasValue)
+                    return (false, "Societe obligatoire pour ce rôle.");
+
+                societe = await _societeRepo.GetByIdAsync(req.SocieteId.Value);
+                if (societe == null) return (false, "Société introuvable.");
+            }
 
             user.NomComplet = req.NomComplet;
             user.Email = req.Email;
             user.UserName = req.Email;
-            user.SocieteId = req.SocieteId;
+            user.SocieteId = societe?.Id;
             user.IsActive = req.IsActive;
 
             var updateResult = await _userRepo.UpdateAsync(user);
@@ -38,11 +55,12 @@ namespace backend.Application.Users.Commands.UpdateUser
                 return (false, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
 
             var currentRoles = await _userRepo.GetRolesAsync(user);
-            await _userRepo.RemoveFromRolesAsync(user, currentRoles);
+            if (currentRoles.Count > 0)
+            {
+                await _userRepo.RemoveFromRolesAsync(user, currentRoles);
+            }
 
-            var role = await _roleRepo.GetByIdAsync(req.RoleId);
-            if (role != null)
-                await _userRepo.AddToRoleAsync(user, role.Name!);
+            await _userRepo.AddToRoleAsync(user, targetRole);
 
             if (!string.IsNullOrEmpty(req.Password))
             {

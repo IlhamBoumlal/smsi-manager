@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Encodings.Web;
+using System.Text.Json.Serialization;
 
 namespace backend.Application.Controles.Queries.GetControleById;
 
@@ -25,32 +26,15 @@ public class GetControleByIdHandler : IRequestHandler<GetControleByIdQuery, Cont
 
     public async Task<ControleDto?> Handle(GetControleByIdQuery request, CancellationToken cancellationToken)
     {
-        if (request.SocieteId.HasValue)
-        {
-            await EnsureSocieteControlesAsync(request.SocieteId.Value, cancellationToken);
-        }
+        if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
+            return null;
 
-        // 1. On récupère l'entité depuis la base de données avec filtrage par société
+        await EnsureSocieteControlesAsync(request.SocieteId.Value, cancellationToken);
+
         var entite = await _context.Controles
             .AsNoTracking()
-            .Where(c => c.Id == request.Id && (!request.SocieteId.HasValue ? c.SocieteId == null : c.SocieteId == request.SocieteId.Value))
+            .Where(c => c.Id == request.Id && c.SocieteId == request.SocieteId.Value)
             .FirstOrDefaultAsync(cancellationToken);
-
-        // Si pas trouvé et que c'est pour une société, essayer de trouver par code depuis le contrôle global
-        if (entite == null && request.SocieteId.HasValue)
-        {
-            var controleGlobal = await _context.Controles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == request.Id && c.SocieteId == null, cancellationToken);
-
-            if (controleGlobal != null)
-            {
-                // Chercher le contrôle équivalent pour cette société par code
-                entite = await _context.Controles
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Code == controleGlobal.Code && c.SocieteId == request.SocieteId.Value, cancellationToken);
-            }
-        }
 
         if (entite == null) return null;
 
@@ -97,11 +81,7 @@ public class GetControleByIdHandler : IRequestHandler<GetControleByIdQuery, Cont
         if (hasControles)
             return;
 
-        var templates = await _context.Controles
-            .AsNoTracking()
-            .Where(c => c.SocieteId == null)
-            .OrderBy(c => c.Code)
-            .ToListAsync(cancellationToken);
+        var templates = await LoadControleTemplatesAsync(cancellationToken);
 
         if (!templates.Any())
             return;
@@ -133,5 +113,60 @@ public class GetControleByIdHandler : IRequestHandler<GetControleByIdQuery, Cont
 
         await _context.Controles.AddRangeAsync(clones, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task<List<backend.Domain.Entities.Controle>> LoadControleTemplatesAsync(CancellationToken cancellationToken)
+    {
+        var candidatePaths = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "controles.json"),
+            Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
+            Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json")
+        };
+
+        var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
+        if (string.IsNullOrWhiteSpace(jsonPath))
+            return [];
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        var jsonContent = await File.ReadAllTextAsync(jsonPath, cancellationToken);
+        var dtos = JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
+        if (dtos is null || dtos.Count == 0)
+            return [];
+
+        return dtos
+            .OrderBy(dto => dto.Code)
+            .Select(dto => new backend.Domain.Entities.Controle
+            {
+                Code = dto.Code,
+                Titre = dto.Titre,
+                Description = dto.Description,
+                Domaine = dto.Domaine,
+                Applicable = dto.Applicable,
+                RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
+                    ? JsonSerializer.Serialize(dto.RaisonsApplicabilite)
+                    : null,
+                RaisonExclusion = dto.RaisonExclusion,
+                Statut = dto.Statut,
+                JustificationConformite = dto.JustificationConformite,
+                Remarque = dto.Remarque,
+                Preuves = dto.Preuves,
+                Steps = dto.Steps != null ? JsonSerializer.Serialize(dto.Steps) : null,
+                Priorite = dto.Priorite,
+                StatutPlan = dto.StatutPlan,
+                ResponsablePlan = dto.ResponsablePlan,
+                DateEcheance = dto.DateEcheance,
+                DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
+                DernierModificateurId = dto.DernierModificateurId,
+                DernierModificateurNom = dto.DernierModificateurNom
+            })
+            .ToList();
     }
 }

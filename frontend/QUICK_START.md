@@ -1,6 +1,6 @@
 # ⚡ QUICK START - Traçabilité Contrôles
 
-## 🎯 En 60 secondes
+## ðŸŽ¯ En 60 secondes
 
 ### ✅ Qu'est-ce qui a été fait (Frontend)
 - ✓ Capture **date + utilisateur** à chaque modification
@@ -83,7 +83,7 @@ public string? CreePar { get; set; }
 
 ---
 
-## 🧪 Test Rapide
+## ðŸ§ª Test Rapide
 
 ### Avec Postman/Insomnia
 ```
@@ -165,7 +165,7 @@ Migrations/
 
 ---
 
-## 📱 Affichage Frontend
+## ðŸ“± Affichage Frontend
 
 ### Liste des Contrôles
 ```
@@ -219,7 +219,7 @@ Migrations/
 
 ---
 
-## 🎬 Prochain Pas
+## ðŸŽ¬ Prochain Pas
 
 1. [ ] Implémenter backend (30 min)
 2. [ ] Tester API avec Postman (5 min)
@@ -230,7 +230,7 @@ Migrations/
 
 ---
 
-## 💬 Questions ?
+## ðŸ’¬ Questions ?
 
 **Q: Du texte multi-ligne ?**
 A: Voir `BACKEND_IMPLEMENTATION_GUIDE.md` section "Historique complet"
@@ -243,4 +243,4 @@ A: Ajouter WHERE dans le contrôleur si besoin
 
 ---
 
-Good luck! 🚀
+Good luck! ðŸš€

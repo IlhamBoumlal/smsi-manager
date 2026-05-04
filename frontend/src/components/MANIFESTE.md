@@ -1,4 +1,4 @@
-# 🎯 MANIFESTE - Restructuration des Composants
+# ðŸŽ¯ MANIFESTE - Restructuration des Composants
 
 **Date** : Avril 2026  
 **Statut** : ✅ COMPLÉTÉ  
@@ -80,7 +80,7 @@ Fichier très long (1400+ lignes)
 | Fichier | Lignes | Audience | Contenu Clé |
 |---------|--------|----------|-------------|
 | **README_STRUCTURE.md** | 350 | Architectes | Architecture détaillée, flux données, interfaces |
-| **GUIDE_PRATIQUE.md** | 400 | Développeurs | 8 tâches courantes, dépannage, tests |
+| **GUIDE_PRATIQUE.md** | 400 | Developpeurs | 8 taches courantes, depannage, tests |
 | **CONVENTIONS.md** | 300 | Mainteneurs | Patterns React, JSDoc, checklist révision |
 | **INDEX.md** | 200 | Tous | Navigation, points d'entrée, Q&A rapide |
 
@@ -103,11 +103,11 @@ Documentation Ratio :
 
 ### Maintenabilité
 ```
-Avant : Temps moyen pour une tâche = 30-40 min
+Avant : Temps moyen pour une tache = 30-40 min
 Après : Temps moyen estimé = 10-15 min
 
 Réduction : ~60% du temps
-Couverture : 8 tâches courantes documentées
+Couverture : 8 taches courantes documentees
 ```
 
 ### Onboarding
@@ -115,7 +115,7 @@ Couverture : 8 tâches courantes documentées
 Avant : "Lire le code" (2-3 jours)
 Après : 
   - Acquis rapides (40 min via README_STRUCTURE)
-  - Tâches guidées (via GUIDE_PRATIQUE)
+  - Taches guidees (via GUIDE_PRATIQUE)
   - Références (via CONVENTIONS)
 
 Temps réduit : >50%
@@ -154,7 +154,7 @@ Temps réduit : >50%
 
 4. **GUIDE_PRATIQUE.md** (400 lignes)
    - Démarrage rapide (2 exemples)
-   - 8 tâches courantes avec code
+   - 8 taches courantes avec code
    - Dépannage : 5 problèmes + solutions
    - Tests manuels et automatisés
    - Améliorations futures (5 suggestions)
@@ -180,11 +180,11 @@ Temps réduit : >50%
 
 ---
 
-## 🎓 Guide d'Utilisation
+## ðŸŽ“ Guide d'Utilisation
 
-### Pour une Tâche Simple (< 15 min)
+### Pour une Tache Simple (< 15 min)
 ```
-GUIDE_PRATIQUE.md → Section "Tâches Courantes"
+GUIDE_PRATIQUE.md ? Section "Taches Courantes"
 ```
 
 ### Pour Comprendre l'Architecture
@@ -252,9 +252,9 @@ INDEX.md → Références Croisées ou Support Rapide
 | Métrique | Avant | Cible | Actuel |
 |----------|-------|-------|--------|
 | Temps onboarding nouveau dev | 2-3 jours | 2-4 heures | ✅ |
-| Temps moyen tâche | 30-40 min | 10-15 min | ✅ |
+| Temps moyen tache | 30-40 min | 10-15 min | ? |
 | % du code commenté | ~5% | 20%+ | ✅ 25% |
-| Tâches documentées | 0 | 8+ | ✅ 8 |
+| Taches documentees | 0 | 8+ | ? 8 |
 | Erreurs de maintenance | Fréquentes | Rares | À mesurer |
 
 ---
@@ -272,7 +272,7 @@ Avant de clorer ce projet :
 
 ---
 
-## 📝 Sign-Off
+## ðŸ“ Sign-Off
 
 |  Rôle |Nom | Date | Signature |
 |-------|----|----- |-----------|
@@ -282,16 +282,16 @@ Avant de clorer ce projet :
 
 ---
 
-## 📞 Points de Contact
+## ðŸ“ž Points de Contact
 
 - **Questions architecture** → Voir README_STRUCTURE.md
-- **Questions tâches** → Voir GUIDE_PRATIQUE.md
+- **Questions taches** ? Voir GUIDE_PRATIQUE.md
 - **Questions code** → Voir CONVENTIONS.md
 - **Besoin d'aide rapide** → Voir INDEX.md
 
 ---
 
-## 🎁 Livrables
+## ðŸŽ Livrables
 
 ```
 ✅ Controles.jsx (restructuré + commenté)
@@ -305,7 +305,7 @@ Avant de clorer ce projet :
 
 **Total** : 2 fichiers modifiés + 5 nouveaux fichiers  
 **Documentation totale** : ~1250 lignes  
-**Couverture** : 100% des composants et 8 tâches courantes
+**Couverture** : 100% des composants et 8 taches courantes
 
 ---
 

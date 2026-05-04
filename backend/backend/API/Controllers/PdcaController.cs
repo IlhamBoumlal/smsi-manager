@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = "SmSiSocieteScope")]
 [ApiController]
 [Route("api/pdca")]
 public class PdcaController : ControllerBase

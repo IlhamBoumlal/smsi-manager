@@ -419,7 +419,7 @@ controle.DateModification = command.DateModification;
 
 ---
 
-## 📋 Checklist Backend
+## ðŸ“‹ Checklist Backend
 
 - [ ] Ajouter les 4 propriétés au modèle `Controle`
 - [ ] Créer et appliquer la migration EF Core
@@ -434,7 +434,7 @@ controle.DateModification = command.DateModification;
 
 ---
 
-## 🔗 Liens Utiles
+## ðŸ”— Liens Utiles
 
 - Frontend : `src/components/Controles.jsx`
 - Documentation Frontend : `TRAÇABILITE_MODIFICATIONS.md`

@@ -54,7 +54,7 @@ const DEMO_STUDY = {
       },
       team: [
         { id: 'tm1', role: 'RSSI', name: 'Marie Dupont', responsibility: 'Pilotage de l\'analyse', contact: 'm.dupont@techcorp.fr' },
-        { id: 'tm2', role: 'DSI', name: 'Jean Martin', responsibility: 'Validation architecture', contact: 'j.martin@techcorp.fr' }
+        { id: 'tm2', role: 'Consultant', name: 'Jean Martin', responsibility: 'Validation architecture', contact: 'j.martin@techcorp.fr' }
       ],
       missions: [
         { id: 'm1', name: 'Production logicielle', description: 'Développement et livraison des solutions SaaS' },
@@ -81,7 +81,7 @@ const DEMO_STUDY = {
       status: 'not_started',
       riskSources: [
         { id: 'rs1', name: 'Cybercriminel organisé', type: 'Externe', motivation: 'Gain financier', capability: 3 },
-        { id: 'rs2', name: 'Employé malveillant', type: 'Interne', motivation: 'Vengeance', capability: 2 }
+        { id: 'rs2', name: 'Insider malveillant', type: 'Interne', motivation: 'Vengeance', capability: 2 }
       ],
       targetObjectives: [
         { id: 'ov1', name: 'Exfiltrer les données RH', description: 'Accéder et extraire la BDD clients', fearedEventIds: ['fe1'] },
@@ -274,7 +274,7 @@ export default function GestionRisques() {
                 <span>Atelier {num}</span>
                 {st === 'completed' && <span style={{ color: '#10B981', marginLeft: 6 }}>✓</span>}
                 {st === 'in_progress' && <span style={progressDot} />}
-                {isBlocked && <span style={{ fontSize: 12, marginLeft: 6 }}>🔒</span>}
+                {isBlocked && <span style={{ fontSize: 12, marginLeft: 6 }}>ðŸ”’</span>}
               </button>
             );
           })}
@@ -679,7 +679,7 @@ function Atelier2Content({ study, openSections, toggleSection, setEditModal }) {
                   React.createElement('td', null, React.createElement('button', { style: badgeStyle(p.retained ? 'badge-done' : 'badge-draft') }, p.retained ? '✓ Pertinent' : '✗ Non pertinent')),
                   React.createElement('td', null, escapeHtml(p.justification || '—')),
                   React.createElement('td', null,
-                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
                   )
                 );
               })
@@ -769,7 +769,7 @@ function Atelier3Content({ study, openSections, toggleSection, setEditModal }) {
             ),
             React.createElement('div', { style: { display: 'flex', gap: 7 } },
               React.createElement('span', { style: badgeStyle(`lvl-${ss.gravity}`) }, `G${ss.gravity}`),
-              React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+              React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
             )
           );
         }) : React.createElement('p', { style: emptyText }, 'Aucun scénario stratégique.')
@@ -797,7 +797,7 @@ function Atelier3Content({ study, openSections, toggleSection, setEditModal }) {
                   React.createElement('td', null, React.createElement('span', { style: badgeStyle('badge-inprogress') }, escapeHtml(t.decision))),
                   React.createElement('td', null, escapeHtml(t.justification || '—')),
                   React.createElement('td', null,
-                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
                   )
                 );
               })
@@ -853,7 +853,7 @@ function Atelier4Content({ study, openSections, toggleSection, setEditModal }) {
             React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
               (m.technics || []).map(t => React.createElement('span', { key: t, style: tagStyle }, escapeHtml(t))),
               React.createElement('button', { style: iconBtn, onClick: () => setEditModal({ open: true, type: 'operationalMode', data: m }) }, '✏️'),
-              React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+              React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
             )
           );
         }) : React.createElement('p', { style: emptyText }, 'Aucun mode opératoire.')
@@ -870,7 +870,7 @@ function Atelier4Content({ study, openSections, toggleSection, setEditModal }) {
               React.createElement('div', { style: itemName }, escapeHtml(so.name)),
               React.createElement('div', { style: { display: 'flex', gap: 7 } },
                 React.createElement('span', { style: badgeStyle(`lvl-${so.likelihood}`) }, `V${so.likelihood}`),
-                React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
               )
             ),
             React.createElement('div', { style: { fontSize: 12, color: T.gray400 } }, `Scénario stratégique : ${escapeHtml(ss?.name || '?')}`)
@@ -947,7 +947,7 @@ function Atelier5Content({ study, openSections, toggleSection, setEditModal }) {
                   React.createElement('td', null, React.createElement('span', { style: badgeStyle(rl.cls) }, rl.label)),
                   React.createElement('td', null, escapeHtml(r.treatment)),
                   React.createElement('td', null,
-                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
                   )
                 );
               })
@@ -981,7 +981,7 @@ function Atelier5Content({ study, openSections, toggleSection, setEditModal }) {
                     React.createElement('span', { style: badgeStyle({ Critique: 'lvl-4', Haute: 'lvl-3', Moyenne: 'lvl-2', Faible: 'lvl-1' }[m.priority]) }, escapeHtml(m.priority)),
                     React.createElement('button', { style: badgeStyle(m.status === 'Fait' ? 'badge-done' : 'badge-inprogress') }, escapeHtml(m.status)),
                     React.createElement('button', { style: iconBtn, onClick: () => setEditModal({ open: true, type: 'measure', data: m }) }, '✏️'),
-                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
                   )
                 )) : React.createElement('p', { style: emptyTextSmall }, 'Aucune mesure dans cette catégorie.')
               )
@@ -1021,7 +1021,7 @@ function Atelier5Content({ study, openSections, toggleSection, setEditModal }) {
                   React.createElement('td', null, React.createElement('span', { style: badgeStyle(resid.cls) }, resid.label)),
                   React.createElement('td', null, escapeHtml(r.justification || '—')),
                   React.createElement('td', null,
-                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, '🗑')
+                    React.createElement('button', { style: { ...iconBtn, color: '#dc2626' } }, 'ðŸ—‘')
                   )
                 );
               })

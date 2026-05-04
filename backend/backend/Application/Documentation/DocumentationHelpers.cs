@@ -5,7 +5,13 @@ namespace backend.Application.Documentation
 {
     internal static class DocumentationHelpers
     {
-        internal static readonly string[] AllowedExtensions = [".pdf", ".docx", ".xlsx"];
+        internal static readonly string[] AllowedExtensions =
+        [
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".txt", ".csv",
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+            ".zip", ".rar", ".7z"
+        ];
         internal const long MaxFileSizeBytes = 20 * 1024 * 1024;
 
         internal static string NormalizeStatus(string? status)

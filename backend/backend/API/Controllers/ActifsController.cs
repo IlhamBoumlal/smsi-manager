@@ -1,4 +1,4 @@
-﻿using backend.Application.Actifs.Commands.CreateActif;
+using backend.Application.Actifs.Commands.CreateActif;
 using backend.Application.Actifs.Commands.DeleteActif;
 using backend.Application.Actifs.Commands.UpdateActif;
 using backend.Application.Actifs.Queries.GetActifById;
@@ -11,7 +11,7 @@ using System.Security.Claims;
 namespace backend.API.Controllers
 {
 
-    [Authorize]
+    [Authorize(Policy = "SmSiSocieteScope")]
     [ApiController]
     [Route("api/[controller]")]
     public class ActifsController : ControllerBase

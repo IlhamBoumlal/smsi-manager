@@ -27,7 +27,7 @@ namespace backend.Infrastructure.Repositories
         {
             return await _context.RiskStudies
                 .AsNoTracking()
-                .Where(s => societeId.HasValue ? s.SocieteId == societeId.Value || s.SocieteId == null : s.SocieteId == null)
+                .Where(s => societeId.HasValue && s.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
@@ -63,7 +63,7 @@ namespace backend.Infrastructure.Repositories
         public async Task<bool> DeleteAsync(Guid id, int? societeId)
         {
             var existing = await _context.RiskStudies
-                .Where(s => societeId.HasValue ? s.SocieteId == societeId.Value || s.SocieteId == null : s.SocieteId == null)
+                .Where(s => societeId.HasValue && s.SocieteId == societeId.Value)
                 .FirstOrDefaultAsync(s => s.Id == id);
             if (existing is null) return false;
 

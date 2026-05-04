@@ -43,7 +43,7 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
                 return (false, "L'auteur est requis.", null);
 
             if (!DocumentationHelpers.IsAllowedFile(request.File))
-                return (false, "Fichier invalide. Formats autorises: PDF, DOCX, XLSX. Taille max: 20 Mo.", null);
+                return (false, "Fichier invalide. Taille max: 20 Mo.", null);
 
             var requestedVersion = request.Version?.Trim();
             var version = string.IsNullOrWhiteSpace(requestedVersion)
@@ -73,7 +73,8 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
                 UpdatedAt = DateTime.UtcNow,
                 FilePath = existing.FilePath,
                 OriginalFileName = existing.OriginalFileName,
-                FileSizeBytes = existing.FileSizeBytes
+                FileSizeBytes = existing.FileSizeBytes,
+                FileHash = existing.FileHash
             };
 
             if (request.File is not null)
@@ -82,6 +83,7 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
                 updated.FilePath = await _fileStorage.SaveDocumentAsync(request.File);
                 updated.OriginalFileName = request.File.FileName;
                 updated.FileSizeBytes = request.File.Length;
+                updated.FileHash = await DocumentationHashing.ComputeSha256HexAsync(request.File, cancellationToken);
             }
             else if (request.RemoveFile)
             {
@@ -89,6 +91,7 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
                 updated.FilePath = null;
                 updated.OriginalFileName = null;
                 updated.FileSizeBytes = null;
+                updated.FileHash = null;
             }
 
             var saved = await _repository.UpdateAsync(updated);
@@ -126,3 +129,5 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
         }
     }
 }
+
+

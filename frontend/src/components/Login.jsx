@@ -3,9 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
+import { resolveAssetUrl } from "../api/url";
+import { getScopedRoles } from "../utils/roleScopes";
 
 // Composant Login : Page de connexion avec formulaire email/mot de passe
-// Gère l'authentification et la redirection selon le rôle utilisateur
+// Gere l'authentification et la redirection selon le role utilisateur
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -25,13 +27,7 @@ export default function Login() {
     else if (user.societe?.logo) logoPath = user.societe.logo;
     
     if (logoPath) {
-      if (logoPath.startsWith('/')) {
-        logoImage = `http://localhost:5006${logoPath}`;
-      } else if (!logoPath.startsWith('http')) {
-        logoImage = `http://localhost:5006/${logoPath}`;
-      } else {
-        logoImage = logoPath;
-      }
+      logoImage = resolveAssetUrl(logoPath, isoLogo);
     }
   }
 
@@ -41,9 +37,14 @@ export default function Login() {
     setError('');
     try {
       const res = await login(form);
-      loginUser(res.data);
-      // Rediriger vers le tableau de bord (même pour l'admin)
-      navigate('/tableau-bord');
+      await loginUser(res.data);
+
+      const scopedRoles = getScopedRoles(res.data);
+      if (scopedRoles.has('super_admin')) {
+        navigate('/admin/stats');
+      } else {
+        navigate('/tableau-bord');
+      }
     } catch (err) {
       setError(err.response?.data || 'Identifiants incorrects.');
     } finally {
@@ -54,12 +55,12 @@ export default function Login() {
   return (
     <div style={styles.page}>
 
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div style={styles.leftPanel}>
         <div style={styles.brandingContent}>
           <h1 style={styles.brandTitle}>SMSI Manager</h1>
           <p style={styles.brandSubtitle}>
-            Système de Management<br />de la Sécurité de l'Information
+            Systeme de Management<br />de la Securite de l'Information
           </p>
           <div style={styles.dividerLine} />
           <p style={styles.normeBadge}>
@@ -74,7 +75,7 @@ export default function Login() {
         <div style={styles.bgCircle2} />
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <div style={styles.rightPanel}>
         
         {/* BOUTON RETOUR */}
@@ -91,7 +92,7 @@ export default function Login() {
           <div style={styles.formHeader}>
             <img src={logoImage} alt="Logo" style={{ width: '60px', height: '60px', objectFit: 'contain', display: 'block', margin: '0 auto 10px' }} />
             <h2 style={styles.formTitle}>Connexion</h2>
-            <p style={styles.formDesc}>Accédez à votre espace sécurisé</p>
+            <p style={styles.formDesc}>Accedez a votre espace securise</p>
           </div>
 
           {error && (
@@ -135,7 +136,7 @@ export default function Login() {
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="********"
                   style={{ ...styles.input, paddingRight: '44px' }}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   required
@@ -163,7 +164,7 @@ export default function Login() {
                       <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
                       <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                    Connexion en cours…
+                    Connexion en cours...
                   </>
                 ) : (
                   <>
@@ -179,7 +180,7 @@ export default function Login() {
 
           <p style={styles.switchText}>
             Pas encore de compte ?{' '}
-            <Link to="/register" style={styles.link}>Créer un compte</Link>
+            <Link to="/register" style={styles.link}>Creer un compte</Link>
           </p>
         </div>
       </div>
@@ -265,7 +266,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '48px',
-    position: 'relative', // Ajouté pour le positionnement du bouton retour
+    position: 'relative', // Ajoute pour le positionnement du bouton retour
   },
   backBtn: {
     position: 'absolute',

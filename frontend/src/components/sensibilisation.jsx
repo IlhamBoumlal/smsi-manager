@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Search, Download, RefreshCw, ArrowLeft,
-  Check, X, Upload, BookOpen, Shield, Loader2, Trash2,
+  Check, X, Upload, BookOpen, Loader2, Trash2,
 } from 'lucide-react';
 import {
   getDashboard,
@@ -15,7 +15,6 @@ import {
   downloadFormationDocument,
   deleteFormation,
 } from '../api/sensibilisation';
-import { useAuth } from '../context/AuthContext';
 
 const DEPARTMENTS = [
   'Software Development & Agentic',
@@ -107,7 +106,7 @@ function Toggle({ checked, onChange }) {
 
 function SectionDivider({ children }) {
   return (
-    <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest pb-2 border-b border-gray-100 mt-5 mb-3.5 font-mono first:mt-0">
+    <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest pb-2 border-b border-slate-200 bg-slate-50 mt-5 mb-3.5 font-mono first:mt-0">
       {children}
     </div>
   );
@@ -116,27 +115,59 @@ function SectionDivider({ children }) {
 // ─── KPI Strip ────────────────────────────────────────────────────────────────
 function KpiStrip({ data, loading }) {
   const kpis = [
-    { label: 'Taux de participation', value: loading ? '—' : `${data?.tauxMoyen ?? 0}%`, sub: `${data?.total ?? 0} formations · moyenne`, highlight: true },
-    { label: 'Formations totales',    value: loading ? '—' : data?.total ?? 0,      sub: `${data?.terminees ?? 0} terminées` },
-    { label: 'Planifiées',            value: loading ? '—' : data?.planifiees ?? 0, sub: 'À venir' },
-    { label: 'En cours',              value: loading ? '—' : data?.enCours ?? 0,    sub: (data?.enCours ?? 0) > 0 ? 'Actives' : 'Aucune active' },
+    {
+      label: 'Taux de participation',
+      value: loading ? '--' : `${data?.tauxMoyen ?? 0}%`,
+      sub: `${data?.total ?? 0} formations`,
+      highlight: true,
+    },
+    {
+      label: 'Formations totales',
+      value: loading ? '--' : data?.total ?? 0,
+      sub: `${data?.terminees ?? 0} terminees`,
+      valueClass: 'text-slate-900',
+    },
+    {
+      label: 'Planifiees',
+      value: loading ? '--' : data?.planifiees ?? 0,
+      sub: 'A venir',
+      valueClass: 'text-blue-700',
+    },
+    {
+      label: 'En cours',
+      value: loading ? '--' : data?.enCours ?? 0,
+      sub: (data?.enCours ?? 0) > 0 ? 'Actives' : 'Aucune active',
+      valueClass: 'text-amber-700',
+    },
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 4 }}>
+    <div className="mb-1 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((k, i) => (
-        <div key={i} style={{
-          background: k.highlight ? 'linear-gradient(135deg,#1D4ED8,#1e40af)' : '#fff',
-          borderRadius: 14, padding: '20px 22px',
-          boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.06)',
-          animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
-        }}>
-          <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
-          <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
-          <div style={{ fontSize: 11.5, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
+        <div
+          key={i}
+          className={`rounded-2xl border px-6 py-5 transition-all duration-300 ${
+            k.highlight
+              ? 'border-blue-700 bg-gradient-to-br from-blue-700 to-blue-800 text-white shadow-[0_8px_24px_rgba(29,78,216,0.35)] hover:-translate-y-1'
+              : 'border-slate-200 bg-white shadow-sm hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(15,23,42,0.10)]'
+          }`}
+          style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 70}ms both` }}
+        >
+          <p className={`text-[12.5px] font-semibold ${k.highlight ? 'text-white/95' : 'text-slate-700'}`}>{k.label}</p>
+          <p
+            className={`mt-2 text-[32px] font-extrabold leading-none ${
+              k.highlight ? 'text-white' : k.valueClass || 'text-slate-900'
+            }`}
+          >
+            {k.value}
+          </p>
+          <p className={`mt-2 text-[11.5px] ${k.highlight ? 'text-white/75' : 'text-slate-400'}`}>{k.sub}</p>
           {k.highlight && typeof data?.tauxMoyen === 'number' && (
-            <div style={{ marginTop: 12, height: 4, borderRadius: 99, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${data.tauxMoyen}%`, background: 'rgba(255,255,255,.8)', borderRadius: 99, transition: 'width 1.2s cubic-bezier(.4,0,.2,1) .3s' }} />
+            <div className="mt-4 h-[5px] overflow-hidden rounded-full bg-white/25">
+              <div
+                className="h-[5px] rounded-full bg-white/90 transition-all duration-500"
+                style={{ width: `${data.tauxMoyen}%` }}
+              />
             </div>
           )}
         </div>
@@ -144,8 +175,6 @@ function KpiStrip({ data, loading }) {
     </div>
   );
 }
-
-// ─── ActionBar ────────────────────────────────────────────────────────────────
 const MODULES = [
   { id: 'list',   icon: BookOpen, label: 'Formations' },
   { id: 'create', icon: Plus,     label: 'Planifier' },
@@ -153,24 +182,29 @@ const MODULES = [
 
 function ActionBar({ active, onChange }) {
   return (
-    <div className="flex gap-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 w-fit">
-      {MODULES.map(m => {
+    <div className="mb-1 flex w-fit gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+      {MODULES.map((m) => {
         const Icon = m.icon;
         const isActive = active === m.id;
         return (
-          <button key={m.id} onClick={() => onChange(m.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all
-              ${isActive ? 'bg-blue-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}>
-            <Icon className="w-4 h-4" />{m.label}
+          <button
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-medium transition-all ${
+              isActive
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {m.label}
           </button>
         );
       })}
     </div>
   );
 }
-
-// ─── Vue Liste ────────────────────────────────────────────────────────────────
-function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canWrite, canDelete }) {
+function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType,   setFilterType]   = useState('');
@@ -188,10 +222,6 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
   });
 
   const handleNotify = async (f) => {
-    if (!canWrite) {
-      onToast('Vous n\'avez pas la permission d\'envoyer des notifications', 'error');
-      return;
-    }
     setNotifying(f.id);
     try {
       await notifyParticipants(f.id, 'Notification manuelle');
@@ -205,10 +235,6 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
   };
 
   const handleDelete = async (id) => {
-    if (!canDelete) {
-      onToast('Vous n\'avez pas la permission de supprimer des formations', 'error');
-      return;
-    }
     setDeleting(id);
     setConfirmId(null);
     try {
@@ -229,12 +255,10 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
           <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest font-mono mb-1">ISO 27001 · Clause 7.2 &amp; 7.3</div>
           <h1 className="text-[22px] font-medium text-gray-900">Sensibilisation et formation</h1>
         </div>
-        {canWrite && (
-          <button onClick={onNew}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
-            <Plus className="w-3.5 h-3.5" /> Nouvelle formation
-          </button>
-        )}
+        <button onClick={onNew}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
+          <Plus className="w-3.5 h-3.5" /> Nouvelle formation
+        </button>
       </div>
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -266,20 +290,20 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? <Spinner /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-slate-200 bg-slate-50">
                   {['Intitulé', 'Type', 'Date', 'Durée', 'Formateur', 'Participation', 'Statut', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[11px] font-medium text-gray-400 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(f => (
-                  <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors last:border-0">
+                  <tr key={f.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors last:border-0">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{f.title}</div>
                       <div className="text-[11px] text-gray-400 mt-0.5">{f.departement} · {f.participants} participants</div>
@@ -298,39 +322,37 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
                           className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
                           Voir
                         </button>
-                        {canWrite && (
-                          <button
-                            onClick={() => handleNotify(f)}
-                            disabled={notifying === f.id}
-                            className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
-                            {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
-                          </button>
-                        )}
-                        {canDelete && (
-                          confirmId === f.id ? (
-                            <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                              <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
-                              <button
-                                onClick={() => handleDelete(f.id)}
-                                disabled={deleting === f.id}
-                                className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
-                                {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
-                              </button>
-                              <span className="text-red-300">·</span>
-                              <button onClick={() => setConfirmId(null)}
-                                className="text-[11px] text-gray-500 hover:text-gray-700 px-1">
-                                Non
-                              </button>
-                            </div>
-                          ) : (
+                        <button
+                          onClick={() => handleNotify(f)}
+                          disabled={notifying === f.id}
+                          className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+                          {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
+                        </button>
+
+                        {/* Bouton supprimer — deux états : icône → confirmation inline */}
+                        {confirmId === f.id ? (
+                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                            <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
                             <button
-                              onClick={() => setConfirmId(f.id)}
+                              onClick={() => handleDelete(f.id)}
                               disabled={deleting === f.id}
-                              className="p-1.5 border border-gray-200 text-gray-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                              title="Supprimer">
-                              <Trash2 className="w-3.5 h-3.5" />
+                              className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
+                              {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
                             </button>
-                          )
+                            <span className="text-red-300">·</span>
+                            <button onClick={() => setConfirmId(null)}
+                              className="text-[11px] text-gray-500 hover:text-gray-700 px-1">
+                              Non
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmId(f.id)}
+                            disabled={deleting === f.id}
+                            className="p-1.5 border border-gray-200 text-gray-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            title="Supprimer">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -349,7 +371,7 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
 }
 
 // ─── Vue Créer ────────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSave, canWrite, onToast }) {
+function CreateView({ onBack, onSave }) {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: '',
@@ -366,9 +388,11 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
     lmsLink: '',
     notifInvit: true,
     notifRappel: true,
+    // Participants saisis manuellement : [{ fullName, email, department }]
     participants: [],
   });
 
+  // Champ temporaire pour ajouter un participant
   const [partInput, setPartInput] = useState({ fullName: '', email: '', department: '' });
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
@@ -383,10 +407,6 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
     set('participants', form.participants.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
-    if (!canWrite) {
-      onToast('Vous n\'avez pas la permission de créer des formations', 'error');
-      return;
-    }
     if (!form.title || !form.date) return;
     setSubmitting(true);
     try {
@@ -465,6 +485,7 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
         {/* Participants */}
         <SectionDivider>Participants</SectionDivider>
         
+        {/* Ajout participants nominatifs */}
         <div className="bg-gray-50 rounded-xl p-4 mb-2">
           <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-3">Participants spécifiques (avec email pour notifications)</div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -545,7 +566,7 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
 
         <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-gray-100">
           <button onClick={onBack} className="px-4 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
-          <button onClick={handleSubmit} disabled={submitting || !form.title || !form.date || !canWrite}
+          <button onClick={handleSubmit} disabled={submitting || !form.title || !form.date}
             className="px-4 py-2 bg-gray-900 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity disabled:opacity-50 flex items-center gap-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             Planifier la formation →
@@ -557,7 +578,7 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
 }
 
 // ─── Vue Détail ───────────────────────────────────────────────────────────────
-function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete }) {
+function DetailView({ formationId, onBack, onToast }) {
   const [formation,  setFormation]  = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [uploading,  setUploading]  = useState(false);
@@ -576,25 +597,8 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
 
   useEffect(() => { load(); }, [load]);
 
-  const handleNotify = async () => {
-    if (!canWrite) {
-      onToast('Vous n\'avez pas la permission d\'envoyer des notifications', 'error');
-      return;
-    }
-    try {
-      await notifyParticipants(formation.id, 'Notification manuelle');
-      onToast('Notifications envoyées');
-      await load();
-    } catch {
-      onToast('Erreur d\'envoi', 'error');
-    }
-  };
 
   const handleStatusChange = async (participantId, status) => {
-    if (!canEdit) {
-      onToast('Vous n\'avez pas la permission de modifier le statut des participants', 'error');
-      return;
-    }
     try {
       await updateParticipantStatus(formation.id, participantId, status);
       await load();
@@ -604,10 +608,6 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
   };
 
   const handleFileUpload = async (e) => {
-    if (!canEdit) {
-      onToast('Vous n\'avez pas la permission d\'ajouter des documents', 'error');
-      return;
-    }
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -624,10 +624,6 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
   };
 
   const handleDeleteDoc = async (docId) => {
-    if (!canDelete) {
-      onToast('Vous n\'avez pas la permission de supprimer des documents', 'error');
-      return;
-    }
     try {
       await deleteFormationDocument(formation.id, docId);
       onToast('Document supprimé');
@@ -662,18 +658,13 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
             className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
             <ArrowLeft className="w-4 h-4" /> Retour
           </button>
-          {canWrite && (
-            <button onClick={handleNotify}
-              className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-              <SendIcon className="w-4 h-4" /> Notifier
-            </button>
-          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
         {/* Colonne gauche */}
         <div className="flex flex-col gap-4">
+          {/* Fiche */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">
               <Badge status={formation.status} />
@@ -745,8 +736,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                   <select
                     value={p.status}
                     onChange={e => handleStatusChange(p.id, e.target.value)}
-                    disabled={!canEdit}
-                    className="text-[11px] border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-700 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="text-[11px] border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-700 focus:outline-none cursor-pointer">
                     <option>Invité</option><option>Présent</option>
                   </select>
                 </div>
@@ -761,14 +751,12 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
               <div className="flex items-center gap-2">
                 {uploading && <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
                 <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.pptx" onChange={handleFileUpload} />
-                {canEdit && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50">
-                    <Upload className="w-3 h-3" /> Ajouter
-                  </button>
-                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50">
+                  <Upload className="w-3 h-3" /> Ajouter
+                </button>
               </div>
             </div>
             {formation.docs.length === 0
@@ -788,12 +776,10 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                       className="px-2 py-1 border border-gray-200 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">
                       ↓
                     </button>
-                    {canDelete && (
-                      <button onClick={() => handleDeleteDoc(doc.id)}
-                        className="px-2 py-1 border border-red-100 text-[11px] text-red-400 rounded-lg hover:bg-red-50 transition-colors">
-                        ×
-                      </button>
-                    )}
+                    <button onClick={() => handleDeleteDoc(doc.id)}
+                      className="px-2 py-1 border border-red-100 text-[11px] text-red-400 rounded-lg hover:bg-red-50 transition-colors">
+                      ×
+                    </button>
                   </div>
                 </div>
               ))
@@ -805,21 +791,8 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
   );
 }
 
-// Composant SendIcon
-function SendIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-    </svg>
-  );
-}
-
 // ─── Composant principal ──────────────────────────────────────────────────────
 export default function Sensibilisation() {
-  const { canRead, canWrite, canEdit, canDelete } = useAuth();
-  const moduleCode = "sensibilisation";
-  const hasAccess = canRead(moduleCode);
-  
   const [module,      setModule]      = useState('list');
   const [formations,  setFormations]  = useState([]);
   const [dashboard,   setDashboard]   = useState(null);
@@ -871,10 +844,6 @@ export default function Sensibilisation() {
   };
 
   const handleSave = async (form) => {
-    if (!canWrite(moduleCode)) {
-      showToast('Vous n\'avez pas la permission de créer des formations', 'error');
-      throw new Error('Permission denied');
-    }
     try {
       await createFormation({
         title:         form.title,
@@ -904,43 +873,48 @@ export default function Sensibilisation() {
     }
   };
 
-  // Vérification d'accès
-  if (!hasAccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
-          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion de la sensibilisation.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen w-full bg-gray-50" style={{ fontFamily: "'Inter','DM Sans',system-ui,sans-serif" }}>
+    <div
+      className="min-h-screen bg-[#f8f9fb] px-4 py-5 sm:px-6"
+      style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}
+    >
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
-
-        {/* Page header */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+      <div className="mx-auto max-w-[1200px] space-y-5">
+        <section className="mb-1">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
-                Sensibilisation et formation
+              <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: '-0.8px' }}>
+                Sensibilisation ISO 27001
               </h1>
-              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
-                Clause 7.2 &amp; 7.3 · Gestion des formations SMSI
+              <p className="mt-1 text-[13.5px] text-slate-500">
+                Pilotage des formations, participation et preuves d'audit.
               </p>
             </div>
-            <button onClick={handleRefresh}
-              className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-              <RefreshCw className="w-4 h-4 text-gray-400" />
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                title="Rafraichir"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Rafraichir
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId(null);
+                  setModule('create');
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition-colors hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4" />
+                Nouvelle formation
+              </button>
+            </div>
           </div>
-        </div>
-
+        </section>
         <div className="space-y-5">
         <KpiStrip data={dashboard} loading={loadingKpi} />
 
@@ -957,25 +931,20 @@ export default function Sensibilisation() {
             onNew={() => setModule('create')}
             onToast={showToast}
             onRefresh={handleRefresh}
-            canWrite={canWrite(moduleCode)}
-            canDelete={canDelete(moduleCode)}
           />
         )}
         {module === 'create' && (
-          <CreateView onBack={() => setModule('list')} onSave={handleSave} canWrite={canWrite(moduleCode)} onToast={showToast} />
+          <CreateView onBack={() => setModule('list')} onSave={handleSave} />
         )}
         {module === 'detail' && selectedId && (
           <DetailView
             formationId={selectedId}
             onBack={() => { setModule('list'); setSelectedId(null); }}
             onToast={showToast}
-            canWrite={canWrite(moduleCode)}
-            canEdit={canEdit(moduleCode)}
-            canDelete={canDelete(moduleCode)}
           />
         )}
-        </div>
-      </main>
+      </div>
+      </div>
 
       <style>{`
         body,html{margin:0;padding:0;width:100%;overflow-x:hidden}

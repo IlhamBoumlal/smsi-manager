@@ -1,10 +1,10 @@
-﻿namespace backend.Domain.Enumerations
+namespace backend.Domain.Enumerations
 {
     public enum ClassificationActif
     {
-        NonClassé,
-        Confidentiel,
-        Secret,
-        TopSecret
+        NonClasse = 0,
+        Confidentiel = 1,
+        Secret = 2,
+        TopSecret = 3
     }
 }

@@ -1,4 +1,4 @@
-﻿using Application.Cartographie.Commands;
+using Application.Cartographie.Commands;
 using Application.Cartographie.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +9,7 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/cartographie")]
-[Authorize]
+[Authorize(Policy = "SmSiSocieteScope")]
 public class CartographieController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -18,7 +18,7 @@ public class CartographieController : ControllerBase
     private int? CurrentSocieteId => int.TryParse(User.FindFirstValue("SocieteId"), out var id) ? id : null;
 
 
-    // ── Processus ──────────────────────────────────────────────
+    // -- Processus ----------------------------------------------
 
     [HttpGet("processus")]
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
@@ -53,7 +53,7 @@ public class CartographieController : ControllerBase
         return NoContent();
     }
 
-    // ── Documents ──────────────────────────────────────────────
+    // -- Documents ----------------------------------------------
 
     [HttpPost("processus/{processusId:guid}/documents")]
     public async Task<IActionResult> AddDocument(

@@ -9,6 +9,7 @@ namespace backend.Domain.Interfaces
         Task<ApplicationUser?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
         Task<ApplicationUser?> GetByEmailAsync(string email);
         Task<List<ApplicationUser>> GetAllWithSocieteAsync();
+        Task<List<ApplicationUser>> GetActiveBySocieteAsync(int societeId);
         Task<IdentityResult> CreateAsync(ApplicationUser user, string password);
         Task<IdentityResult> UpdateAsync(ApplicationUser user);
         Task<IdentityResult> DeleteAsync(ApplicationUser user);

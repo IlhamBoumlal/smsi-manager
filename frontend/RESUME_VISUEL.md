@@ -1,6 +1,6 @@
 # 🎯 Résumé - Traçabilité des Modifications Contrôles
 
-## 📌 CHANGEMENTS VISUELS
+## ðŸ“Œ CHANGEMENTS VISUELS
 
 ### 1️⃣ **Dans la LISTE des Contrôles**
 
@@ -184,7 +184,7 @@ WHERE Id = 1;
 
 ---
 
-## 📊 EXEMPLES D'AFFICHAGE
+## ðŸ“Š EXEMPLES D'AFFICHAGE
 
 ### Affichage "Liste Contrôles"
 ```
@@ -236,7 +236,7 @@ Créé le 13 janvier 2026 à 09:15 par Marie Durand
 
 ---
 
-## 📞 SUPPORT RAPIDE
+## ðŸ“ž SUPPORT RAPIDE
 
 **Question** : Où modifier le champ utilisateur ?
 **Réponse** : Ligne ~365 dans `Controles.jsx` > `const username = user?.nom`
@@ -257,5 +257,5 @@ Créé le 13 janvier 2026 à 09:15 par Marie Durand
 1. **📘 TRAÇABILITE_MODIFICATIONS.md** - Vue d'ensemble complète
 2. **🔧 BACKEND_IMPLEMENTATION_GUIDE.md** - Guide backend détaillé
 3. **📝 README_STRUCTURE.md** - Structure générale
-4. **📋 CONVENTIONS.md** - Conventions du projet
+4. **ðŸ“‹ CONVENTIONS.md** - Conventions du projet
 

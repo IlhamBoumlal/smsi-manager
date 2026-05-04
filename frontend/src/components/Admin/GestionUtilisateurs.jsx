@@ -1,633 +1,338 @@
-// components/Admin/GestionUtilisateurs.jsx
 import React, { useState, useEffect } from 'react';
-import { Unlock, Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Users, Mail, Shield, Factory, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown, Loader2 } from 'lucide-react';
+import { Users, Plus, Search, Edit, Trash2, Shield, Mail, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown, Factory } from 'lucide-react';
+import axiosInstance from '../../api/axiosInstance';
 
-const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
+const API = '/api';
+const normalizeRole = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
-// Service API
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5006';
-
-const api = {
-  // Users
-  getUsers: async () => {
-    const response = await fetch(`${API_URL}/api/user`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Erreur chargement users');
-    return response.json();
-  },
-  createUser: async (userData) => {
-    const response = await fetch(`${API_URL}/api/user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(userData)
-    });
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    return response.text();
-  },
-  updateUser: async (id, userData) => {
-    const response = await fetch(`${API_URL}/api/user/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(userData)
-    });
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    return response.text();
-  },
-  deleteUser: async (id) => {
-    const response = await fetch(`${API_URL}/api/user/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    return response.text();
-  },
-  
-  // Roles
-  getRoles: async () => {
-    const response = await fetch(`${API_URL}/api/role`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Erreur chargement rôles');
-    return response.json();
-  },
-  
-  // Sociétés
-  getSocietes: async () => {
-    const response = await fetch(`${API_URL}/api/societe`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!response.ok) throw new Error('Erreur chargement sociétés');
-    return response.json();
-  }
-};
-
-export default function GestionUtilisateursAdmins() {
+export default function GestionUtilisateurs() {
   const [users, setUsers] = useState([]);
   const [societes, setSocietes] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [viewMode, setViewMode] = useState("table");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [form, setForm] = useState({
-    nomComplet: "", email: "", societeId: "", roleId: "", password: "", confirmPassword: "", isActive: true
+    nomComplet: '',
+    email: '',
+    societeId: '',
+    roleId: '',
+    password: '',
+    confirmPassword: '',
+    isActive: true,
   });
+  const selectedRole = roles.find((r) => String(r.id) === String(form.roleId));
+  const isSuperAdminRole = normalizeRole(selectedRole?.nom) === 'super admin';
 
-  // Chargement initial des données
   useEffect(() => {
-    loadData();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    fetchAll();
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchAll = async () => {
     try {
-      const [usersData, rolesData, societesData] = await Promise.all([
-        api.getUsers(),
-        api.getRoles(),
-        api.getSocietes()
+      const [u, s, r] = await Promise.all([
+        axiosInstance.get(`${API}/user`),
+        axiosInstance.get(`${API}/societe`),
+        axiosInstance.get(`${API}/user/roles`),
       ]);
-      
-      console.log('Users data:', usersData);
-      console.log('Roles data:', rolesData);
-      console.log('Societes data:', societesData);
-      
-      setUsers(usersData);
-      setRoles(rolesData);
-      setSocietes(societesData);
+
+      const societesMap = {};
+      s.data.forEach((soc) => { societesMap[soc.id] = soc.nom; });
+
+      const rolesMap = {};
+      r.data.forEach((role) => { rolesMap[role.id] = role.nom; });
+
+      const enrichedUsers = u.data.map((user) => {
+        const roleNom = typeof user.role === 'string' ? user.role : user.role?.nom;
+        const societeNom = typeof user.societe === 'string' ? user.societe : user.societe?.nom;
+        const roleId = user.roleId ?? user.role?.id ?? null;
+        const societeId = user.societeId ?? user.societe?.id ?? null;
+
+        return {
+          ...user,
+          roleId,
+          societeId,
+          role: rolesMap[roleId] || roleNom || '-',
+          societe: societesMap[societeId] || societeNom || '-',
+        };
+      });
+
+      setUsers(enrichedUsers);
+      setSocietes(s.data);
+      setRoles(r.data);
+    } catch (error) {
+      console.error('Erreur fetchAll:', error);
+      if (error.response?.status === 401) {
+        alert('Session expiree, veuillez vous reconnecter');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    }
+  };
+
+  const reset = () => {
+    setForm({ nomComplet: '', email: '', societeId: '', roleId: '', password: '', confirmPassword: '', isActive: true });
+    setEditing(null);
+    setShowPwd(false);
+  };
+
+  const closeModal = () => {
+    setModal(false);
+    reset();
+  };
+
+  const openNew = () => {
+    reset();
+    setModal(true);
+  };
+
+  const openEdit = (user) => {
+    const societeFromName = societes.find((x) => x.nom === user.societe);
+    const roleFromName = roles.find((x) => x.nom === user.role);
+
+    setEditing(user);
+    setForm({
+      nomComplet: user.nomComplet,
+      email: user.email,
+      societeId: (user.societeId ?? societeFromName?.id)?.toString() || '',
+      roleId: (user.roleId ?? roleFromName?.id)?.toString() || '',
+      password: '',
+      confirmPassword: '',
+      isActive: user.isActive,
+    });
+    setModal(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (form.password && form.password !== form.confirmPassword) {
+      alert('Mots de passe differents !');
+      return;
+    }
+
+    const societeIdValue = form.societeId ? parseInt(form.societeId, 10) : null;
+    if (!isSuperAdminRole && !societeIdValue) {
+      alert('Une societe est obligatoire pour ce role.');
+      return;
+    }
+
+    const payloadSocieteId = isSuperAdminRole ? null : societeIdValue;
+
+    setLoading(true);
+    try {
+      if (editing) {
+        await axiosInstance.put(`${API}/user/${editing.id}`, {
+          nomComplet: form.nomComplet,
+          email: form.email,
+          societeId: payloadSocieteId,
+          roleId: form.roleId,
+          password: form.password || null,
+          confirmPassword: form.confirmPassword || null,
+          isActive: form.isActive,
+        });
+      } else {
+        if (!form.password) {
+          alert('Mot de passe requis !');
+          setLoading(false);
+          return;
+        }
+
+        await axiosInstance.post(`${API}/user`, {
+          nomComplet: form.nomComplet,
+          email: form.email,
+          password: form.password,
+          confirmPassword: form.confirmPassword,
+          societeId: payloadSocieteId,
+          roleId: form.roleId,
+        });
+      }
+
+      await fetchAll();
+      closeModal();
     } catch (err) {
-      setError(err.message);
-      console.error('Erreur chargement:', err);
+      const msg = typeof err.response?.data === 'object' ? JSON.stringify(err.response.data) : err.response?.data;
+      alert(`Erreur: ${msg || 'Une erreur est survenue'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtrage des utilisateurs
-  const filtered = users.filter(u => {
-    const matchSearch = !search || 
-      u.nomComplet?.toLowerCase().includes(search.toLowerCase()) || 
-      u.email?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = !statusFilter || String(u.isActive) === statusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  // Statistiques
-  const stats = {
-    total: users.length,
-    actifs: users.filter(u => u.isActive).length,
-    inactifs: users.filter(u => !u.isActive).length,
-    societesCouvertes: new Set(users.map(u => u.societeId).filter(Boolean)).size,
-  };
-
-  // Gestion des utilisateurs
-  const handleSave = async () => {
-    if (!editing && !form.password) {
-      alert("Mot de passe requis pour la création !");
-      return;
-    }
-    if (form.password && form.password !== form.confirmPassword) {
-      alert("Les mots de passe ne correspondent pas !");
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      if (editing) {
-        const updateData = {
-          nomComplet: form.nomComplet,
-          email: form.email,
-          societeId: parseInt(form.societeId),
-          roleId: form.roleId,
-          isActive: form.isActive
-        };
-        
-        if (form.password) {
-          updateData.password = form.password;
-          updateData.confirmPassword = form.confirmPassword;
-        }
-        
-        console.log('Update data:', updateData);
-        await api.updateUser(editing.id, updateData);
-      } else {
-        const createData = {
-          nomComplet: form.nomComplet,
-          email: form.email,
-          password: form.password,
-          confirmPassword: form.confirmPassword,
-          societeId: parseInt(form.societeId),
-          roleId: form.roleId
-        };
-        
-        console.log('Create data:', createData);
-        await api.createUser(createData);
-      }
-      
-      await loadData();
-      setModalOpen(false);
-      setEditing(null);
-      setForm({ nomComplet: "", email: "", societeId: "", roleId: "", password: "", confirmPassword: "", isActive: true });
-    } catch (err) {
-      console.error('Erreur save:', err);
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDelete = async (id) => {
-    if (!window.confirm("Confirmer la suppression définitive ?")) return;
-    
+    if (!window.confirm('Supprimer cet utilisateur ?')) return;
+
     try {
-      await api.deleteUser(id);
-      await loadData();
-    } catch (err) {
-      alert(err.message);
+      await axiosInstance.delete(`${API}/user/${id}`);
+      await fetchAll();
+    } catch (e) {
+      alert(`Erreur: ${e.response?.data || ''}`);
     }
   };
 
-  const handleToggle = async (user) => {
-    try {
-      await api.updateUser(user.id, {
-        nomComplet: user.nomComplet,
-        email: user.email,
-        societeId: user.societeId,
-        roleId: user.roleId.toString(),
-        isActive: !user.isActive
-      });
-      await loadData();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const initials = (name) => name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "?";
-
-  const kpis = [
-    { label: 'Total Admins', value: stats.total, sub: `${stats.total} utilisateur(s)`, primary: true },
-    { label: 'Actifs', value: stats.actifs, sub: `${Math.round((stats.actifs / (stats.total || 1)) * 100)}% du total` },
-    { label: 'Inactifs', value: stats.inactifs, sub: `${Math.round((stats.inactifs / (stats.total || 1)) * 100)}% du total` },
-    { label: 'Sociétés couvertes', value: stats.societesCouvertes, sub: `sur ${societes.length} sociétés` },
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 text-center">
-        <div className="bg-red-50 text-red-700 p-4 rounded-xl">
-          Erreur : {error}
-          <button onClick={loadData} className="ml-4 px-3 py-1 bg-red-100 rounded-lg">Réessayer</button>
-        </div>
-      </div>
-    );
-  }
+  const filtered = users.filter((u) =>
+    u.nomComplet?.toLowerCase().includes(search.toLowerCase()) ||
+    u.email?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="p-6 max-w-[1280px] mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestion des utilisateurs admins</h1>
-          <p className="text-sm text-slate-500">Administration des comptes et des accès utilisateurs</p>
+          <h1 className="text-2xl font-bold text-slate-800">Gestion des utilisateurs</h1>
+          <p className="text-sm text-slate-400 mt-1">{users.length} utilisateur{users.length > 1 ? 's' : ''} enregistre{users.length > 1 ? 's' : ''}</p>
         </div>
-        <button 
-          onClick={() => { 
-            setEditing(null); 
-            setForm({ nomComplet: "", email: "", societeId: "", roleId: "", password: "", confirmPassword: "", isActive: true }); 
-            setModalOpen(true); 
-          }} 
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Nouvel Admin
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-4 gap-3 mb-7">
-        {kpis.map((k, i) => (
-          <div 
-            key={i} 
-            className="rounded-2xl p-5 shadow-sm transition-transform hover:scale-105" 
-            style={{ 
-              background: k.primary ? GRAD_BLUE : "#fff", 
-              boxShadow: k.primary ? "0 8px 24px rgba(29,78,216,.30)" : "0 2px 8px rgba(0,0,0,.06)" 
-            }}
-          >
-            <div className="text-3xl font-bold" style={{ color: k.primary ? "#fff" : "#111827" }}>{k.value}</div>
-            <div className="text-xs font-semibold mt-1" style={{ color: k.primary ? "rgba(255,255,255,.9)" : "#374151" }}>{k.label}</div>
-            <div className="text-xs mt-0.5" style={{ color: k.primary ? "rgba(255,255,255,.6)" : "#9CA3AF" }}>{k.sub}</div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-lg w-64 text-sm focus:outline-none focus:border-blue-300"
+            />
           </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border p-5 mb-5">
-        <div className="relative mb-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Rechercher par nom ou email..." 
-            className="w-full h-12 pl-11 pr-4 rounded-xl border bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
-          />
-        </div>
-        <div className="flex flex-wrap justify-between items-center gap-3">
-          <div className="flex gap-2">
-            <select 
-              value={statusFilter} 
-              onChange={e => setStatusFilter(e.target.value)} 
-              className="h-10 px-4 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="true">Actif</option>
-              <option value="false">Inactif</option>
-            </select>
-            <button 
-              onClick={() => { setSearch(""); setStatusFilter(""); }} 
-              className="flex items-center gap-2 px-4 py-2 border rounded-xl text-sm hover:bg-slate-50 transition"
-            >
-              <SlidersHorizontal size={15} /> Réinitialiser
-            </button>
-          </div>
-          <div className="flex border rounded-xl overflow-hidden">
-            <button 
-              onClick={() => setViewMode("grid")} 
-              className={`px-3 py-2 transition ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
-            >
-              <LayoutGrid size={17} />
-            </button>
-            <button 
-              onClick={() => setViewMode("table")} 
-              className={`px-3 py-2 transition ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
-            >
-              <List size={17} />
-            </button>
-          </div>
+          <button onClick={openNew} className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
+            <Plus size={15} /> Ajouter un utilisateur
+          </button>
         </div>
       </div>
 
-      {/* Results */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border">
-          Aucun utilisateur trouvé.
-        </div>
-      ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(user => (
-            <div key={user.id} className="bg-white rounded-2xl border p-4 shadow-sm hover:shadow-md transition">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                    {initials(user.nomComplet)}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <th className="px-6 py-4">Utilisateur</th>
+              <th className="px-6 py-4">Role</th>
+              <th className="px-6 py-4">Date creation</th>
+              <th className="px-6 py-4">Societe</th>
+              <th className="px-6 py-4">Statut</th>
+              <th className="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filtered.map((user) => (
+              <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center font-bold text-sm shrink-0">
+                      {user.nomComplet?.split(' ').map((n) => n[0]).join('').substring(0, 2)}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-800 text-sm">{user.nomComplet}</div>
+                      <div className="text-xs text-slate-400">{user.email}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-slate-800 text-sm">{user.nomComplet}</div>
-                    <div className="text-xs text-slate-400">{user.email}</div>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">{user.role || '-'}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{user.dateCreation || '-'}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{user.societe || '-'}</td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    {user.isActive ? 'Actif' : 'Inactif'}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openEdit(user)} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Edit size={15} /></button>
+                    <button onClick={() => handleDelete(user.id)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={15} /></button>
                   </div>
-                </div>
-                <span className={`px-2 py-1 rounded-full text-xs ${user.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                  {user.isActive ? "Actif" : "Inactif"}
-                </span>
-              </div>
-              <div className="flex gap-2 mb-3">
-                <span className="px-2 py-1 bg-violet-50 text-violet-700 rounded-full text-xs">
-                  {user.Role || user.role || "—"}
-                </span>
-                <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs">
-                  {user.Societe || user.societe || "—"}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mb-3">
-                Créé le : {user.DateCreation || user.dateCreation || "—"}
-              </p>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => { 
-                    setEditing(user); 
-                    setForm({ 
-                      nomComplet: user.nomComplet, 
-                      email: user.email, 
-                      societeId: user.societeId?.toString() || "", 
-                      roleId: user.roleId?.toString() || "", 
-                      password: "", 
-                      confirmPassword: "", 
-                      isActive: user.isActive 
-                    }); 
-                    setModalOpen(true); 
-                  }} 
-                  className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition"
-                >
-                  <Edit size={14} /> Modifier
-                </button>
-                <button 
-                  onClick={() => handleToggle(user)} 
-                  className={`flex-1 py-2 rounded-lg text-sm transition ${user.isActive ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
-                >
-                  {user.isActive ? "Suspendre" : "Activer"}
-                </button>
-                <button 
-                  onClick={() => handleDelete(user.id)} 
-                  className="px-3 py-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border overflow-x-auto">
-          <table className="w-full min-w-[800px]">
-            <thead className="bg-slate-50 border-b">
-              <tr className="text-xs font-bold text-slate-500">
-                <th className="px-6 py-4 text-left">Utilisateur</th>
-                <th className="px-6 py-4 text-left">Rôle</th>
-                <th className="px-6 py-4 text-left">Société</th>
-                <th className="px-6 py-4 text-left">Date création</th>
-                <th className="px-6 py-4 text-left">Statut</th>
-                <th className="px-6 py-4 text-center">Actions</th>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.map((user, i) => (
-                <tr key={user.id} className={`border-b hover:bg-slate-50 transition ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                        {initials(user.nomComplet)}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-800 text-sm">{user.nomComplet}</div>
-                        <div className="text-xs text-slate-400">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-violet-50 text-violet-700 rounded-full text-xs">
-                      {user.Role || user.role || "—"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {user.Societe || user.societe || "—"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {user.DateCreation || user.dateCreation || "—"}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs ${user.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                      {user.isActive ? "Actif" : "Inactif"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <button 
-                        onClick={() => { 
-                          setEditing(user); 
-                          setForm({ 
-                            nomComplet: user.nomComplet, 
-                            email: user.email, 
-                            societeId: user.societeId?.toString() || "", 
-                            roleId: user.roleId?.toString() || "", 
-                            password: "", 
-                            confirmPassword: "", 
-                            isActive: user.isActive 
-                          }); 
-                          setModalOpen(true); 
-                        }} 
-                        className="p-2 bg-blue-50 rounded-lg text-blue-600 hover:bg-blue-100 transition"
-                      >
-                        <Edit size={15} />
-                      </button>
-                      <button 
-                        onClick={() => handleToggle(user)} 
-                        className={`p-2 rounded-lg transition ${user.isActive ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}
-                      >
-                        {user.isActive ? <Lock size={15} /> : <Unlock size={15} />}
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(user.id)} 
-                        className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 transition"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">Aucun utilisateur trouve</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
-            <div className="sticky top-0 px-6 py-4 border-b flex justify-between items-center rounded-t-2xl" style={{ background: GRAD_BLUE }}>
-              <h3 className="font-bold text-white">{editing ? "Modifier l'utilisateur" : "Nouvel utilisateur"}</h3>
-              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-white/15 rounded-lg transition">
-                <X size={16} className="text-white" />
-              </button>
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
+              <h3 className="text-base font-bold text-slate-900">{editing ? "Modifier l'utilisateur" : 'Nouvel utilisateur'}</h3>
+              <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Nom complet *</label>
-                  <div className="relative mt-1">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <input 
-                      value={form.nomComplet} 
-                      onChange={e => setForm({...form, nomComplet: e.target.value})} 
-                      type="text" 
-                      className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                    />
+                <Field label="Nom complet" icon={<Users size={15} />}>
+                  <input name="nomComplet" required value={form.nomComplet} onChange={(e) => setForm({ ...form, nomComplet: e.target.value })} type="text" placeholder="Jean Dupont" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none text-sm focus:border-blue-400" />
+                </Field>
+                <Field label="Email" icon={<Mail size={15} />}>
+                  <input name="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" placeholder="jean@example.com" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none text-sm focus:border-blue-400" />
+                </Field>
+                <Field label="Role" icon={<Shield size={15} />}>
+                  <select value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} required className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg outline-none text-sm appearance-none bg-white focus:border-blue-400">
+                    <option value="">Selectionner un role</option>
+                    {roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                </Field>
+                <Field label={isSuperAdminRole ? 'Societe (optionnelle)' : 'Societe'} icon={<Factory size={15} />}>
+                  <select value={form.societeId} onChange={(e) => setForm({ ...form, societeId: e.target.value })} className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg outline-none text-sm appearance-none bg-white focus:border-blue-400">
+                    <option value="">Selectionner une societe</option>
+                    {societes.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                </Field>
+                <Field label={editing ? 'Mot de passe (optionnel)' : 'Mot de passe'} icon={<Lock size={15} />}>
+                  <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} type={showPwd ? 'text' : 'password'} placeholder="********" className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg outline-none text-sm focus:border-blue-400" />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </Field>
+                <Field label="Confirmer le mot de passe" icon={<Lock size={15} />}>
+                  <input value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} required={!editing} type={showPwd ? 'text' : 'password'} placeholder="********" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none text-sm focus:border-blue-400" />
+                </Field>
+                {editing && (
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium text-slate-700 block mb-2">Statut</label>
+                    <div className="flex items-center gap-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      {[{ val: true, label: 'Actif', color: 'green' }, { val: false, label: 'Inactif', color: 'red' }].map((opt) => (
+                        <label key={String(opt.val)} className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" checked={form.isActive === opt.val} onChange={() => setForm({ ...form, isActive: opt.val })} className="w-4 h-4" />
+                          <span className={`text-sm font-medium text-${opt.color}-700 flex items-center gap-1.5`}>
+                            <span className={`w-2 h-2 rounded-full bg-${opt.color}-500`}></span>{opt.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Email *</label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <input 
-                      value={form.email} 
-                      onChange={e => setForm({...form, email: e.target.value})} 
-                      type="email" 
-                      className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Rôle *</label>
-                  <div className="relative mt-1">
-                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <select 
-                      value={form.roleId} 
-                      onChange={e => setForm({...form, roleId: e.target.value})} 
-                      className="w-full pl-9 pr-8 py-2 border rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sélectionner</option>
-                      {roles.map(r => <option key={r.id} value={r.id}>{r.nom}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Société *</label>
-                  <div className="relative mt-1">
-                    <Factory className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <select 
-                      value={form.societeId} 
-                      onChange={e => setForm({...form, societeId: e.target.value})} 
-                      className="w-full pl-9 pr-8 py-2 border rounded-lg text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Sélectionner</option>
-                      {societes.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">
-                    {editing ? "Mot de passe (optionnel)" : "Mot de passe *"}
-                  </label>
-                  <div className="relative mt-1">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <input 
-                      value={form.password} 
-                      onChange={e => setForm({...form, password: e.target.value})} 
-                      type={showPwd ? "text" : "password"} 
-                      className="w-full pl-9 pr-10 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                    />
-                    <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                      {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Confirmer le mot de passe</label>
-                  <div className="relative mt-1">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <input 
-                      value={form.confirmPassword} 
-                      onChange={e => setForm({...form, confirmPassword: e.target.value})} 
-                      type={showPwd ? "text" : "password"} 
-                      className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                    />
-                  </div>
-                </div>
+                )}
               </div>
-              {editing && (
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Statut</label>
-                  <div className="flex gap-4 mt-1 p-3 border rounded-lg bg-slate-50">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        checked={form.isActive === true} 
-                        onChange={() => setForm({...form, isActive: true})} 
-                        className="w-4 h-4" 
-                      /> Actif
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        checked={form.isActive === false} 
-                        onChange={() => setForm({...form, isActive: false})} 
-                        className="w-4 h-4" 
-                      /> Inactif
-                    </label>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-3 pt-4 border-t">
-                <button 
-                  onClick={() => setModalOpen(false)} 
-                  className="flex-1 py-2 border rounded-lg text-sm hover:bg-slate-50 transition"
-                >
-                  Annuler
-                </button>
-                <button 
-                  onClick={handleSave} 
-                  disabled={saving} 
-                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
-                  {saving ? "Chargement…" : (editing ? "Enregistrer" : "Créer")}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
+                <button type="button" onClick={closeModal} className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annuler</button>
+                <button type="submit" disabled={loading || !form.roleId || (!isSuperAdminRole && !form.societeId)} className="px-5 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-blue-800 text-sm font-medium flex items-center gap-2 disabled:opacity-50">
+                  {loading ? 'Chargement...' : <><CheckCircle size={15} /> {editing ? 'Enregistrer' : 'Creer'}</>}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Field({ label, icon, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>{children}</div>
     </div>
   );
 }

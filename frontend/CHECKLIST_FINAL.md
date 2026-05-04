@@ -269,7 +269,7 @@ Contrôle A.1 :
 
 ---
 
-## 📞 Support Post-Deploy
+## ðŸ“ž Support Post-Deploy
 
 ### 24h Post-Deploy
 - [ ] Aucune erreur signalée
@@ -307,7 +307,7 @@ Contrôle A.1 :
 - [x] Styling cohérent
 - [x] Documentation complète
 
-### Nice to Have 🔄
+### Nice to Have ðŸ”„
 - [ ] Historique complet
 - [ ] Export audit
 - [ ] Filtrage par user
@@ -316,7 +316,7 @@ Contrôle A.1 :
 
 ---
 
-## 📊 Statistiques Finales
+## ðŸ“Š Statistiques Finales
 
 | Élément | Statut |
 |---------|--------|
@@ -330,7 +330,7 @@ Contrôle A.1 :
 
 ---
 
-## 🎉 Signature
+## ðŸŽ‰ Signature
 
 **Frontend Developer**
 - [x] Implémentation complétée
@@ -355,7 +355,7 @@ Contrôle A.1 :
 
 ---
 
-## 📅 Planning Final
+## ðŸ“… Planning Final
 
 ```
 Jour 1 (Démarrage)

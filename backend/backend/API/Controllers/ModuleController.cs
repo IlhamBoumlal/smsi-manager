@@ -1,12 +1,15 @@
-﻿using backend.Application.Modules.Commands.CreateModule;
+using backend.Application.Modules.Commands.CreateModule;
 using backend.Application.Modules.Commands.DeleteModule;
 using backend.Application.Modules.Commands.UpdateModule;
 using backend.Application.Modules.Queries.GetAllModules;
+using backend.Application.Security;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Roles = AppRoles.SuperAdmin)]
     [ApiController]
     [Route("api/[controller]")]
     public class ModuleController : ControllerBase

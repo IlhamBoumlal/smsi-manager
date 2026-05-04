@@ -1,4 +1,5 @@
-ï»¿using backend.Application.DTOs.Societe;
+using backend.Application.DTOs.Societe;
+using backend.Application.Security;
 using backend.Application.Societes.Commands.CreateSociete;
 using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
@@ -9,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = AppRoles.SuperAdmin)]
     [ApiController]
     [Route("api/[controller]")]
     public class SocieteController : ControllerBase
@@ -26,8 +27,9 @@ namespace backend.API.Controllers
         {
             var (success, error) = await _mediator.Send(
                 new CreateSocieteCommand(dto.Nom, dto.HoldingId, logo));
-            return success ? Ok("SociÃ©tÃ© crÃ©Ã©e avec succÃ¨s.") : BadRequest(error);
+            return success ? Ok("Société créée avec succès.") : BadRequest(error);
         }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id,
                                           [FromForm] UpdateSocieteDto dto,
@@ -35,14 +37,14 @@ namespace backend.API.Controllers
         {
             var (success, error) = await _mediator.Send(
                 new UpdateSocieteCommand(id, dto.Nom, dto.HoldingId, logo));
-            return success ? Ok("SociÃ©tÃ© mise Ã  jour avec succÃ¨s.") : BadRequest(error);
+            return success ? Ok("Société mise à jour avec succès.") : BadRequest(error);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             var (success, error) = await _mediator.Send(new DeleteSocieteCommand(id));
-            return success ? Ok("SociÃ©tÃ© supprimÃ©e avec succÃ¨s.") : BadRequest(error);
+            return success ? Ok("Société supprimée avec succès.") : BadRequest(error);
         }
     }
 }

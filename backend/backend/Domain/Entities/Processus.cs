@@ -1,12 +1,12 @@
-﻿namespace backend.Domain.Entities;
+namespace backend.Domain.Entities;
 
 public class Processus
 {
     public Guid Id { get; private set; }
-    public string Categorie { get; private set; }   // "mgmt" | "real" | "supp"
-    public string Nom { get; private set; }
-    public string Responsable { get; private set; }
-    public string Description { get; private set; }
+    public string Categorie { get; private set; } = string.Empty;   // "mgmt" | "real" | "supp"
+    public string Nom { get; private set; } = string.Empty;
+    public string Responsable { get; private set; } = string.Empty;
+    public string Description { get; private set; } = string.Empty;
     public int? SocieteId { get; private set; }
     public Societe? Societe { get; private set; }
     public IReadOnlyCollection<Document> Documents => _documents.AsReadOnly();
@@ -24,7 +24,7 @@ public class Processus
             Nom = nom,
             Responsable = responsable,
             Description = description,
-            SocieteId = societeId
+            SocieteId = societeId,
         };
     }
 

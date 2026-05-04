@@ -1,4 +1,5 @@
-ï»¿using backend.Domain.Interfaces;
+using backend.Application.Security;
+using backend.Domain.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,27 +26,40 @@ namespace backend.Infrastructure.Repositories
 
         public async Task<IdentityResult> CreateAsync(string roleName)
         {
-            if (string.IsNullOrWhiteSpace(roleName))
-                return IdentityResult.Failed(new IdentityError { Description = "Le nom du rÃ´le ne peut pas Ãªtre vide" });
+            if (!TryResolveFinalRoleName(roleName, out var canonicalRoleName))
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Seuls les 5 rôles officiels sont autorisés." });
+            }
 
-            var role = new IdentityRole(roleName);
+            if (await _roleManager.RoleExistsAsync(canonicalRoleName))
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Ce rôle existe déjà." });
+            }
+
+            var role = new IdentityRole(canonicalRoleName)
+            {
+                NormalizedName = canonicalRoleName.ToUpperInvariant()
+            };
+
             return await _roleManager.CreateAsync(role);
         }
 
         public async Task<IdentityResult> UpdateAsync(string roleId, string newRoleName)
         {
             if (string.IsNullOrWhiteSpace(roleId))
-                return IdentityResult.Failed(new IdentityError { Description = "L'ID du rÃ´le est requis" });
+                return IdentityResult.Failed(new IdentityError { Description = "L'ID du rôle est requis" });
 
-            if (string.IsNullOrWhiteSpace(newRoleName))
-                return IdentityResult.Failed(new IdentityError { Description = "Le nouveau nom du rÃ´le ne peut pas Ãªtre vide" });
+            if (!TryResolveFinalRoleName(newRoleName, out var canonicalRoleName))
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Seuls les 5 rôles officiels sont autorisés." });
+            }
 
-            var role = await GetByIdAsync(roleId);  // Utilisation de GetByIdAsync
+            var role = await GetByIdAsync(roleId);
             if (role == null)
-                return IdentityResult.Failed(new IdentityError { Description = "RÃ´le non trouvÃ©" });
+                return IdentityResult.Failed(new IdentityError { Description = "Rôle non trouvé" });
 
-            role.Name = newRoleName;
-            role.NormalizedName = newRoleName.ToUpperInvariant();
+            role.Name = canonicalRoleName;
+            role.NormalizedName = canonicalRoleName.ToUpperInvariant();
 
             return await _roleManager.UpdateAsync(role);
         }
@@ -53,13 +67,35 @@ namespace backend.Infrastructure.Repositories
         public async Task<IdentityResult> DeleteAsync(string roleId)
         {
             if (string.IsNullOrWhiteSpace(roleId))
-                return IdentityResult.Failed(new IdentityError { Description = "L'ID du rÃ´le est requis" });
+                return IdentityResult.Failed(new IdentityError { Description = "L'ID du rôle est requis" });
 
-            var role = await GetByIdAsync(roleId);  // Utilisation de GetByIdAsync
+            var role = await GetByIdAsync(roleId);
             if (role == null)
-                return IdentityResult.Failed(new IdentityError { Description = "RÃ´le non trouvÃ©" });
+                return IdentityResult.Failed(new IdentityError { Description = "Rôle non trouvé" });
+
+            if (AppRoles.IsFinalRole(role.Name))
+            {
+                return IdentityResult.Failed(new IdentityError { Description = "Suppression interdite pour un rôle officiel." });
+            }
 
             return await _roleManager.DeleteAsync(role);
+        }
+
+        private static bool TryResolveFinalRoleName(string? roleName, out string canonicalRoleName)
+        {
+            var requestedKey = AppRoles.NormalizeKey(roleName);
+
+            foreach (var finalRole in AppRoles.FinalRoles)
+            {
+                if (string.Equals(AppRoles.NormalizeKey(finalRole), requestedKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    canonicalRoleName = finalRole;
+                    return true;
+                }
+            }
+
+            canonicalRoleName = string.Empty;
+            return false;
         }
     }
 }

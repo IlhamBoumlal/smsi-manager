@@ -1,10 +1,10 @@
-# 📑 Index de Documentation
+# ðŸ“‘ Index de Documentation
 
 > Guide de navigation pour les fichiers de composants réstructurés
 
 ---
 
-## 📂 Fichiers du Projet
+## ðŸ“‚ Fichiers du Projet
 
 ### 1. **Controles.jsx** 
    Tableau de bord d'évaluation de conformité ISO 27001
@@ -62,18 +62,18 @@
 ---
 
 ### 4. **GUIDE_PRATIQUE.md** (CE FICHIER RACINE)
-   Guide opérationnel pour les tâches courantes
+   Guide operationnel pour les taches courantes
    
    **Contenu** :
    - Démarrage rapide
-   - 8 tâches courantes avec code exemple
+   - 8 taches courantes avec code exemple
    - Dépannage des problèmes courants
    - Guide de test
    - Améliorations futures suggérées
    - Structure des données attendues
    
    **Lire pour** :
-   - Faire une tâche spécifique rapidement
+   - Faire une tache specifique rapidement
    - Déboguer un problème courant
    - Savoir quelles améliorations ajouter
 
@@ -100,12 +100,12 @@
 
 ---
 
-## 🗺️ Carte de Navigation
+## ðŸ—ºï¸ Carte de Navigation
 
 ```
-Pour faire une tâche spécifique
+Pour faire une tache specifique
     ↓
-    ├─→ Tâche simple (5-10 min) ?
+    +-? Tache simple (5-10 min) ?
     │       → Consult GUIDE_PRATIQUE.md
     │
     ├─→ Comprendre l'architecture ?
@@ -125,24 +125,24 @@ Pour faire une tâche spécifique
 ### 👨‍💻 Développeur Nouveau
 
 1. **Lire** : README_STRUCTURE.md (20 min)
-2. **Essayer** : GUIDE_PRATIQUE.md → Tâche "Afficher la liste" (5 min)
+2. **Essayer** : GUIDE_PRATIQUE.md ? Tache "Afficher la liste" (5 min)
 3. **Lire** : CONVENTIONS.md → Sections "React Patterns" (15 min)
 
 **Temps total** : ~40 min pour être opérationnel
 
-### 🔍 Mainteneur/Code Reviewer
+### ðŸ” Mainteneur/Code Reviewer
 
 1. **Consulter** : CONVENTIONS.md → Checklist de Révision
 2. **Au besoin** : README_STRUCTURE.md pour architecture
 3. **Utiliser** : GUIDE_PRATIQUE.md → Dépannage
 
-### 🎓 Formateur/Responsable
+### ðŸŽ“ Formateur/Responsable
 
 1. **Comprendre** : README_STRUCTURE.md complet
 2. **Connaître** : CONVENTIONS.md pour expliquer les standards
 3. **Guider** : Utiliser GUIDE_PRATIQUE.md pour exemples
 
-### 🚀 DevOps/Infra
+### ðŸš€ DevOps/Infra
 
 1. **Points importants** : 
    - API utilisée : http://localhost:5006/api/controles
@@ -170,7 +170,7 @@ Controles.jsx
 README_STRUCTURE explique le "Pourquoi" et le "Quoi"
 GUIDE_PRATIQUE explique le "Comment" et le "Où"
 
-Exemple tâche "Ajouter un plan d'action" :
+Exemple tache "Ajouter un plan d'action" :
     1. Lire GUIDE_PRATIQUE.md → Savoir quoi faire
     2. Lire détails dans README_STRUCTURE.md → Structure PLANS_ACTION
     3. Consulter CONVENTIONS.md → Respecter les normes
@@ -178,7 +178,7 @@ Exemple tâche "Ajouter un plan d'action" :
 
 ---
 
-## 📊 Quick Stats
+## ðŸ“Š Quick Stats
 
 | Composant | Lignes | Commentaires | États | Fonctions |
 |-----------|--------|------------|--------|-----------|
@@ -224,7 +224,7 @@ Tous les fichiers utilisent :
 
 ---
 
-## 🔐 Secrets et Configuration
+## ðŸ” Secrets et Configuration
 
 Aucun secret en dur dans le code ✓
 
@@ -234,7 +234,7 @@ Aucun secret en dur dans le code ✓
 
 ---
 
-## 📞 Support Rapide
+## ðŸ“ž Support Rapide
 
 | Q | A | Doc |
 |---|---|-----|
@@ -249,7 +249,7 @@ Aucun secret en dur dans le code ✓
 ## 🚀 Prochaines Étapes
 
 1. **Immédiat** : Lire README_STRUCTURE.md
-2. **Cette semaine** : Essayer 2-3 tâches dans GUIDE_PRATIQUE.md
+2. **Cette semaine** : Essayer 2-3 taches dans GUIDE_PRATIQUE.md
 3. **Ce mois** : Relire CONVENTIONS.md avant de pusher du code
 4. **Prochaines versions** : 
    - Migrer vers TypeScript
