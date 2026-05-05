@@ -20,7 +20,7 @@ import { resolveAssetUrl } from "../api/url";
 // Définition de tous les axes possibles avec leur moduleCode
 const allMainAxes = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
-  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashboard" },  // ✅ CORRIGÉ: dashboard au lieu de dashbord
+  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashboard" },
   { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
   { id: "controles", label: "Contrôles", path: "/controles", moduleCode: "controles" },
@@ -35,14 +35,10 @@ const allMoreAxes = [
   { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },
 ];
 
+// Menu Admin réduit : seulement Utilisateurs
 const allAdminMenuItems = [
-  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques" },
-  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "users" },  // ✅ CORRIGÉ: users au lieu de utilisateurs
-  { label: "Sociétés", Icon: Factory, path: "/admin/societes", moduleCode: "societes" },
-  { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings" },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "users" },
 ];
-
-const ADMIN_EMAIL = "admin@alexsys.com";
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -66,7 +62,9 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     (mainAxes.length > 0 ? mainAxes[0]?.id : "tableau-bord");
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
-  const isAdmin = (user?.email || user?.Email) === ADMIN_EMAIL;
+  
+  // Vérifier si l'utilisateur a le rôle Admin (peu importe l'email)
+  const isAdmin = user?.role === "Admin" || user?.Role === "Admin";
 
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";
@@ -223,7 +221,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </nav>
         )}
 
-        {/* PROFIL - Menu admin filtré par permissions */}
+        {/* PROFIL - Menu admin réduit (seulement Utilisateurs) */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
@@ -258,6 +256,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     </div>
                   </div>
 
+                  {/* Menu Admin : uniquement Utilisateurs pour les admins */}
                   {isAdmin && adminMenuItems.length > 0 && (
                     <div className="py-2 border-b border-slate-100">
                       {adminMenuItems.map(({ label, Icon, path }) => (
