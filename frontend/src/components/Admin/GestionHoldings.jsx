@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Building2, X, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
@@ -28,11 +28,7 @@ export default function GestionHoldings() {
     };
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setFetchLoading(true);
     setError("");
     try {
@@ -60,7 +56,11 @@ export default function GestionHoldings() {
     } finally {
       setFetchLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getSocCount = (id) => societes.filter(s => s.holdingId === id).length;
 
@@ -138,12 +138,10 @@ export default function GestionHoldings() {
 
   if (fetchLoading) {
     return (
-      <div className="p-6 max-w-[1280px] mx-auto">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-slate-500">Chargement des holdings...</p>
-          </div>
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-500">Chargement des holdings...</p>
         </div>
       </div>
     );
@@ -151,8 +149,8 @@ export default function GestionHoldings() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-[1280px] mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center p-6">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-md">
           <p className="text-red-600">{error}</p>
           <button 
             onClick={fetchData}
@@ -166,234 +164,260 @@ export default function GestionHoldings() {
   }
 
   return (
-    <div className="p-6 max-w-[1280px] mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestion des holdings</h1>
-          <p className="text-sm text-slate-500">Administration des groupes et de leurs sociétés</p>
-        </div>
-        <button 
-          onClick={() => { setEditing(null); setFormNom(""); setModalOpen(true); }} 
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Nouvelle holding
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-        {kpis.map((k, i) => (
-          <div 
-            key={i} 
-            className="rounded-2xl p-5 shadow-sm" 
-            style={{ 
-              background: k.primary ? GRAD_BLUE : "#fff", 
-              boxShadow: k.primary ? "0 8px 24px rgba(29,78,216,.30)" : "0 2px 8px rgba(0,0,0,.06)" 
-            }}
-          >
-            <div className="text-3xl font-bold" style={{ color: k.primary ? "#fff" : "#111827" }}>{k.value}</div>
-            <div className="text-xs font-semibold mt-1" style={{ color: k.primary ? "rgba(255,255,255,.9)" : "#374151" }}>{k.label}</div>
-            <div className="text-xs mt-0.5" style={{ color: k.primary ? "rgba(255,255,255,.6)" : "#9CA3AF" }}>{k.sub}</div>
+    <div className="min-h-screen bg-[#f8f9fb]" style={{ fontFamily: "'Sora', 'Segoe UI', sans-serif" }}>
+      <div className="mx-auto max-w-[1400px] px-9 py-9 pb-16 w-full">
+        
+        {/* En-tête */}
+        <div className="flex justify-between items-center mb-7">
+          <div>
+            <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Gestion des holdings</h1>
+            <p className="mt-1 text-[13.5px] text-slate-500">Administration des groupes et de leurs sociétés</p>
           </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border p-5 mb-5">
-        <div className="relative mb-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Rechercher une holding..." 
-            className="w-full h-12 pl-11 pr-4 rounded-xl border bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex justify-between items-center">
           <button 
-            onClick={() => setSearch("")} 
-            className="flex items-center gap-2 px-4 py-2 border rounded-xl text-sm hover:bg-slate-50 transition"
+            onClick={() => { setEditing(null); setFormNom(""); setModalOpen(true); }} 
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
           >
-            <SlidersHorizontal size={15} />
-            Réinitialiser
+            <Plus size={18} /> Nouvelle holding
           </button>
-          <div className="flex border rounded-xl overflow-hidden">
-            <button 
-              onClick={() => setViewMode("grid")} 
-              className={`px-3 py-2 transition ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
+          {kpis.map((k, i) => (
+            <div 
+              key={i} 
+              className="rounded-2xl p-5 shadow-sm" 
+              style={{ 
+                background: k.primary ? GRAD_BLUE : "#fff", 
+                boxShadow: k.primary ? "0 8px 24px rgba(29,78,216,.35)" : "0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)",
+                animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
+              }}
             >
-              <LayoutGrid size={17} />
-            </button>
-            <button 
-              onClick={() => setViewMode("table")} 
-              className={`px-3 py-2 transition ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
-            >
-              <List size={17} />
-            </button>
+              <div className="text-3xl font-bold" style={{ color: k.primary ? "#fff" : "#111827" }}>{k.value}</div>
+              <div className="text-xs font-semibold mt-1" style={{ color: k.primary ? "rgba(255,255,255,.9)" : "#374151" }}>{k.label}</div>
+              <div className="text-xs mt-0.5" style={{ color: k.primary ? "rgba(255,255,255,.6)" : "#9CA3AF" }}>{k.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 shadow-sm">
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+              placeholder="Rechercher une holding..." 
+              className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-300 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-        </div>
-      </div>
-
-      {/* Results */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border">
-          <p className="text-slate-500">Aucune holding trouvée.</p>
-          {search && (
+          <div className="flex justify-between items-center">
             <button 
-              onClick={() => setSearch("")}
-              className="mt-3 text-blue-600 text-sm hover:underline"
+              onClick={() => setSearch("")} 
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-xl text-sm hover:bg-slate-50 transition"
             >
-              Effacer la recherche
+              <SlidersHorizontal size={15} />
+              Réinitialiser
             </button>
-          )}
-        </div>
-      ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(h => {
-            const cnt = getSocCount(h.id);
-            return (
-              <div key={h.id} className="bg-white rounded-2xl border p-4 shadow-sm hover:shadow-md transition">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold">
-                    {initials(h.nom)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-800">{h.nom}</div>
-                    <div className="text-xs text-slate-400">HLD-{String(h.id).padStart(3, "0")}</div>
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
-                    {cnt} société(s)
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} 
-                    className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition"
-                  >
-                    <Edit size={14} />
-                    Modifier
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(h.id, cnt)} 
-                    className="flex-1 py-2 bg-red-50 text-red-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-red-100 transition"
-                  >
-                    <Trash2 size={14} />
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b">
-              <tr className="text-xs font-bold text-slate-500">
-                <th className="px-6 py-4 text-left">Holding</th>
-                <th className="px-6 py-4 text-left">ID</th>
-                <th className="px-6 py-4 text-left">Sociétés</th>
-                <th className="px-6 py-4 text-center">Actions</th>
-               </tr>
-            </thead>
-            <tbody>
-              {filtered.map((h, i) => {
-                const cnt = getSocCount(h.id);
-                return (
-                  <tr key={h.id} className={`border-b hover:bg-slate-50 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center text-xs font-bold">
-                          {initials(h.nom)}
-                        </div>
-                        <span className="font-semibold text-slate-800 text-sm">{h.nom}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400">
-                      HLD-{String(h.id).padStart(3, "0")}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
-                        {cnt} société(s)
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center gap-2">
-                        <button 
-                          onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} 
-                          className="p-2 bg-blue-50 rounded-lg text-blue-600 hover:bg-blue-100 transition"
-                        >
-                          <Edit size={15} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(h.id, cnt)} 
-                          className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 transition"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
-            <div className="px-6 py-4 border-b flex justify-between items-center rounded-t-2xl" style={{ background: GRAD_BLUE }}>
-              <h3 className="font-bold text-white">{editing ? "Modifier la holding" : "Nouvelle holding"}</h3>
+            <div className="flex border border-slate-300 rounded-xl overflow-hidden">
               <button 
-                onClick={() => setModalOpen(false)} 
-                className="p-2 hover:bg-white/15 rounded-lg transition"
+                onClick={() => setViewMode("grid")} 
+                className={`px-3 py-2 transition ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
               >
-                <X size={16} className="text-white" />
+                <LayoutGrid size={17} />
+              </button>
+              <button 
+                onClick={() => setViewMode("table")} 
+                className={`px-3 py-2 transition ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                <List size={17} />
               </button>
             </div>
-            <div className="p-6">
-              <label className="text-sm font-medium text-slate-700">Nom de la holding</label>
-              <div className="relative mt-1">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                <input 
-                  value={formNom} 
-                  onChange={e => setFormNom(e.target.value)} 
-                  type="text" 
-                  placeholder="Nom de la holding" 
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          </div>
+        </div>
+
+        {/* Results */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <p className="text-slate-500">Aucune holding trouvée.</p>
+            {search && (
+              <button 
+                onClick={() => setSearch("")}
+                className="mt-3 text-blue-600 text-sm hover:underline"
+              >
+                Effacer la recherche
+              </button>
+            )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map((h, idx) => {
+              const cnt = getSocCount(h.id);
+              return (
+                <div key={h.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition" style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${idx * 60}ms both` }}>
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-lg">
+                      {initials(h.nom)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-slate-800">{h.nom}</div>
+                      <div className="text-xs text-slate-400">HLD-{String(h.id).padStart(3, "0")}</div>
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
+                      {cnt} société(s)
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} 
+                      className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition"
+                    >
+                      <Edit size={14} />
+                      Modifier
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(h.id, cnt)} 
+                      className="flex-1 py-2 bg-red-50 text-red-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-red-100 transition"
+                    >
+                      <Trash2 size={14} />
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left">Holding</th>
+                    <th className="px-6 py-4 text-left">ID</th>
+                    <th className="px-6 py-4 text-left">Sociétés</th>
+                    <th className="px-6 py-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((h, i) => {
+                    const cnt = getSocCount(h.id);
+                    return (
+                      <tr key={h.id} className={`border-b border-slate-100 hover:bg-slate-50 transition ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center text-xs font-bold">
+                              {initials(h.nom)}
+                            </div>
+                            <span className="font-semibold text-slate-800 text-sm">{h.nom}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-slate-400">
+                          HLD-{String(h.id).padStart(3, "0")}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200">
+                            {cnt} société(s)
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-2">
+                            <button 
+                              onClick={() => { setEditing(h); setFormNom(h.nom); setModalOpen(true); }} 
+                              className="p-2 bg-blue-50 rounded-lg text-blue-600 hover:bg-blue-100 transition"
+                              title="Modifier"
+                            >
+                              <Edit size={15} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(h.id, cnt)} 
+                              className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 transition"
+                              title="Supprimer"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-xl">
+              <div className="px-6 py-4 border-b flex justify-between items-center rounded-t-2xl" style={{ background: GRAD_BLUE }}>
+                <h3 className="font-bold text-white">{editing ? "Modifier la holding" : "Nouvelle holding"}</h3>
                 <button 
                   onClick={() => setModalOpen(false)} 
-                  className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 transition"
+                  className="p-2 hover:bg-white/15 rounded-lg transition"
                 >
-                  Annuler
+                  <X size={16} className="text-white" />
                 </button>
-                <button 
-                  onClick={handleSave} 
-                  disabled={loading || !formNom.trim()} 
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <CheckCircle size={15} />
-                  )}
-                  {editing ? "Enregistrer" : "Créer"}
-                </button>
+              </div>
+              <div className="p-6">
+                <label className="text-sm font-medium text-slate-700">Nom de la holding</label>
+                <div className="relative mt-1">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <input 
+                    value={formNom} 
+                    onChange={e => setFormNom(e.target.value)} 
+                    type="text" 
+                    placeholder="Nom de la holding" 
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
+                  <button 
+                    onClick={() => setModalOpen(false)} 
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={handleSave} 
+                    disabled={loading || !formNom.trim()} 
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <CheckCircle size={15} />
+                    )}
+                    {editing ? "Enregistrer" : "Créer"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
+        
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        
+        * { box-sizing: border-box; }
+        button { outline: none; }
+      `}</style>
     </div>
   );
 }

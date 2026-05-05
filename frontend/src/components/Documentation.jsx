@@ -747,8 +747,8 @@ export default function Documentation() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] px-4 py-5 sm:px-6" style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}>
-      <div className="mx-auto max-w-[1200px]">
+    <div className="min-h-screen bg-[#f8f9fb]" style={{ fontFamily: "'Sora', 'Inter', 'Segoe UI', sans-serif" }}>
+      <div className="mx-auto max-w-[1400px] px-9 py-9 pb-16 w-full">
         <div className="mb-7">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>

@@ -10,7 +10,6 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/audits")]
-
 public class AuditsController : ControllerBase
 {
     private readonly AppDbContext _db;

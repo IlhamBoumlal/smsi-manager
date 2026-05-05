@@ -670,7 +670,7 @@ function StepRow({ step, index, meta, onStatusChange, onDelete }) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   ENJEUX TABLE
+   ENJEUX TABLE (CORRIGÉE)
 ════════════════════════════════════════════════════════════ */
 function EnjeuxTable({ title, data, onChange, meta }) {
   const [nr, setNr]=useState({domaine:"",enjeu:"",niveauImpact:"moyen",mesureAssociee:""});
@@ -683,20 +683,30 @@ function EnjeuxTable({ title, data, onChange, meta }) {
       {data.length>0&&(
         <div style={{border:"1px solid #E4E8F0",borderRadius:10,overflow:"hidden",marginBottom:10}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-            <thead><tr style={{background:"#F8FAFC"}}>
-              {["Domaine","Enjeu","Impact","Mesure associée",""].map(h=>(
-                <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",fontSize:10,borderBottom:"1px solid #E4E8F0"}}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>{data.map((row,i)=>(
-              <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:i%2===0?"#fff":"#FAFBFC"}}>
-                <td style={{padding:"8px 10px",fontWeight:600,color:"#374151"}}>{row.domaine}</td>
-                <td style={{padding:"8px 10px",color:"#374151",maxWidth:200}}>{row.enjeu}</td>
-                <td style={{padding:"8px 10px"}}><span style={{fontSize:10,fontWeight:700,color:IMPACT_COLOR[row.niveauImpact]||"#64748B",background:(IMPACT_COLOR[row.niveauImpact]||"#64748B")+"20",padding:"2px 8px",borderRadius:4}}>{row.niveauImpact}</span></td>
-                <td style={{padding:"8px 10px",color:"#64748B",maxWidth:180}}>{row.mesureAssociee}</td>
-                <td style={{padding:"8px 10px"}}><button onClick={()=>onChange(data.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FDA4AF",fontSize:12}}><FontAwesomeIcon icon={faTrash}/></button></td>
+            <thead>
+              <tr style={{background:"#F8FAFC"}}>
+                {["Domaine","Enjeu","Impact","Mesure associée",""].map(h=>(
+                  <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",fontSize:10,borderBottom:"1px solid #E4E8F0"}}>{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {data.map((row,i)=>(
+                <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:i%2===0?"#fff":"#FAFBFC"}}>
+                  <td style={{padding:"8px 10px",fontWeight:600,color:"#374151"}}>{row.domaine}</td>
+                  <td style={{padding:"8px 10px",color:"#374151",maxWidth:200}}>{row.enjeu}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:IMPACT_COLOR[row.niveauImpact]||"#64748B",background:(IMPACT_COLOR[row.niveauImpact]||"#64748B")+"20",padding:"2px 8px",borderRadius:4}}>{row.niveauImpact}</span>
+                  </td>
+                  <td style={{padding:"8px 10px",color:"#64748B",maxWidth:180}}>{row.mesureAssociee}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <button onClick={()=>onChange(data.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FDA4AF",fontSize:12}}>
+                      <FontAwesomeIcon icon={faTrash}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
@@ -1202,8 +1212,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
   const [proofs,   setProofs]         = useState([]);
   const [proofsLoaded, setPL]         = useState(false);
   const [pendingProofFiles, setPendingProofFiles] = useState([]);
-  const [uploadingProof,    setUploadingProof]    = useState(false);
-  const [uploadProofPct,    setUploadProofPct]    = useState(0);
   const proofFileRef = useRef(null);
 
   useEffect(()=>{ if(conformity) setForm({status:conformity.status,score:conformity.score||0,lastAudit:conformity.lastAudit||"",nextAudit:conformity.nextAudit||"",comments:conformity.comments||""}); },[conformity]);
@@ -1452,7 +1460,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
 function LoadingSkeleton() {
   return (
     <div style={{minHeight:"100vh",background:BG_PAGE,fontFamily:"'Sora','Segoe UI',sans-serif"}}>
-      <div style={{maxWidth:1120,margin:"24px auto",padding:"0 32px",display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{maxWidth:1120,margin:"0 auto",padding:"24px 32px 60px",display:"flex",flexDirection:"column",gap:12}}>
         {[1,2,3].map(i=>(
           <div key={i} style={{background:"#fff",borderRadius:12,padding:18,border:"1px solid #E8ECF4",animation:`skeletonPulse 1.4s ease ${i*.1}s infinite`}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1473,8 +1481,7 @@ function LoadingSkeleton() {
 ════════════════════════════════════════════════════════════ */
 export default function ClauseDetail() {
   const { id }           = useParams();
-  const { logout }       = useAuth();
-  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const { canRead, canWrite, canEdit, canDelete } = useAuth();
   const moduleCode = "clauses";
   const navigate         = useNavigate();
 
@@ -1591,7 +1598,7 @@ export default function ClauseDetail() {
 
   return (
     <div style={{minHeight:"100vh",background:BG_PAGE,fontFamily:"'Sora','Segoe UI',sans-serif"}}>
-      <div style={{maxWidth:1120,margin:"0 auto",padding:"24px 32px 60px"}}>
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"24px 36px 60px",width:"100%"}}>
 
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22,fontSize:12,animation:"fadeDown .4s ease"}}>
           <button onClick={()=>navigate("/clauses")} style={{background:"none",border:"none",cursor:"pointer",color:meta.color,fontWeight:700,fontSize:12,padding:0,display:"flex",alignItems:"center",gap:5,transition:"opacity .15s"}}
