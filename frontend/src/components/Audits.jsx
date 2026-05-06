@@ -337,11 +337,11 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
     <div className="space-y-5">
       <div className="flex items-start gap-3 p-3.5 bg-gray-50 border border-gray-200 rounded-xl">
         <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"/>
-        <p className="text-xs text-gray-600">Ce module est réservé aux <strong>audits </strong> </p>
+        <p className="text-xs text-gray-600">Ce module est réservé aux <strong>audits</strong> externes.</p>
       </div>
 
       <div className="flex justify-end">
-        {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit </Btn>}
+        {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit</Btn>}
       </div>
 
       {showForm && (
@@ -424,7 +424,7 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 2 — SIMULER
 // ═══════════════════════════════════════════════════════════════════════════════
-function SimulateModule({ simHistory, onSaveSimulation, canWrite, canExport }) {
+function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
   const [view, setView] = useState('list');
   const [simName, setSimName] = useState('');
   const [simAuthor, setSimAuthor] = useState('');
@@ -1009,7 +1009,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
                       {!statuses[c.id]       && <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-gray-400 max-w-xs">{comments[c.id]||'—'}</td>
-                  </tr>    
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -1212,8 +1212,12 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
   );
 }
 
+const CircleIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+);
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// MODULE 5 — ÉCART / SoA
+// MODULE 5 — GAP / SOA
 // ═══════════════════════════════════════════════════════════════════════════════
 function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   const [activeTab, setActiveTab] = useState('soa');
@@ -1355,10 +1359,6 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
     </div>
   );
 }
-
-const CircleIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>
-);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN
@@ -1572,7 +1572,7 @@ export function Audits() {
           <ActionBar active={module} onChange={setModule}/>
 
           {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
-          {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)} canExport={canExport(moduleCode)}/>}
+          {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)}/>}
           {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
           {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
           {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}

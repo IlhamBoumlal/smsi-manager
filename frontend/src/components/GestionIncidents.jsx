@@ -556,7 +556,7 @@ export default function GestionIncidents() {
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
       <style>{animationStyles}</style>
 
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 36px 60px' }}>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
 
         {/* En-tête */}
         <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>

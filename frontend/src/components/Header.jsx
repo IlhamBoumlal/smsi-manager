@@ -20,7 +20,7 @@ import { resolveAssetUrl } from "../api/url";
 // Définition de tous les axes possibles avec leur moduleCode
 const allMainAxes = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
-  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashbord" },
+  { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashboard" },
   { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
   { id: "controles", label: "Contrôles", path: "/controles", moduleCode: "controles" },
@@ -29,7 +29,7 @@ const allMainAxes = [
 ];
 
 const allMoreAxes = [
-  { id: "audits", label: "Audits", path: "/audits", moduleCode: "audits", icon: <ClipboardCheck size={20} /> },
+  { id: "audits", label: "Audits", path: "/audits", moduleCode: "audit", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", moduleCode: "actifs", icon: <Database size={20} /> },
   { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", moduleCode: "sensibilisation", icon: <Network size={20} /> },
   { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },

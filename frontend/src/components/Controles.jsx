@@ -264,8 +264,8 @@ function normalize(c) {
   else if (c.Applicable !== undefined) applicableValue = c.Applicable;
 
   let statutValue = 'NonEvalue';
-  if (c.statut != null)  statutValue = c.statut;      // != null vérifie null ET undefined
-  else if (c.Statut != null) statutValue = c.Statut;  // Gère les valeurs 0, false, ""
+  if (c.statut != null)  statutValue = c.statut;
+  else if (c.Statut != null) statutValue = c.Statut;
 
   let steps = null;
   const rawSteps = c.steps || c.Steps;
@@ -712,10 +712,7 @@ export default function Controles() {
 
   const updateLocalControle = (updatedControle) => {
     setControles(prev => prev.map(ctrl => {
-      // Correspondance exacte par ID (cas normal)
       if (ctrl.id === updatedControle.id) return { ...ctrl, ...updatedControle };
-      // Correspondance par code (cas fallback : l'ID local était l'ID global,
-      // l'API a retourné l'ID société → on met à jour le bon contrôle ET son ID)
       if (ctrl.code === updatedControle.code) return { ...ctrl, ...updatedControle };
       return ctrl;
     }));
@@ -774,8 +771,6 @@ export default function Controles() {
       });
 
       if (response.status === 200 || response.status === 204) {
-        // Toujours utiliser response.data qui contient le vrai ID société
-        // (l'API peut avoir fait un fallback code→ID différent de l'ID envoyé)
         const savedData = response.data ? normalize(response.data) : normalize(updated);
         console.log('[Sauvegarde] Réponse normalisée:', savedData);
         updateLocalControle(savedData);
@@ -831,12 +826,12 @@ export default function Controles() {
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 36px 60px' }}>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
         <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: '0 0 6px', fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
             Contrôles ISO 27001 — Annexe A
           </h1>
-          <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0 }}>Évaluation de conformité des contrôles de sécurité</p>
+          <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, marginTop: 6 }}>Évaluation de conformité des contrôles de sécurité</p>
         </div>
 
         <KpiStrip stats={stats} />

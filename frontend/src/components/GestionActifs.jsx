@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Plus, Search, Edit, Trash2, X, Shield, Lock, Layers,
-  CheckCircle, Upload, Database, LayoutGrid, List, ChevronDown, SlidersHorizontal, Download,
+  CheckCircle, LayoutGrid, List, ChevronDown, SlidersHorizontal, Download,
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
@@ -152,9 +152,7 @@ export default function GestionActifs() {
 
   const [form, setForm] = useState(EMPTY_FORM);
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setFetchLoading(true);
     try {
       const [actifsResult, profilsResult] = await Promise.allSettled([
@@ -176,7 +174,9 @@ export default function GestionActifs() {
     } finally {
       setFetchLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // Fonction d'export des actifs
   const handleExport = async () => {
@@ -421,14 +421,14 @@ export default function GestionActifs() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa] px-4 py-5 sm:px-6" style={{ fontFamily: T.font }}>
-      <div className="mx-auto max-w-[1200px]">
+    <div className="min-h-screen bg-[#f4f6fa]" style={{ fontFamily: T.font }}>
+      <div className="mx-auto max-w-[1400px] px-9 py-9 pb-16 w-full">
 
         {/* ── Header ── */}
-        <section className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <section className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h1 className="text-[24px] font-extrabold tracking-tight text-slate-900 sm:text-[26px]">Gestion des actifs</h1>
-            <p className="mt-1 text-xs text-slate-500">Pilotage inventaire ISO 27001 - suivi des actifs et proprietaires.</p>
+            <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Gestion des actifs</h1>
+            <p className="mt-1 text-[13.5px] text-slate-500">Pilotage inventaire ISO 27001 - suivi des actifs et proprietaires.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {canExport(moduleCode) && (

@@ -9,12 +9,12 @@ import { faArrowLeft, faRotateRight, faTriangleExclamation, faPlus } from '@fort
    CLAUSE CONFIG
 ═══════════════════════════════════════════════════════════ */
 const CLAUSE_META = {
-  4:  { emoji: "ðŸ›", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
-  5:  { emoji: "ðŸ‘‘", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
-  6:  { emoji: "ðŸŽ¯", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
+  4:  { emoji: "🏛", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
+  5:  { emoji: "👑", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
+  6:  { emoji: "🎯", phase: "P", gradient: "135deg, #1e3a5f 0%, #0f2540 100%" },
   7:  { emoji: "⚙️", phase: "D", gradient: "135deg, #1a3a5c 0%, #0d2035 100%" },
-  8:  { emoji: "ðŸ”§", phase: "D", gradient: "135deg, #1a3a5c 0%, #0d2035 100%" },
-  9:  { emoji: "ðŸ“Š", phase: "C", gradient: "135deg, #1b3a5e 0%, #0e2438 100%" },
+  8:  { emoji: "🔧", phase: "D", gradient: "135deg, #1a3a5c 0%, #0d2035 100%" },
+  9:  { emoji: "📊", phase: "C", gradient: "135deg, #1b3a5e 0%, #0e2438 100%" },
   10: { emoji: "♻️", phase: "A", gradient: "135deg, #1c3a60 0%, #0f2840 100%" },
 };
 
@@ -439,7 +439,7 @@ export default function ClausesDashboard() {
       background: "#F8F9FB",
       fontFamily: "'Inter', 'Segoe UI', sans-serif",
     }}>
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 36px 60px" }}>
+      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "36px 36px 60px", width: "100%" }}>
 
         {/* Page header */}
         <div style={{ marginBottom: 28 }}>
@@ -503,7 +503,7 @@ export default function ClausesDashboard() {
             : filtered.length === 0
             ? (
               <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "80px 0" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>ðŸ”</div>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#374151", fontFamily: "'Sora', sans-serif" }}>
                   Aucune clause dans cette catégorie
                 </div>
