@@ -136,7 +136,7 @@ export default function SuperAdminSpace() {
 
   const renderContent = () => {
     switch(activeTab) {
-      case "dashboard": return <DashboardAdmin />;
+      case "dashboard": return <DashboardAdmin onTabChange={setActiveTab} />;
       case "holdings": return <GestionHoldings />;
       case "societes": return <GestionSocietes />;
       case "users": return <GestionUtilisateursAdmins />;

@@ -1,12 +1,10 @@
-// components/Admin/DashboardAdmin.jsx
+// components/Admin/DashboardAdmin.jsx - Version avec 4 cartes d'actions rapides
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Users, Shield, Building2, Factory, 
   BarChart3, Activity, ArrowUpRight, 
-  Eye, Edit3, Trash2, RefreshCw, Check, X,
-  ChevronRight, Layout, Server, TrendingUp, Calendar,
-  UserPlus, Clock, AlertCircle, CheckCircle, FileText
+  RefreshCw, X, ChevronRight, TrendingUp, Calendar,
+  UserPlus, Clock, AlertCircle, CheckCircle, Key
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -38,7 +36,7 @@ const StatCard = ({ label, value, icon: Icon, color, bg, trend, onClick }) => (
   </div>
 );
 
-const ActivityItem = ({ activity, index }) => {
+const ActivityItem = ({ activity, index, onClick }) => {
   const colorMap = {
     blue: "bg-blue-100 text-blue-600",
     purple: "bg-purple-100 text-purple-600",
@@ -48,7 +46,8 @@ const ActivityItem = ({ activity, index }) => {
   const Icon = activity.icon;
   return (
     <div 
-      className="flex items-center gap-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors rounded-lg px-2"
+      onClick={onClick}
+      className="flex items-center gap-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors rounded-lg px-2 cursor-pointer"
       style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${index * 80 + 300}ms both` }}
     >
       <div className={`p-2 rounded-xl ${colorMap[activity.color]}`}>
@@ -114,10 +113,8 @@ function DetailModal({ type, data, onClose }) {
 }
 
 // --- MAIN COMPONENT ---
-
-export default function DashboardAdmin() {
-  const navigate = useNavigate();
-  const { user, isSuperAdmin, isAdminSociete } = useAuth();
+export default function DashboardAdmin({ onTabChange }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -266,17 +263,29 @@ export default function DashboardAdmin() {
     loadAllData();
   }, [loadAllData]);
 
-  // Gestionnaires de navigation - CORRIGÉS avec les bons chemins
+  // Gestionnaires de navigation - Utilisation du callback onTabChange
   const handleNavigateToUsers = () => {
-    navigate('/admin/utilisateurs');
+    if (onTabChange) {
+      onTabChange('users');
+    }
   };
 
   const handleNavigateToHoldings = () => {
-    navigate('/admin/holdings');
+    if (onTabChange) {
+      onTabChange('holdings');
+    }
   };
 
   const handleNavigateToSocietes = () => {
-    navigate('/admin/societes');
+    if (onTabChange) {
+      onTabChange('societes');
+    }
+  };
+
+  const handleNavigateToRoles = () => {
+    if (onTabChange) {
+      onTabChange('roles');
+    }
   };
 
   const maxCount = Math.max(...holdingStats.map(d => d.count), 1);
@@ -464,19 +473,18 @@ export default function DashboardAdmin() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {recentActivities.map((activity, i) => (
-                  <div 
+                  <ActivityItem 
                     key={activity.id} 
-                    className="cursor-pointer hover:bg-slate-50 transition-colors rounded-lg"
+                    activity={activity} 
+                    index={i} 
                     onClick={handleNavigateToUsers}
-                  >
-                    <ActivityItem activity={activity} index={i} />
-                  </div>
+                  />
                 ))}
               </div>
             )}
 
             {/* Stats rapides */}
-            <div className="grid grid-cols-3 gap-3 mt-6 pt-4 border-t border-slate-100">
+            <div className="grid grid-cols-4 gap-3 mt-6 pt-4 border-t border-slate-100">
               <div 
                 className="text-center cursor-pointer hover:bg-emerald-50 p-2 rounded-lg transition-colors"
                 onClick={handleNavigateToUsers}
@@ -501,15 +509,24 @@ export default function DashboardAdmin() {
               >
                 <div className="flex items-center justify-center gap-1 text-blue-600">
                   <Building2 size={14} />
-                  <span className="text-xs font-bold">Gérer Holdings</span>
+                  <span className="text-xs font-bold">Holdings</span>
+                </div>
+              </div>
+              <div 
+                className="text-center cursor-pointer hover:bg-purple-50 p-2 rounded-lg transition-colors"
+                onClick={handleNavigateToRoles}
+              >
+                <div className="flex items-center justify-center gap-1 text-purple-600">
+                  <Key size={14} />
+                  <span className="text-xs font-bold">Rôles</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section Actions Rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        {/* Section Actions Rapides - 4 cartes */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
           <div 
             onClick={handleNavigateToUsers}
             className="bg-gradient-to-r from-blue-600 to-blue-700 p-5 rounded-2xl shadow-lg shadow-blue-200 text-white group cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-all"
@@ -558,6 +575,24 @@ export default function DashboardAdmin() {
                 <div>
                   <h4 className="font-extrabold text-sm text-slate-800">Gérer les Sociétés</h4>
                   <p className="text-slate-400 text-xs">Gestion des sociétés</p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 transition" />
+            </div>
+          </div>
+
+          <div 
+            onClick={handleNavigateToRoles}
+            className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm group cursor-pointer hover:shadow-md transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 text-green-600 p-2.5 rounded-xl">
+                  <Key size={20} />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-800">Gérer les Rôles</h4>
+                  <p className="text-slate-400 text-xs">Permissions et accès</p>
                 </div>
               </div>
               <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 transition" />
