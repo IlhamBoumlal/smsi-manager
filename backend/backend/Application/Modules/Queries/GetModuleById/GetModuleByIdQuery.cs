@@ -1,4 +1,4 @@
-﻿using backend.Domain.Entities;
+using backend.Domain.Entities;
 using MediatR;
 
 namespace backend.Application.Modules.Queries.GetModuleById

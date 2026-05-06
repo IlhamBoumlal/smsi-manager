@@ -8,7 +8,7 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
-[Authorize(Policy = "SmSiSocieteScope")]
+[Authorize]
 public class ClauseController : ControllerBase
 {
     private readonly IClauseService _svc;
@@ -26,7 +26,7 @@ public class ClauseController : ControllerBase
         }
     }
 
-    // â”€â”€ ISO CLAUSES (rÃ©fÃ©rentiel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── ISO CLAUSES (référentiel) ──────────────────────────────────────────
 
     /// GET /api/clauses
     [HttpGet]
@@ -44,7 +44,7 @@ public class ClauseController : ControllerBase
         return clause is null ? NotFound() : Ok(clause);
     }
 
-    // â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── DASHBOARD ─────────────────────────────────────────────────────────
 
     /// GET /api/clauses/dashboard
     [HttpGet("dashboard")]
@@ -59,31 +59,31 @@ public class ClauseController : ControllerBase
     public async Task<IActionResult> GetStats()
         => Ok(await _svc.GetGlobalStatsAsync(UserId, CurrentSocieteId));
 
-    // â”€â”€ CONFORMITY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── CONFORMITY ────────────────────────────────────────────────────────
 
     /// GET /api/clauses/conformity/{subClauseId}
-    /// Retourne 200 + null si la sous-clause n'a pas encore Ã©tÃ© Ã©valuÃ©e
-    /// (Ã©vite les 404 en cascade cÃ´tÃ© frontend au chargement initial).
+    /// Retourne 200 + null si la sous-clause n'a pas encore été évaluée
+    /// (évite les 404 en cascade côté frontend au chargement initial).
     [HttpGet("conformity/{subClauseId:int}")]
     public async Task<IActionResult> GetConformity(int subClauseId)
     {
         var cs = await _svc.GetConformityAsync(subClauseId, UserId, CurrentSocieteId);
-        // On retourne toujours 200 ; le frontend vÃ©rifie cs != null
+        // On retourne toujours 200 ; le frontend vérifie cs != null
         return Ok(cs);
     }
 
-    /// POST /api/clauses/conformity  (crÃ©ation)
-    /// MÃªme logique qu'un PUT â€” l'upsert est idempotent.
+    /// POST /api/clauses/conformity  (création)
+    /// Même logique qu'un PUT — l'upsert est idempotent.
     [HttpPost("conformity")]
     public async Task<IActionResult> CreateConformity([FromBody] UpsertConformityDto dto)
         => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, CurrentSocieteId, dto));
 
-    /// PUT /api/clauses/conformity  (mise Ã  jour ou crÃ©ation)
+    /// PUT /api/clauses/conformity  (mise à jour ou création)
     [HttpPut("conformity")]
     public async Task<IActionResult> UpsertConformity([FromBody] UpsertConformityDto dto)
         => Ok(await _svc.UpsertConformityAsync(dto.SubClauseId, UserId, CurrentSocieteId, dto));
 
-    // â”€â”€ ACTION PLANS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── ACTION PLANS ──────────────────────────────────────────────────────
 
     /// GET /api/clauses/plans?isoClauseId={clauseId}
     [HttpGet("plans")]

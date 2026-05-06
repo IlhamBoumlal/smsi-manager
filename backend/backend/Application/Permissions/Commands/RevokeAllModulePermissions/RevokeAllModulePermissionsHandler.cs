@@ -1,4 +1,4 @@
-﻿using backend.Application.Permissions.Queries.GetRolePermissions;
+using backend.Application.Permissions.Queries.GetRolePermissions;
 using backend.Domain.Interfaces;
 using MediatR;
 

@@ -1,15 +1,16 @@
 using System.Globalization;
 using System.Text;
 using backend.Application.DTOs.Documentation;
-using backend.Application.Security;
 using backend.Domain.Entities;
 
 namespace backend.Application.Documentation
 {
     public enum DocumentationRole
     {
-        Consultant = 0,
-        Rssi = 1
+        Employe = 0,
+        Dsi = 1,
+        Drh = 2,
+        Rssi = 3
     }
 
     public sealed record DocumentationActorContext(
@@ -25,6 +26,8 @@ namespace backend.Application.Documentation
     public static class DocumentationAccessControl
     {
         private static readonly string[] AllCategories = ["Gouvernance", "RGPD", "Continuite", "Technique", "RH", "Audit"];
+        private static readonly string[] DrhCategories = ["RH"];
+        private static readonly string[] DsiCategories = ["Technique", "Gouvernance"];
 
         public static DocumentationActorContext BuildActorContext(string? userId, int? societeId, IEnumerable<string>? roles)
         {
@@ -40,19 +43,20 @@ namespace backend.Application.Documentation
             var allowedCategories = actor.Role switch
             {
                 DocumentationRole.Rssi => AllCategories,
-                DocumentationRole.Consultant => AllCategories,
+                DocumentationRole.Drh => DrhCategories,
+                DocumentationRole.Dsi => DsiCategories,
                 _ => Array.Empty<string>()
             };
 
             return new DocumentationPermissionsDto(
                 Role: actor.Role.ToString().ToUpperInvariant(),
                 CanConsult: actor.HasIdentity && actor.HasSociete,
-                CanCreate: actor.HasIdentity && actor.HasSociete && actor.Role is DocumentationRole.Rssi or DocumentationRole.Consultant,
-                CanEditOwn: actor.HasIdentity && actor.HasSociete && actor.Role == DocumentationRole.Consultant,
+                CanCreate: actor.HasIdentity && actor.HasSociete && actor.Role is DocumentationRole.Rssi or DocumentationRole.Drh or DocumentationRole.Dsi,
+                CanEditOwn: actor.HasIdentity && actor.HasSociete && actor.Role is DocumentationRole.Drh or DocumentationRole.Dsi,
                 CanEditAny: actor.HasIdentity && actor.HasSociete && actor.Role == DocumentationRole.Rssi,
                 CanDelete: actor.HasIdentity && actor.HasSociete && actor.Role == DocumentationRole.Rssi,
                 CanApprove: actor.HasIdentity && actor.HasSociete && actor.Role == DocumentationRole.Rssi,
-                CanCreateVersion: actor.HasIdentity && actor.HasSociete && actor.Role is DocumentationRole.Rssi or DocumentationRole.Consultant,
+                CanCreateVersion: actor.HasIdentity && actor.HasSociete && actor.Role is DocumentationRole.Rssi or DocumentationRole.Drh or DocumentationRole.Dsi,
                 AllowedCategories: allowedCategories
             );
         }
@@ -64,7 +68,8 @@ namespace backend.Application.Documentation
             return actor.Role switch
             {
                 DocumentationRole.Rssi => true,
-                DocumentationRole.Consultant => true,
+                DocumentationRole.Drh => IsCategoryAllowed(document.Category, DrhCategories),
+                DocumentationRole.Dsi => IsCategoryAllowed(document.Category, DsiCategories),
                 _ => IsApprovedStatus(document.Status)
             };
         }
@@ -80,7 +85,8 @@ namespace backend.Application.Documentation
             return actor.Role switch
             {
                 DocumentationRole.Rssi => true,
-                DocumentationRole.Consultant => IsCategoryAllowed(category, AllCategories),
+                DocumentationRole.Drh => IsCategoryAllowed(category, DrhCategories),
+                DocumentationRole.Dsi => IsCategoryAllowed(category, DsiCategories),
                 _ => false
             };
         }
@@ -97,9 +103,12 @@ namespace backend.Application.Documentation
             return actor.Role switch
             {
                 DocumentationRole.Rssi => true,
-                DocumentationRole.Consultant => IsOwnedByActor(actor, document)
-                    && IsCategoryAllowed(document.Category, AllCategories)
-                    && IsCategoryAllowed(requestedCategory, AllCategories),
+                DocumentationRole.Drh => IsOwnedByActor(actor, document)
+                    && IsCategoryAllowed(document.Category, DrhCategories)
+                    && IsCategoryAllowed(requestedCategory, DrhCategories),
+                DocumentationRole.Dsi => IsOwnedByActor(actor, document)
+                    && IsCategoryAllowed(document.Category, DsiCategories)
+                    && IsCategoryAllowed(requestedCategory, DsiCategories),
                 _ => false
             };
         }
@@ -112,7 +121,8 @@ namespace backend.Application.Documentation
             return actor.Role switch
             {
                 DocumentationRole.Rssi => true,
-                DocumentationRole.Consultant => IsCategoryAllowed(document.Category, AllCategories),
+                DocumentationRole.Drh => IsCategoryAllowed(document.Category, DrhCategories),
+                DocumentationRole.Dsi => IsCategoryAllowed(document.Category, DsiCategories),
                 _ => false
             };
         }
@@ -140,18 +150,16 @@ namespace backend.Application.Documentation
                 .ToHashSet(StringComparer.OrdinalIgnoreCase)
                 ?? [];
 
-            if (normalized.Contains(NormalizeKey(AppRoles.Rssi)))
+            if (normalized.Contains("RSSI") || normalized.Contains("ADMIN") || normalized.Contains("RESPONSABLESECURITE"))
                 return DocumentationRole.Rssi;
 
-            if (normalized.Contains(NormalizeKey(AppRoles.Consultant))
-                || normalized.Contains(NormalizeKey(AppRoles.Auditeur))
-                || normalized.Contains(NormalizeKey(AppRoles.AdminSociete))
-                || normalized.Contains(NormalizeKey(AppRoles.SuperAdmin)))
-            {
-                return DocumentationRole.Consultant;
-            }
+            if (normalized.Contains("DRH"))
+                return DocumentationRole.Drh;
 
-            return DocumentationRole.Consultant;
+            if (normalized.Contains("DSI"))
+                return DocumentationRole.Dsi;
+
+            return DocumentationRole.Employe;
         }
 
         private static bool IsInSameSociete(DocumentationActorContext actor, DocumentationDocument document)

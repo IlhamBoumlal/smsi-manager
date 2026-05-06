@@ -1,4 +1,4 @@
-﻿using backend.Application.DTOs.Permissions;
+using backend.Application.DTOs.Permissions;
 using MediatR;
 
 namespace backend.Application.Permissions.Queries.GetRolePermissions

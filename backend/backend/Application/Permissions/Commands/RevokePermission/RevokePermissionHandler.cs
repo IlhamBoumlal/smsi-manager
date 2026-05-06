@@ -1,4 +1,4 @@
-﻿using backend.Domain.Interfaces;
+using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.Identity;

@@ -1,4 +1,4 @@
-using backend.Application.DTOs.User;
+﻿using backend.Application.DTOs.User;
 using backend.Domain.Interfaces;
 using MediatR;
 
@@ -22,7 +22,8 @@ namespace backend.Application.Users.Queries.GetAllUsers
                     user.Id,
                     user.NomComplet,
                     user.Email!,
-                    user.Societe?.Nom ?? "�",
+                    user.SocieteId,
+                    user.Societe?.Nom ?? "—",
                     nomRole,
                     user.CreatedAt.ToString("dd/MM/yyyy"),
                     user.IsActive ? "Actif" : "Inactif",
@@ -33,3 +34,4 @@ namespace backend.Application.Users.Queries.GetAllUsers
         }
     }
 }
+

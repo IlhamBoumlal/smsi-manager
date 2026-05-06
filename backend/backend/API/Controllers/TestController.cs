@@ -1,5 +1,4 @@
 using backend.API.Hubs;
-using backend.Application.Security;
 using backend.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -24,22 +23,23 @@ namespace backend.API.Controllers
         {
             try
             {
-                Console.WriteLine("?? Test email dÈmarrÈ...");
+                Console.WriteLine("üîç Test email d√©marr√©...");
 
-                Console.WriteLine("?? Envoi email direct...");
+                // Test 1 : email direct sans passer par les users
+                Console.WriteLine("üìß Envoi email direct...");
                 var result = await _emailService.SendIncidentNotificationAsync(
-                    "boumlalilham@gmail.com",
-                    "Test Super Admin",
+                    "boumlalilham@gmail.com",  // ton email directement
+                    "Test Admin",
                     "Titre test incident",
                     "Description test"
                 );
 
-                Console.WriteLine($"RÈsultat envoi: {result}");
-                return Ok(new { success = result, message = "VÈrifiez la console" });
+                Console.WriteLine($"R√©sultat envoi: {result}");
+                return Ok(new { success = result, message = "V√©rifiez la console" });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"? EXCEPTION: {ex.GetType().Name}");
+                Console.WriteLine($"‚ùå EXCEPTION: {ex.GetType().Name}");
                 Console.WriteLine($"Message: {ex.Message}");
                 Console.WriteLine($"Stack: {ex.StackTrace}");
                 if (ex.InnerException != null)
@@ -61,10 +61,10 @@ namespace backend.API.Controllers
         {
             try
             {
-                Console.WriteLine("?? RÈcupÈration des super admins...");
-                var admins = await _userRepository.GetUsersByRoleAsync(AppRoles.SuperAdmin);
+                Console.WriteLine("üîç R√©cup√©ration des admins...");
+                var admins = await _userRepository.GetUsersByRoleAsync("Admin");
                 var list = admins.ToList();
-                Console.WriteLine($"? {list.Count} super admin(s) trouvÈ(s)");
+                Console.WriteLine($"‚úÖ {list.Count} admin(s) trouv√©(s)");
                 foreach (var a in list)
                     Console.WriteLine($"  - {a.Email} | {a.NomComplet}");
 
@@ -72,11 +72,10 @@ namespace backend.API.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"? EXCEPTION users: {ex.Message}");
+                Console.WriteLine($"‚ùå EXCEPTION users: {ex.Message}");
                 return StatusCode(500, new { error = ex.Message });
             }
         }
-
         [HttpGet("signalr-test")]
         public async Task<IActionResult> TestSignalRNotification([FromServices] IHubContext<NotificationHub> hubContext)
         {
@@ -99,18 +98,18 @@ namespace backend.API.Controllers
                 await hubContext.Clients.Group(groupName)
                     .SendAsync("ReceiveNotification", testNotification);
 
-                Console.WriteLine($"? Test notification envoyÈe au groupe: {groupName}");
+                Console.WriteLine($"‚úÖ Test notification envoy√©e au groupe: {groupName}");
 
                 return Ok(new
                 {
                     success = true,
-                    message = $"Notification envoyÈe ‡ {targetEmail} (groupe: {groupName})",
+                    message = $"Notification envoy√©e √† {targetEmail} (groupe: {groupName})",
                     groupName
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"? Erreur test SignalR: {ex.Message}");
+                Console.WriteLine($"‚ùå Erreur test SignalR: {ex.Message}");
                 return StatusCode(500, new { error = ex.Message });
             }
         }

@@ -14,7 +14,7 @@ namespace backend.Application.Audits.Queries
         {
             var audit = await _db.Audits
                 .Include(a => a.ControlStatuses)
-                .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
+                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
                 .FirstOrDefaultAsync(a => a.Id == id);
 
             return audit is null ? null : CreateAuditCommand.MapToDto(audit);

@@ -11,7 +11,7 @@ namespace backend.Application.Audits.Commands
         public async Task<bool> ExecuteAsync(Guid id, int? societeId)
         {
             var nc = await _db.NonConformites
-                .Where(n => societeId.HasValue && n.SocieteId == societeId.Value)
+                .Where(n => societeId.HasValue ? n.SocieteId == societeId.Value || n.SocieteId == null : n.SocieteId == null)
                 .FirstOrDefaultAsync(n => n.Id == id);
             if (nc is null) return false;
             _db.NonConformites.Remove(nc);

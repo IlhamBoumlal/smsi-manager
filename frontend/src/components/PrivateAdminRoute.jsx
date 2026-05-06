@@ -1,16 +1,20 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getScopedRoles } from '../utils/roleScopes';
 
-const DEFAULT_ADMIN_SCOPES = ['super_admin', 'admin_societe'];
+const normalizeRoleKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
-export default function PrivateAdminRoute({ children, requiredScopes = DEFAULT_ADMIN_SCOPES }) {
+export default function PrivateAdminRoute({ children, allowedRoles = ['Super Admin'] }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
 
-  const scopedRoles = getScopedRoles(user);
-  const isAllowed = requiredScopes.some((scope) => scopedRoles.has(scope));
-  if (!isAllowed) return <Navigate to="/" replace />;
+  const userRole = normalizeRoleKey(user?.role || user?.roleName || '');
+  const isAllowed = allowedRoles.some((role) => normalizeRoleKey(role) === userRole);
+  if (!isAllowed) return <Navigate to="/tableau-bord" replace />;
 
   return children;
 }

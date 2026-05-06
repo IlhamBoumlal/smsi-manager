@@ -1,4 +1,4 @@
-﻿using backend.Domain.Entities;
+using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;

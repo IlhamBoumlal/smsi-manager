@@ -1,4 +1,4 @@
-﻿namespace backend.Domain.Entities
+namespace backend.Domain.Entities
 {
     public class Module
     {

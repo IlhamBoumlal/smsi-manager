@@ -12,12 +12,9 @@ namespace backend.Application.Audits.Commands
 
         public async Task<SimulationAuditDto> ExecuteAsync(CreateSimulationAuditDto dto, int? societeId)
         {
-            if (!societeId.HasValue || societeId.Value <= 0)
-                throw new InvalidOperationException("SocieteId obligatoire pour creer une simulation.");
-
             var sim = new SimulationAudit
             {
-                SocieteId = societeId.Value,
+                SocieteId = societeId,
                 Name = dto.Name,
                 Author = dto.Author,
                 Date = string.IsNullOrWhiteSpace(dto.Date) ? DateTime.UtcNow : DateTime.Parse(dto.Date),

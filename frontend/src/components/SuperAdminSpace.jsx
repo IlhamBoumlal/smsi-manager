@@ -1,9 +1,10 @@
-// SuperAdminSpace.jsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   LogOut, ChevronDown, BarChart3, Users, Building2, Layers, Key,
   ShieldCheck
 } from "lucide-react";
+import { useAuth } from '../context/AuthContext';
 import GestionHoldings from "./Admin/GestionHoldings";
 import GestionSocietes from "./Admin/GestionSocietes";
 import GestionUtilisateursAdmins from "./Admin/GestionUtilisateursAdmins";
@@ -21,7 +22,7 @@ const TABS = [
   { key: "roles", label: "Rôles", icon: <Key size={16} /> },
 ];
 
-function Header({ activeTab, onTabChange }) {
+function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = React.useRef(null);
 
@@ -34,6 +35,14 @@ function Header({ activeTab, onTabChange }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Initiales pour l'avatar
+  const getInitials = () => {
+    if (userName) {
+      return userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    }
+    return 'SA';
+  };
 
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md" style={{ fontFamily: FONT }}>
@@ -68,10 +77,12 @@ function Header({ activeTab, onTabChange }) {
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           <div ref={userMenuRef} className="relative">
             <button onClick={() => setUserMenuOpen(p => !p)} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
-              <div className="w-11 h-11 rounded-full text-white flex items-center justify-center text-sm font-bold shadow-lg shrink-0" style={{ background: GRAD_BLUE }}>SA</div>
+              <div className="w-11 h-11 rounded-full text-white flex items-center justify-center text-sm font-bold shadow-lg shrink-0" style={{ background: GRAD_BLUE }}>
+                {getInitials()}
+              </div>
               <div className="flex flex-col items-start leading-tight text-left">
-                <span className="text-[15px] font-bold text-slate-800">Super Admin</span>
-                <span className="text-xs text-slate-400">admin@alexsys.com</span>
+                <span className="text-[15px] font-bold text-slate-800">{userName || 'Super Admin'}</span>
+                <span className="text-xs text-slate-400">{userEmail || 'admin@alexsys.com'}</span>
               </div>
               <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`} />
             </button>
@@ -80,16 +91,23 @@ function Header({ activeTab, onTabChange }) {
               <div className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden z-50">
                 <div className="px-5 py-5" style={{ background: GRAD_BLUE }}>
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center text-base font-bold shrink-0">SA</div>
+                    <div className="w-12 h-12 rounded-full bg-white/20 text-white flex items-center justify-center text-base font-bold shrink-0">
+                      {getInitials()}
+                    </div>
                     <div className="flex flex-col leading-tight">
-                      <span className="text-[15px] font-bold text-white">Super Admin</span>
-                      <span className="text-xs text-blue-200">admin@alexsys.com</span>
+                      <span className="text-[15px] font-bold text-white">{userName || 'Super Admin'}</span>
+                      <span className="text-xs text-blue-200">{userEmail || 'admin@alexsys.com'}</span>
                     </div>
                   </div>
                 </div>
                 <div className="py-2">
-                  <button className="w-full flex items-center gap-4 px-5 py-3 text-[15px] font-bold text-red-500 hover:bg-red-50 transition-colors">
-                    <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0"><LogOut size={18} className="text-red-500" /></span>
+                  <button 
+                    onClick={onLogout}
+                    className="w-full flex items-center gap-4 px-5 py-3 text-[15px] font-bold text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                      <LogOut size={18} className="text-red-500" />
+                    </span>
                     Déconnexion
                   </button>
                 </div>
@@ -104,6 +122,17 @@ function Header({ activeTab, onTabChange }) {
 
 export default function SuperAdminSpace() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { user, logoutUser } = useAuth();  // ⚠️ Utilisez logoutUser (pas logout)
+  const navigate = useNavigate();
+
+  // Récupérer les informations de l'utilisateur
+  const userEmail = user?.email || user?.userName || 'admin@alexsys.com';
+  const userName = user?.nomComplet || user?.fullName || 'Super Admin';
+
+  const handleLogout = () => {
+    logoutUser();        // ⚠️ Appelle logoutUser (défini dans votre AuthContext)
+    navigate('/login');
+  };
 
   const renderContent = () => {
     switch(activeTab) {
@@ -123,7 +152,13 @@ export default function SuperAdminSpace() {
         * { box-sizing: border-box; }
         button { outline: none; }
       `}</style>
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        onLogout={handleLogout}
+        userEmail={userEmail}
+        userName={userName}
+      />
       <main className="w-full">{renderContent()}</main>
     </div>
   );

@@ -1,21 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
-import { resolveAssetUrl } from "../api/url";
-import { getScopedRoles } from "../utils/roleScopes";
 
-// Composant Login : Page de connexion avec formulaire email/mot de passe
-// Gere l'authentification et la redirection selon le role utilisateur
+// Fonction pour décoder le token JWT et extraire le rôle
+const decodeToken = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Erreur décodage token:', error);
+    return null;
+  }
+};
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { loginUser, user } = useAuth();
+  const { loginUser, user, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+
+  // Redirection basée sur le user du contexte
+  useEffect(() => {
+    if (user) {
+      console.log('User dans contexte:', user);
+      if (isSuperAdmin) {
+        navigate('/super-admin');
+      } else {
+        navigate('/tableau-bord');
+      }
+    }
+  }, [user, isSuperAdmin, navigate]);
 
   let logoImage = isoLogo;
   if (user) {
@@ -27,7 +49,13 @@ export default function Login() {
     else if (user.societe?.logo) logoPath = user.societe.logo;
     
     if (logoPath) {
-      logoImage = resolveAssetUrl(logoPath, isoLogo);
+      if (logoPath.startsWith('/')) {
+        logoImage = `http://localhost:5006${logoPath}`;
+      } else if (!logoPath.startsWith('http')) {
+        logoImage = `http://localhost:5006/${logoPath}`;
+      } else {
+        logoImage = logoPath;
+      }
     }
   }
 
@@ -37,15 +65,35 @@ export default function Login() {
     setError('');
     try {
       const res = await login(form);
-      await loginUser(res.data);
-
-      const scopedRoles = getScopedRoles(res.data);
-      if (scopedRoles.has('super_admin')) {
-        navigate('/admin/stats');
-      } else {
-        navigate('/tableau-bord');
-      }
+      console.log('Réponse API:', res.data);
+      
+      const { token, nomComplet, email, societe } = res.data;
+      
+      // Décoder le token pour extraire le rôle
+      const decodedToken = decodeToken(token);
+      console.log('Token décodé:', decodedToken);
+      
+      // Extraire le rôle du token (claim "role")
+      const userRole = decodedToken?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken?.role;
+      console.log('Rôle extrait:', userRole);
+      
+      // Créer l'objet utilisateur avec le rôle
+      const userData = {
+        id: decodedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
+        token,
+        nomComplet,
+        email,
+        societe,
+        role: userRole,
+        roleName: userRole // Pour compatibilité
+      };
+      
+      console.log('UserData à stocker:', userData);
+      loginUser(userData);
+      
+      // La redirection se fera dans useEffect quand user sera mis à jour
     } catch (err) {
+      console.error('Erreur:', err);
       setError(err.response?.data || 'Identifiants incorrects.');
     } finally {
       setLoading(false);
@@ -55,12 +103,12 @@ export default function Login() {
   return (
     <div style={styles.page}>
 
-      {/* Left panel */}
+      {/* ── Left panel ── */}
       <div style={styles.leftPanel}>
         <div style={styles.brandingContent}>
           <h1 style={styles.brandTitle}>SMSI Manager</h1>
           <p style={styles.brandSubtitle}>
-            Systeme de Management<br />de la Securite de l'Information
+            Système de Management<br />de la Sécurité de l'Information
           </p>
           <div style={styles.dividerLine} />
           <p style={styles.normeBadge}>
@@ -75,7 +123,7 @@ export default function Login() {
         <div style={styles.bgCircle2} />
       </div>
 
-      {/* Right panel */}
+      {/* ── Right panel ── */}
       <div style={styles.rightPanel}>
         
         {/* BOUTON RETOUR */}
@@ -92,7 +140,7 @@ export default function Login() {
           <div style={styles.formHeader}>
             <img src={logoImage} alt="Logo" style={{ width: '60px', height: '60px', objectFit: 'contain', display: 'block', margin: '0 auto 10px' }} />
             <h2 style={styles.formTitle}>Connexion</h2>
-            <p style={styles.formDesc}>Accedez a votre espace securise</p>
+            <p style={styles.formDesc}>Accédez à votre espace sécurisé</p>
           </div>
 
           {error && (
@@ -136,7 +184,7 @@ export default function Login() {
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="********"
+                  placeholder="••••••••"
                   style={{ ...styles.input, paddingRight: '44px' }}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   required
@@ -164,7 +212,7 @@ export default function Login() {
                       <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
                       <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                    Connexion en cours...
+                    Connexion en cours…
                   </>
                 ) : (
                   <>
@@ -180,7 +228,7 @@ export default function Login() {
 
           <p style={styles.switchText}>
             Pas encore de compte ?{' '}
-            <Link to="/register" style={styles.link}>Creer un compte</Link>
+            <Link to="/register" style={styles.link}>Créer un compte</Link>
           </p>
         </div>
       </div>
@@ -266,7 +314,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '48px',
-    position: 'relative', // Ajoute pour le positionnement du bouton retour
+    position: 'relative',
   },
   backBtn: {
     position: 'absolute',

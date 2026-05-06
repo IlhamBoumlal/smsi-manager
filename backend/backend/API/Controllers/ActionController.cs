@@ -1,15 +1,15 @@
+using backend.Application.Actifs.Commands.CreateActif;
+using backend.Application.Actifs.Commands.UpdateActif;
+using backend.Application.Actifs.Queries.GetAllActifs;
 using backend.Application.Actions.Commands.CreateAction;
 using backend.Application.Actions.Commands.DeleteAction;
 using backend.Application.Actions.Commands.UpdateAction;
 using backend.Application.Actions.Queries.GetActionById.GetAllActions;
-using backend.Application.Security;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = AppRoles.SuperAdmin)]
     [ApiController]
     [Route("api/actions")]
     public class ActionController : ControllerBase

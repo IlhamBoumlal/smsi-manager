@@ -12,12 +12,13 @@ namespace backend.Application.Incidents.Commands.DeleteIncident
 
         public async Task<bool> Handle(DeleteIncidentCommand request, CancellationToken cancellationToken)
         {
-            if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
-                return false;
-
+            // ── Isolation stricte : filtre sur Id ET SocieteId ─────────────────
+            // Une société ne peut supprimer que ses propres incidents
             var incident = await _context.Incidents
                 .Where(i => i.Id == request.Id)
-                .Where(i => i.SocieteId == request.SocieteId.Value)
+                .Where(i => request.SocieteId.HasValue
+                    ? i.SocieteId == request.SocieteId.Value
+                    : i.SocieteId == null)
                 .SingleOrDefaultAsync(cancellationToken);
 
             if (incident == null) return false;

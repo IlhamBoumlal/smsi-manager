@@ -14,7 +14,6 @@ import { AuditsModule } from "./modules/AuditsModule";
 import { RisksModule } from "./modules/RisksModule";
 import { TrainingsModule } from "./modules/TrainingsModule";
 import { IncidentsModule } from "./modules/IncidentsModule";
-import ChatbotWidget from "../ChatbotWidget";
 
 const modules = [
   { value: "overview", label: "Vue d'ensemble", Component: OverviewModule },
@@ -157,8 +156,6 @@ export default function DashboardV1() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
       `}</style>
-
-      <ChatbotWidget />
     </div>
   );
 }

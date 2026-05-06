@@ -1,4 +1,4 @@
-﻿using backend.Application.DTOs.User;
+using backend.Application.DTOs.User;
 using MediatR;
 
 namespace backend.Application.Users.Queries.GetUserPermissions

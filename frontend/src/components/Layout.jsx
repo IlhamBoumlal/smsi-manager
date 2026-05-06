@@ -1,5 +1,6 @@
 import { useLocation, Outlet } from "react-router-dom";
 import Header from "./Header";
+import ChatbotWidget from "./ChatbotWidget";
 
 // Données statiques pour les pathes
 const PATH_TO_AXE = {
@@ -29,6 +30,7 @@ export default function Layout() {
       <main style={{ flex: 1 }}>
         <Outlet />
       </main>
+      <ChatbotWidget />
     </div>
   );
 }

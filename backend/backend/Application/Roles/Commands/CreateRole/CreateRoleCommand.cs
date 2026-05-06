@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 
 namespace backend.Application.Roles.Commands.CreateRole

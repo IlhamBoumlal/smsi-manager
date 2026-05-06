@@ -1,4 +1,4 @@
-﻿namespace backend.Application.DTOs.User
+namespace backend.Application.DTOs.User
 {
     public class UserPermissionsDto
     {

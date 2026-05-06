@@ -1,4 +1,4 @@
-﻿// backend.Application/Users/Queries/GetUserPermissions/GetUserPermissionsHandler.cs
+// backend.Application/Users/Queries/GetUserPermissions/GetUserPermissionsHandler.cs
 using backend.Application.DTOs.User;
 using backend.Application.Permissions.Queries.GetRolePermissions;
 using backend.Domain.Interfaces;

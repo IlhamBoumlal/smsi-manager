@@ -1,4 +1,4 @@
-// sensibilisation.js — utilise l'instance centrale (JWT Bearer via axiosInstance)
+// sensibilisation.js — utilise l'instance centrale (refresh token automatique)
 import axiosInstance from './axiosInstance';
 
 const API = '/api/sensibilisation';

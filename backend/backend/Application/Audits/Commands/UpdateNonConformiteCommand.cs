@@ -14,7 +14,7 @@ namespace backend.Application.Audits.Commands
         {
             var nc = await _db.NonConformites
                 .Include(n => n.CorrectiveActions)
-                .Where(n => societeId.HasValue && n.SocieteId == societeId.Value)
+                .Where(n => societeId.HasValue ? n.SocieteId == societeId.Value || n.SocieteId == null : n.SocieteId == null)
                 .FirstOrDefaultAsync(n => n.Id == id);
 
             if (nc is null) return null;

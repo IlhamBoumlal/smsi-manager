@@ -21,14 +21,14 @@ namespace backend.Application.Incidents.Queries.GetAllIncidents
         {
             _logger.LogInformation("GetAllIncidentsHandler: SocieteId={SocieteId}", request.SocieteId);
 
-            if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
-            {
-                _logger.LogWarning("GetAllIncidentsHandler: SocieteId absent/invalide.");
-                return [];
-            }
-
+            // ── Isolation stricte par société ──────────────────────────────────
+            // Si SocieteId est fourni → incidents de cette société uniquement
+            // Si SocieteId est null   → incidents sans société (super-admin)
             var query = _context.Incidents.AsQueryable();
-            query = query.Where(i => i.SocieteId == request.SocieteId.Value);
+
+            query = request.SocieteId.HasValue
+                ? query.Where(i => i.SocieteId == request.SocieteId.Value)
+                : query.Where(i => i.SocieteId == null);
 
             var incidents = await query
                 .OrderByDescending(i => i.Date)

@@ -12,8 +12,8 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260427182209_add societeId")]
-    partial class addsocieteId
+    [Migration("20260505134633_InitialReset")]
+    partial class InitialReset
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -912,6 +912,9 @@ namespace backend.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("FileHash")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("FilePath")
                         .HasColumnType("nvarchar(max)");
 
@@ -958,6 +961,8 @@ namespace backend.Migrations
 
                     b.HasIndex("SocieteId", "Category");
 
+                    b.HasIndex("SocieteId", "FileHash");
+
                     b.HasIndex("SocieteId", "Status");
 
                     b.ToTable("DocumentationDocuments", (string)null);
@@ -990,6 +995,9 @@ namespace backend.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("DocumentationDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
@@ -1013,6 +1021,8 @@ namespace backend.Migrations
                     b.HasIndex("ActionPlanId");
 
                     b.HasIndex("ConformityProofId");
+
+                    b.HasIndex("DocumentationDocumentId");
 
                     b.HasIndex("SocieteId");
 
@@ -2010,6 +2020,11 @@ namespace backend.Migrations
                         .HasForeignKey("ConformityProofId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("backend.Domain.Entities.DocumentationDocument", "DocumentationDocument")
+                        .WithMany()
+                        .HasForeignKey("DocumentationDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("backend.Domain.Entities.Societe", "Societe")
                         .WithMany()
                         .HasForeignKey("SocieteId")
@@ -2018,6 +2033,8 @@ namespace backend.Migrations
                     b.Navigation("ActionPlan");
 
                     b.Navigation("ConformityProof");
+
+                    b.Navigation("DocumentationDocument");
 
                     b.Navigation("Societe");
                 });

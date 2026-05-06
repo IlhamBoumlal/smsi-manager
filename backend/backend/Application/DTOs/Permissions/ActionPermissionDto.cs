@@ -1,4 +1,4 @@
-﻿namespace backend.Application.DTOs.Permissions
+namespace backend.Application.DTOs.Permissions
 {
     public class ActionPermissionDto
     {

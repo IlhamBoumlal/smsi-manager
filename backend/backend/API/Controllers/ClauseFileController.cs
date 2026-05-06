@@ -8,7 +8,7 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
-[Authorize(Policy = "SmSiSocieteScope")]
+[Authorize]
 public class ClauseFileController : ControllerBase
 {
     private readonly IClauseService _svc;
@@ -26,9 +26,9 @@ public class ClauseFileController : ControllerBase
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ══════════════════════════════════════════════════════════════════════════
     // CONFORMITY PROOFS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("proofs/{subClauseId:int}")]
     public async Task<IActionResult> GetProofs(int subClauseId)
@@ -56,9 +56,9 @@ public class ClauseFileController : ControllerBase
     public async Task<IActionResult> DeleteProofFile(int fileId)
         => await _svc.DeleteConformityProofFileAsync(fileId, UserId, CurrentSocieteId) ? NoContent() : NotFound();
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ══════════════════════════════════════════════════════════════════════════
     // ACTION PLAN DOCUMENTS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("plans/{planId:int}/files")]
     public async Task<IActionResult> GetPlanFiles(int planId)
@@ -82,9 +82,9 @@ public class ClauseFileController : ControllerBase
     public async Task<IActionResult> DeletePlanFile(int fileId)
         => await _svc.DeleteActionPlanFileAsync(fileId, UserId, CurrentSocieteId) ? NoContent() : NotFound();
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // DOWNLOAD â€” lit le contenu depuis la base, aucun fichier disque
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ══════════════════════════════════════════════════════════════════════════
+    // DOWNLOAD — lit le contenu depuis la base, aucun fichier disque
+    // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("files/{fileId:int}/download")]
     public async Task<IActionResult> Download(int fileId)
@@ -94,7 +94,7 @@ public class ClauseFileController : ControllerBase
 
         var (content, contentType, fileName) = result.Value;
 
-        // Content-Disposition: attachment â†’ force le tÃ©lÃ©chargement cÃ´tÃ© navigateur
+        // Content-Disposition: attachment → force le téléchargement côté navigateur
         Response.Headers.Append(
             "Content-Disposition",
             $"attachment; filename=\"{Uri.EscapeDataString(fileName)}\"");

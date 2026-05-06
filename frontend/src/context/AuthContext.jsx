@@ -3,6 +3,13 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 const API = 'http://localhost:5006';
+const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
+const normalizeRoleKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -13,7 +20,22 @@ export function AuthProvider({ children }) {
     
     try {
       const parsed = JSON.parse(storedUser);
-      return parsed && typeof parsed === 'object' ? parsed : null;
+      if (!parsed || typeof parsed !== 'object') return null;
+
+      if (!parsed.role && token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const tokenRole = payload?.[ROLE_CLAIM] || payload?.role || null;
+          if (tokenRole) {
+            parsed.role = tokenRole;
+            parsed.roleName = parsed.roleName || tokenRole;
+          }
+        } catch {
+          // Ignore parse errors and keep stored user as-is.
+        }
+      }
+
+      return parsed;
     } catch {
       localStorage.removeItem('user');
       return null;
@@ -34,6 +56,27 @@ export function AuthProvider({ children }) {
     } catch {
       return null;
     }
+  };
+
+  const extractRoleFromPayload = (payload) => {
+    if (!payload || typeof payload !== 'object') return null;
+    return payload[ROLE_CLAIM] || payload.role || payload.Role || null;
+  };
+
+  const normalizeUserData = (rawUser) => {
+    if (!rawUser || typeof rawUser !== 'object') return null;
+
+    const token = rawUser.token || rawUser.Token || null;
+    const payload = token ? decodeToken(token) : null;
+    const roleFromToken = extractRoleFromPayload(payload);
+    const role = rawUser.role ?? rawUser.roleName ?? rawUser.Role ?? roleFromToken ?? null;
+
+    return {
+      ...rawUser,
+      token,
+      role,
+      roleName: rawUser.roleName ?? role
+    };
   };
 
   /* ─── Calcule le délai avant expiration (en ms) ────────────── */
@@ -61,7 +104,7 @@ export function AuthProvider({ children }) {
       if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
 
       // Met à jour user avec le nouveau token
-      const updatedUser = { ...JSON.parse(localStorage.getItem('user')), token };
+      const updatedUser = normalizeUserData({ ...JSON.parse(localStorage.getItem('user')), token });
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
 
@@ -92,37 +135,33 @@ export function AuthProvider({ children }) {
     }, delay);
   };
 
-  /* ─── Charger les permissions de l'utilisateur ──────────────── */
-  const loadUserPermissions = useCallback(async (token = null) => {
-    const authToken = token || localStorage.getItem('token');
-    if (!authToken) {
-      setPermissions({ modules: [] });
-      setPermissionsLoaded(false);
-      return;
-    }
+  /* ─── Charger les permissions de l'utilisateur ──────────────── */
+ const loadUserPermissions = useCallback(async (token = null) => {
+  const authToken = token || localStorage.getItem('token');
+  if (!authToken) {
+    setPermissions({ modules: [] });
+    setPermissionsLoaded(false);
+    return;
+  }
 
-    try {
-      const response = await axios.get(`${API}/api/User/me/permissions`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        },
-        timeout: 8000
-      });
-
-      const payload = response?.data && typeof response.data === 'object'
-        ? response.data
-        : { modules: [] };
-
-      console.log('[Permissions] Chargees avec succes:', payload);
-      setPermissions(payload);
-    } catch (error) {
-      console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
-      setPermissions({ modules: [] });
-    } finally {
-      // Evite un header bloque indefiniment sur "Chargement..."
+  try {
+    const response = await axios.get(`${API}/api/User/me/permissions`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    
+    if (response.data) {
+      console.log('[Permissions] Chargées avec succès:', response.data);
+      setPermissions(response.data);
       setPermissionsLoaded(true);
     }
-  }, []);
+  } catch (error) {
+    console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
+    setPermissions({ modules: [] });
+    setPermissionsLoaded(false);
+  }
+}, []);
   /* ─── Vérifier si l'utilisateur a une permission ───────────── */
   const can = useCallback((moduleCode, actionCode) => {
     if (!permissions.modules || permissions.modules.length === 0) return false;
@@ -151,17 +190,18 @@ export function AuthProvider({ children }) {
   /* ─── Login ─────────────────────────────────────────────────── */
   const loginUser = async (data) => {
     if (!data?.token) return;
-    
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data));
+    const normalizedUser = normalizeUserData(data);
+
+    localStorage.setItem('token', normalizedUser.token);
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
     if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
-    setUser(data);
-    scheduleRefresh(data.token);
+    setUser(normalizedUser);
+    scheduleRefresh(normalizedUser.token);
     
     // Charger les permissions après connexion
-    await loadUserPermissions(data.token);
+    await loadUserPermissions(normalizedUser.token);
   };
 
   /* ─── Logout ────────────────────────────────────────────────── */
@@ -193,7 +233,8 @@ export function AuthProvider({ children }) {
     try {
       const parsed = JSON.parse(storedUser);
       if (parsed && typeof parsed === 'object') {
-        setUser(parsed);
+        const normalizedUser = normalizeUserData(parsed);
+        setUser(normalizedUser);
         
         const msLeft = getMsUntilExpiry(token);
         if (!msLeft || msLeft <= 0) {
@@ -215,9 +256,15 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  const currentRole = user?.role || user?.roleName || '';
+  const isSuperAdmin = normalizeRoleKey(currentRole) === 'super admin';
+  const isAdminSociete = normalizeRoleKey(currentRole) === 'admin societe';
+
   return (
     <AuthContext.Provider value={{ 
       user, 
+      isSuperAdmin,
+      isAdminSociete,
       loginUser, 
       logoutUser,
       permissions,

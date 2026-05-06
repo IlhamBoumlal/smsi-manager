@@ -1,6 +1,7 @@
-namespace backend.Domain.Interfaces
+﻿namespace backend.Domain.Interfaces
 {
     using backend.Domain.Entities;
+    using global::backend.Domain.Entities;
     public interface IAuditRepository
     {
         Task<IEnumerable<Audit>> GetAllAsync();

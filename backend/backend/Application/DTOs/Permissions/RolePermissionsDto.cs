@@ -1,4 +1,4 @@
-﻿namespace backend.Application.DTOs.Permissions
+namespace backend.Application.DTOs.Permissions
 {
     // DTO retourné par GET /api/roles/{roleId}/permissions
     // Structure attendue par le frontend (un objet par module)

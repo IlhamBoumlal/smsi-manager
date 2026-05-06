@@ -1,7 +1,7 @@
 param(
     [string]$ApiBaseUrl = "http://localhost:5006",
-    [string]$Email = "rssi.demo@smsi.local",
-    [string]$Password = "RssiDemo@123",
+    [string]$Email = "admin@alexsys.com",
+    [string]$Password = "Admin@123456!",
     [int]$TimeoutSec = 10,
     [switch]$FailOnError,
     [switch]$Json

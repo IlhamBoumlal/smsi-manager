@@ -15,8 +15,8 @@ namespace backend.Application.Actifs.Commands.UpdateActif
             var actif = new Actif
             {
                 Id = request.Id,
-                Nom = (request.Nom ?? string.Empty).Trim(),
-                Description = request.Description?.Trim() ?? string.Empty,
+                Nom = request.Nom,
+                Description = request.Description,
                 Type = request.Type,
                 Categorie = request.Categorie,
                 Classification = request.Classification,

@@ -1,4 +1,4 @@
-// API/Controllers/SensibilisationController.cs
+﻿// API/Controllers/SensibilisationController.cs
 using backend.Application.Sensibilisation.Commands.CreateFormation;
 using backend.Application.Sensibilisation.Commands.DeleteFormation;
 using backend.Application.Sensibilisation.Commands.DeleteFormationDocument;
@@ -17,7 +17,7 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers;
 
-[Authorize(Policy = "SmSiSocieteScope")]
+[Authorize]
 [ApiController]
 [Route("api/sensibilisation")]
 public class SensibilisationController(IMediator mediator) : ControllerBase
@@ -36,21 +36,21 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         }
     }
 
-    // -- DASHBOARD --------------------------------------------------------------
+    // ── DASHBOARD ──────────────────────────────────────────────────────────────
     // GET api/sensibilisation/dashboard
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard(
         CancellationToken ct)
         => Ok(await mediator.Send(new GetSensibilisationDashboardQuery(CurrentSocieteId), ct));
 
-    // -- FORMATIONS LIST --------------------------------------------------------
+    // ── FORMATIONS LIST ────────────────────────────────────────────────────────
     // GET api/sensibilisation
     [HttpGet]
     public async Task<IActionResult> GetAll(
         CancellationToken ct)
         => Ok(await mediator.Send(new GetFormationsQuery(CurrentSocieteId), ct));
 
-    // -- FORMATION DETAIL -------------------------------------------------------
+    // ── FORMATION DETAIL ───────────────────────────────────────────────────────
     // GET api/sensibilisation/{id}
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
@@ -59,7 +59,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    // -- CREATE -----------------------------------------------------------------
+    // ── CREATE ─────────────────────────────────────────────────────────────────
     // POST api/sensibilisation
     [HttpPost]
     public async Task<IActionResult> Create(
@@ -70,7 +70,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id }, new { id });
     }
 
-    // -- UPDATE -----------------------------------------------------------------
+    // ── UPDATE ─────────────────────────────────────────────────────────────────
     // PUT api/sensibilisation/{id}
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(
@@ -81,7 +81,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return await mediator.Send(commandWithSociete, ct) ? NoContent() : NotFound();
     }
 
-    // -- NOTIFY -----------------------------------------------------------------
+    // ── NOTIFY ─────────────────────────────────────────────────────────────────
     // POST api/sensibilisation/{id}/notify
     [HttpPost("{id:guid}/notify")]
     public async Task<IActionResult> Notify(
@@ -92,7 +92,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return ok ? NoContent() : NotFound();
     }
 
-    // -- PARTICIPANT STATUS -----------------------------------------------------
+    // ── PARTICIPANT STATUS ─────────────────────────────────────────────────────
     // PUT api/sensibilisation/{id}/participants/{pid}/status
     [HttpPut("{id:guid}/participants/{pid:guid}/status")]
     public async Task<IActionResult> UpdateParticipantStatus(
@@ -103,7 +103,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return ok ? NoContent() : NotFound();
     }
 
-    // -- DOCUMENTS --------------------------------------------------------------
+    // ── DOCUMENTS ──────────────────────────────────────────────────────────────
     // POST api/sensibilisation/{id}/documents
     [HttpPost("{id:guid}/documents")]
     public async Task<IActionResult> UploadDocument(
@@ -150,6 +150,6 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return File(stream, contentType);
     }
 }
-// -- Body records -------------------------------------------------------------
+// ── Body records ─────────────────────────────────────────────────────────────
 public record NotifyRequest(string? Title);
 public record ParticipantStatusRequest(string Status);

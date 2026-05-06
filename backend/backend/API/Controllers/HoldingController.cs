@@ -4,14 +4,13 @@ using backend.Application.Holdings.Commands.CreateHolding;
 using backend.Application.Holdings.Commands.DeleteHolding;
 using backend.Application.Holdings.Commands.UpdateHolding;
 using backend.Application.Holdings.Queries.GetAllHoldings;
-using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = AppRoles.SuperAdmin)]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class HoldingController : ControllerBase
@@ -27,21 +26,21 @@ namespace backend.API.Controllers
         public async Task<IActionResult> CreateHolding(CreateHoldingCommand command)
         {
             var (success, error) = await _mediator.Send(command);
-            return success ? Ok("Holding créée avec succès.") : BadRequest(error);
+            return success ? Ok("Holding crÃ©Ã©e avec succÃ¨s.") : BadRequest(error);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateHolding(int id, UpdateHoldingDto dto)
         {
             var (success, error) = await _mediator.Send(new UpdateHoldingCommand(id, dto.Nom));
-            return success ? Ok("Holding mise à jour avec succès.") : BadRequest(error);
+            return success ? Ok("Holding mise Ã  jour avec succÃ¨s.") : BadRequest(error);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteHolding(int id)
         {
             var (success, error) = await _mediator.Send(new DeleteHoldingCommand(id));
-            return success ? Ok("Holding supprimée avec succès.") : BadRequest(error);
+            return success ? Ok("Holding supprimÃ©e avec succÃ¨s.") : BadRequest(error);
         }
     }
 }

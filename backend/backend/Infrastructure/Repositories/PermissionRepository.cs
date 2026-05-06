@@ -1,4 +1,4 @@
-﻿// backend.Infrastructure/Repositories/PermissionRepository.cs
+// backend.Infrastructure/Repositories/PermissionRepository.cs
 using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;

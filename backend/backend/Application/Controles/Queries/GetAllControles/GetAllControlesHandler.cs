@@ -4,7 +4,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Encodings.Web;
-using System.Text.Json.Serialization;
 
 namespace backend.Application.Controles.Queries.GetAllControles;
 
@@ -26,16 +25,26 @@ public class GetAllControlesQueryHandler : IRequestHandler<GetAllControlesQuery,
 
     public async Task<List<ControleDto>> Handle(GetAllControlesQuery request, CancellationToken cancellationToken)
     {
-        if (!request.SocieteId.HasValue || request.SocieteId.Value <= 0)
-            return [];
+        List<backend.Domain.Entities.Controle> entites;
 
-        await EnsureSocieteControlesAsync(request.SocieteId.Value, cancellationToken);
+        if (request.SocieteId.HasValue)
+        {
+            await EnsureSocieteControlesAsync(request.SocieteId.Value, cancellationToken);
 
-        var entites = await _context.Controles
-            .AsNoTracking()
-            .Where(c => c.SocieteId == request.SocieteId.Value)
-            .OrderBy(c => c.Code)
-            .ToListAsync(cancellationToken);
+            entites = await _context.Controles
+                .AsNoTracking()
+                .Where(c => c.SocieteId == request.SocieteId.Value)
+                .OrderBy(c => c.Code)
+                .ToListAsync(cancellationToken);
+        }
+        else
+        {
+            entites = await _context.Controles
+                .AsNoTracking()
+                .Where(c => c.SocieteId == null)
+                .OrderBy(c => c.Code)
+                .ToListAsync(cancellationToken);
+        }
 
         return entites.Select(MapToDto).ToList();
     }
@@ -49,7 +58,11 @@ public class GetAllControlesQueryHandler : IRequestHandler<GetAllControlesQuery,
         if (hasControles)
             return;
 
-        var templates = await LoadControleTemplatesAsync(cancellationToken);
+        var templates = await _context.Controles
+            .AsNoTracking()
+            .Where(c => c.SocieteId == null)
+            .OrderBy(c => c.Code)
+            .ToListAsync(cancellationToken);
 
         if (!templates.Any())
             return;
@@ -81,61 +94,6 @@ public class GetAllControlesQueryHandler : IRequestHandler<GetAllControlesQuery,
 
         await _context.Controles.AddRangeAsync(clones, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    private static async Task<List<backend.Domain.Entities.Controle>> LoadControleTemplatesAsync(CancellationToken cancellationToken)
-    {
-        var candidatePaths = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "controles.json"),
-            Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json")
-        };
-
-        var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
-        if (string.IsNullOrWhiteSpace(jsonPath))
-            return [];
-
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter() }
-        };
-
-        var jsonContent = await File.ReadAllTextAsync(jsonPath, cancellationToken);
-        var dtos = JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
-        if (dtos is null || dtos.Count == 0)
-            return [];
-
-        return dtos
-            .OrderBy(dto => dto.Code)
-            .Select(dto => new backend.Domain.Entities.Controle
-            {
-                Code = dto.Code,
-                Titre = dto.Titre,
-                Description = dto.Description,
-                Domaine = dto.Domaine,
-                Applicable = dto.Applicable,
-                RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
-                    ? JsonSerializer.Serialize(dto.RaisonsApplicabilite)
-                    : null,
-                RaisonExclusion = dto.RaisonExclusion,
-                Statut = dto.Statut,
-                JustificationConformite = dto.JustificationConformite,
-                Remarque = dto.Remarque,
-                Preuves = dto.Preuves,
-                Steps = dto.Steps != null ? JsonSerializer.Serialize(dto.Steps) : null,
-                Priorite = dto.Priorite,
-                StatutPlan = dto.StatutPlan,
-                ResponsablePlan = dto.ResponsablePlan,
-                DateEcheance = dto.DateEcheance,
-                DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
-                DernierModificateurId = dto.DernierModificateurId,
-                DernierModificateurNom = dto.DernierModificateurNom
-            })
-            .ToList();
     }
 
     private ControleDto MapToDto(backend.Domain.Entities.Controle c)
