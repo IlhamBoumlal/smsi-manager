@@ -35,11 +35,9 @@ const allMoreAxes = [
   { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },
 ];
 
+// Menu Admin réduit : seulement Utilisateurs
 const allAdminMenuItems = [
-  { label: "Statistiques", Icon: BarChart3, path: "/admin/stats", moduleCode: "statistiques" },
-  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "utilisateurs" },
-  { label: "Sociétés", Icon: Factory, path: "/admin/societes", moduleCode: "societes" },
-  { label: "Holdings", Icon: Building2, path: "/admin/holdings", moduleCode: "holdings" },
+  { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "users" },
 ];
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
@@ -49,7 +47,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isSuperAdmin, isAdminSociete, logoutUser, canRead, permissionsLoaded } = useAuth();
+  const { user, logoutUser, canRead, permissionsLoaded } = useAuth();
 
   // Filtrer les axes selon les permissions de l'utilisateur
   const mainAxes = allMainAxes.filter(axe => canRead(axe.moduleCode));
@@ -64,6 +62,9 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     (mainAxes.length > 0 ? mainAxes[0]?.id : "tableau-bord");
 
   const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
+  
+  // Vérifier si l'utilisateur a le rôle Admin (peu importe l'email)
+  const isAdmin = user?.role === "Admin" || user?.Role === "Admin";
 
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";
@@ -163,7 +164,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
         {/* LOGO */}
         <div
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
-          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord" })}
+          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord", moduleCode: "dashboard" })}
         >
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
@@ -220,7 +221,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </nav>
         )}
 
-        {/* PROFIL - Menu admin filtré par permissions */}
+        {/* PROFIL - Menu admin réduit (seulement Utilisateurs) */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
@@ -255,7 +256,8 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     </div>
                   </div>
 
-                  {(isSuperAdmin || isAdminSociete) && adminMenuItems.length > 0 && (
+                  {/* Menu Admin : uniquement Utilisateurs pour les admins */}
+                  {isAdmin && adminMenuItems.length > 0 && (
                     <div className="py-2 border-b border-slate-100">
                       {adminMenuItems.map(({ label, Icon, path }) => (
                         <button
