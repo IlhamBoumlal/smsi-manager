@@ -9,6 +9,8 @@ namespace backend.Application.Services
 {
     public static class DbInitializer
     {
+        private sealed record DemoUserSeed(string Email, string Password, string NomComplet, string Role);
+
         // ============================================================
         // RÔLES PRÉDÉFINIS DU SYSTÈME
         // ============================================================
@@ -16,7 +18,6 @@ namespace backend.Application.Services
         [
             "Super Admin",
             "Admin",
-            "Admin Societe",
             "RSSI",
             "Consultant",
             "Auditeur",
@@ -25,21 +26,6 @@ namespace backend.Application.Services
             "Employé",
             "Utilisateur Standard",
         ];
-
-        private static readonly string[] AccountsToRemoveOnStartup =
-        [
-            "admin@alexsys.com",
-            "rssi.demo@smsi.local",
-            "drh.demo@smsi.local",
-            "dsi.demo@smsi.local",
-            "employe.demo@smsi.local",
-        ];
-
-        private const string AlexsysSocieteName = "Alexsys Solutions";
-        private const string AlexsysSocieteLogoRelativePath = "/logos/alexsys-solutions.png";
-        private const string AlexsysAdminSocieteEmail = "admin.societe@alexsys.com";
-        private const string AlexsysAdminSocietePassword = "Alexsys@123456!";
-        private const string AlexsysAdminSocieteFullName = "Admin Societe Alexsys";
 
         public static async Task InitializeAsync(IServiceProvider serviceProvider)
         {
@@ -59,36 +45,30 @@ namespace backend.Application.Services
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            // Nettoyage systématique des comptes à supprimer.
-            await RemoveDeprecatedAccountsAsync(dbContext, userManager);
-
             // ══════════════════════════════════════════════════════════════
             //  TOUTES LES INITIALISATIONS SONT ACTIVES
             // ══════════════════════════════════════════════════════════════
 
             // ÉTAPE 1 : Rôles
-            await SeedRolesAsync(roleManager);
+            //  await SeedRolesAsync(roleManager);
 
             // ÉTAPE 2 : Actions
-           await SeedActionsAsync(dbContext);
+            //  await SeedActionsAsync(dbContext);
 
             // ÉTAPE 3 : Modules
-            await SeedModulesAsync(dbContext);
+            //await SeedModulesAsync(dbContext);
 
             // ÉTAPE 4 : Permissions
-            await SeedPermissionsAsync(dbContext);
+            //await SeedPermissionsAsync(dbContext);
 
             // ÉTAPE 5 : Contrôles ISO 27001 (depuis fichier JSON)
-            await SeedControlesAsync(serviceProvider);
+            // await SeedControlesAsync(serviceProvider);
 
             // ÉTAPE 6 : Utilisateurs système
-            await SeedUsersAsync(userManager, config);
+            //await SeedUsersAsync(userManager, config);
 
-            // ÉTAPE 7 : Compte Admin Societe Alexsys
-            await EnsureAlexsysAdminSocieteAccountAsync(dbContext, userManager, environment);
-
-            // ÉTAPE 8 : Démo RBAC
-            // Désactivé définitivement : comptes supprimés via RemoveDeprecatedAccountsAsync.
+            // ÉTAPE 7 : Démo RBAC (utilisateurs démo + documents)
+            // await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
 
             // ══════════════════════════════════════════════════════════════
 
@@ -456,6 +436,9 @@ namespace backend.Application.Services
             // Liste complète des utilisateurs à créer
             var users = new[]
             {
+                // ── Administrateur (Admin) ──────────────────────────────────────
+                new { Email = "admin@alexsys.com",    Password = "Admin@123456!",    NomComplet = "Administrateur Système", Role = "Admin" },
+
                 // ── Super Admin ──────────────────────────────────────────────────
                 new { Email = "boumlalilham@gmail.com",  Password = "Admin@123456!",    NomComplet = "Ilham Boumlal",          Role = "Super Admin" },
 
@@ -467,200 +450,225 @@ namespace backend.Application.Services
             };
 
             foreach (var u in users)
-                await EnsureSystemUserAsync(userManager, u.Email, u.Password, u.NomComplet, u.Role);
+                await SeedUserIfMissingAsync(userManager, u.Email, u.Password, u.NomComplet, u.Role);
 
             Console.WriteLine("✅ Utilisateurs système initialisés.");
         }
 
-        private static async Task EnsureAlexsysAdminSocieteAccountAsync(
+        // ============================================================
+        // ÉTAPE 7 — DÉMO RBAC (utilisateurs démo + documents)
+        // ============================================================
+
+        private static async Task SeedDocumentationMvpDemoAsync(
             AppDbContext dbContext,
             UserManager<ApplicationUser> userManager,
-            IWebHostEnvironment environment)
+            IConfiguration config)
         {
-            EnsureAlexsysLogoFile(environment);
-
-            var societe = await dbContext.Societes
-                .FirstOrDefaultAsync(s => s.Nom.ToLower() == AlexsysSocieteName.ToLower());
-
+            const string demoSocieteName = "Societe Demo RBAC";
+            var societe = await dbContext.Societes.FirstOrDefaultAsync(s => s.Nom == demoSocieteName);
             if (societe is null)
             {
-                societe = new Societe
-                {
-                    Nom = AlexsysSocieteName,
-                    Logo = AlexsysSocieteLogoRelativePath
-                };
-
-                await dbContext.Societes.AddAsync(societe);
+                societe = new Societe { Nom = demoSocieteName, Logo = null };
+                dbContext.Societes.Add(societe);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"✅ Société créée : {AlexsysSocieteName}");
+                Console.WriteLine($"✅ Société créée : {demoSocieteName}");
+            }
+
+            var demoUsers = new[]
+            {
+                new DemoUserSeed("rssi.demo@smsi.local",    "RssiDemo@123",    "RSSI Demo",    "RSSI"   ),
+                new DemoUserSeed("drh.demo@smsi.local",     "DrhDemo@123",     "DRH Demo",     "DRH"    ),
+                new DemoUserSeed("dsi.demo@smsi.local",     "DsiDemo@123",     "DSI Demo",     "DSI"    ),
+                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"),
+            };
+
+            var usersByRole = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
+            foreach (var demoUser in demoUsers)
+            {
+                var user = await EnsureDemoUserAsync(userManager, demoUser, societe.Id);
+                usersByRole[demoUser.Role] = user;
+            }
+
+            var rssi = usersByRole["RSSI"];
+            var drh = usersByRole["DRH"];
+            var dsi = usersByRole["DSI"];
+
+            var documentSeeds = new[]
+            {
+                new DocumentationDocument
+                {
+                    Name                 = "[DEMO] Procedure RH - Formation securite",
+                    Type                 = "Procedure",
+                    Category             = "RH",
+                    Status               = "brouillon",
+                    Version              = "1.0",
+                    Classification       = "Interne",
+                    Author               = drh.NomComplet,
+                    Clause               = "7.2",
+                    Controle             = "A.6.3",
+                    Description          = "Document RH non approuve pour tester les restrictions DRH.",
+                    SocieteId            = societe.Id,
+                    CreatedByUserId      = drh.Id,
+                    LastModifiedByUserId = drh.Id,
+                    CreatedAt            = DateTime.UtcNow.AddDays(-8),
+                    UpdatedAt            = DateTime.UtcNow.AddDays(-2),
+                },
+                new DocumentationDocument
+                {
+                    Name                 = "[DEMO] Guide Technique - Gestion des acces",
+                    Type                 = "Guide",
+                    Category             = "Technique",
+                    Status               = "en-validation",
+                    Version              = "0.9",
+                    Classification       = "Interne",
+                    Author               = dsi.NomComplet,
+                    Clause               = "8.1",
+                    Controle             = "A.8.2",
+                    Description          = "Document technique en validation pour tester le perimetre DSI.",
+                    SocieteId            = societe.Id,
+                    CreatedByUserId      = dsi.Id,
+                    LastModifiedByUserId = dsi.Id,
+                    CreatedAt            = DateTime.UtcNow.AddDays(-7),
+                    UpdatedAt            = DateTime.UtcNow.AddDays(-1),
+                },
+                new DocumentationDocument
+                {
+                    Name                 = "[DEMO] Politique SMSI - Gouvernance",
+                    Type                 = "Politique",
+                    Category             = "Gouvernance",
+                    Status               = "approuve",
+                    Version              = "2.0",
+                    Classification       = "Interne",
+                    Author               = rssi.NomComplet,
+                    Approver             = rssi.NomComplet,
+                    Clause               = "5.2",
+                    Controle             = "A.5.1",
+                    Description          = "Document approuve par le RSSI, visible par tous les employes.",
+                    SocieteId            = societe.Id,
+                    CreatedByUserId      = rssi.Id,
+                    LastModifiedByUserId = rssi.Id,
+                    ApprovedByUserId     = rssi.Id,
+                    ApprovedAt           = DateTime.UtcNow.AddDays(-5),
+                    CreatedAt            = DateTime.UtcNow.AddDays(-10),
+                    UpdatedAt            = DateTime.UtcNow.AddDays(-5),
+                },
+                new DocumentationDocument
+                {
+                    Name                 = "[DEMO] Registre RH - Habilitations",
+                    Type                 = "Registre",
+                    Category             = "RH",
+                    Status               = "approuve",
+                    Version              = "1.1",
+                    Classification       = "Interne",
+                    Author               = drh.NomComplet,
+                    Approver             = rssi.NomComplet,
+                    Clause               = "7.5.3",
+                    Controle             = "A.6.1",
+                    Description          = "Document RH cree par DRH et approuve par RSSI.",
+                    SocieteId            = societe.Id,
+                    CreatedByUserId      = drh.Id,
+                    LastModifiedByUserId = rssi.Id,
+                    ApprovedByUserId     = rssi.Id,
+                    ApprovedAt           = DateTime.UtcNow.AddDays(-4),
+                    CreatedAt            = DateTime.UtcNow.AddDays(-9),
+                    UpdatedAt            = DateTime.UtcNow.AddDays(-4),
+                },
+            };
+
+            foreach (var seedDoc in documentSeeds)
+            {
+                var exists = await dbContext.DocumentationDocuments.AnyAsync(d =>
+                    d.SocieteId == societe.Id && d.Name == seedDoc.Name);
+                if (!exists)
+                    dbContext.DocumentationDocuments.Add(seedDoc);
+            }
+
+            await dbContext.SaveChangesAsync();
+            Console.WriteLine("✅ Documentation démo seed terminée.");
+        }
+
+        // ============================================================
+        // HELPER — créer un utilisateur s'il est absent
+        // ============================================================
+
+        private static async Task SeedUserIfMissingAsync(
+            UserManager<ApplicationUser> userManager,
+            string email, string password, string nomComplet, string role)
+        {
+            if (await userManager.FindByEmailAsync(email) is not null)
+            {
+                Console.WriteLine($"ℹ️  Utilisateur déjà existant : {email}");
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                NomComplet = nomComplet,
+                EmailConfirmed = true,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            var result = await userManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                var roleResult = await userManager.AddToRoleAsync(user, role);
+                if (roleResult.Succeeded)
+                    Console.WriteLine($"✅ Utilisateur créé : {email}  →  rôle [{role}]");
+                else
+                    Console.WriteLine($"⚠️  Utilisateur créé mais rôle non assigné ({email}) : " +
+                                      $"{string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
             }
             else
             {
-                if (!string.Equals(societe.Logo, AlexsysSocieteLogoRelativePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    societe.Logo = AlexsysSocieteLogoRelativePath;
-                    await dbContext.SaveChangesAsync();
-                }
-
-                Console.WriteLine($"ℹ️ Société existante : {AlexsysSocieteName}");
+                Console.WriteLine($"❌ Erreur création utilisateur {email} : " +
+                                  $"{string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
-
-            await EnsureSystemUserAsync(
-                userManager,
-                AlexsysAdminSocieteEmail,
-                AlexsysAdminSocietePassword,
-                AlexsysAdminSocieteFullName,
-                "Admin Societe",
-                societe.Id);
-
-            Console.WriteLine($"✅ Compte Admin Societe prêt : {AlexsysAdminSocieteEmail}");
-        }
-
-        private static void EnsureAlexsysLogoFile(IWebHostEnvironment environment)
-        {
-            var targetDirectory = Path.Combine(environment.ContentRootPath, "wwwroot", "logos");
-            Directory.CreateDirectory(targetDirectory);
-
-            var targetPath = Path.Combine(targetDirectory, "alexsys-solutions.png");
-            if (File.Exists(targetPath))
-            {
-                return;
-            }
-
-            var sourcePath = Path.GetFullPath(
-                Path.Combine(environment.ContentRootPath, "..", "..", "frontend", "public", "iso-logo.png"));
-
-            if (!File.Exists(sourcePath))
-            {
-                Console.WriteLine("⚠️ Logo source introuvable pour Alexsys Solutions, société créée sans copie de fichier logo.");
-                return;
-            }
-
-            File.Copy(sourcePath, targetPath, overwrite: true);
         }
 
         // ============================================================
-        // ÉTAPE 7 — NETTOYAGE DES COMPTES À SUPPRIMER
+        // HELPER — créer / mettre à jour un utilisateur démo
         // ============================================================
 
-        private static async Task RemoveDeprecatedAccountsAsync(
-            AppDbContext dbContext,
-            UserManager<ApplicationUser> userManager)
-        {
-            var demoUsers = await userManager.Users
-                .Where(u => u.Email != null && AccountsToRemoveOnStartup.Contains(u.Email))
-                .ToListAsync();
-
-            if (demoUsers.Count == 0)
-            {
-                Console.WriteLine("ℹ️ Aucun compte à supprimer.");
-                return;
-            }
-
-            var demoUserIds = demoUsers.Select(u => u.Id).ToList();
-
-            var docs = await dbContext.DocumentationDocuments
-                .Where(d =>
-                    (d.CreatedByUserId != null && demoUserIds.Contains(d.CreatedByUserId)) ||
-                    (d.LastModifiedByUserId != null && demoUserIds.Contains(d.LastModifiedByUserId)) ||
-                    (d.ApprovedByUserId != null && demoUserIds.Contains(d.ApprovedByUserId)))
-                .ToListAsync();
-
-            foreach (var doc in docs)
-            {
-                if (doc.CreatedByUserId != null && demoUserIds.Contains(doc.CreatedByUserId))
-                    doc.CreatedByUserId = null;
-
-                if (doc.LastModifiedByUserId != null && demoUserIds.Contains(doc.LastModifiedByUserId))
-                    doc.LastModifiedByUserId = null;
-
-                if (doc.ApprovedByUserId != null && demoUserIds.Contains(doc.ApprovedByUserId))
-                    doc.ApprovedByUserId = null;
-            }
-
-            var studies = await dbContext.RiskStudies
-                .Where(s =>
-                    (s.CreatedByUserId != null && demoUserIds.Contains(s.CreatedByUserId)) ||
-                    (s.LastModifiedByUserId != null && demoUserIds.Contains(s.LastModifiedByUserId)))
-                .ToListAsync();
-
-            foreach (var study in studies)
-            {
-                if (study.CreatedByUserId != null && demoUserIds.Contains(study.CreatedByUserId))
-                    study.CreatedByUserId = null;
-
-                if (study.LastModifiedByUserId != null && demoUserIds.Contains(study.LastModifiedByUserId))
-                    study.LastModifiedByUserId = null;
-            }
-
-            if (docs.Count > 0 || studies.Count > 0)
-                await dbContext.SaveChangesAsync();
-
-            var deletedCount = 0;
-            foreach (var demoUser in demoUsers)
-            {
-                var roles = await userManager.GetRolesAsync(demoUser);
-                if (roles.Count > 0)
-                    await userManager.RemoveFromRolesAsync(demoUser, roles);
-
-                var deleteResult = await userManager.DeleteAsync(demoUser);
-                if (deleteResult.Succeeded)
-                {
-                    deletedCount++;
-                }
-                else
-                {
-                    Console.WriteLine($"❌ Suppression impossible ({demoUser.Email}) : {string.Join(", ", deleteResult.Errors.Select(e => e.Description))}");
-                }
-            }
-
-            Console.WriteLine($"✅ Nettoyage comptes supprimés terminé : {deletedCount}/{demoUsers.Count} comptes supprimés.");
-        }
-
-        // ============================================================
-        // HELPER — créer / mettre à jour un utilisateur système
-        // ============================================================
-
-        private static async Task EnsureSystemUserAsync(
+        private static async Task<ApplicationUser> EnsureDemoUserAsync(
             UserManager<ApplicationUser> userManager,
-            string email, string password, string nomComplet, string role)
-            => await EnsureSystemUserAsync(userManager, email, password, nomComplet, role, null);
-
-        private static async Task EnsureSystemUserAsync(
-            UserManager<ApplicationUser> userManager,
-            string email,
-            string password,
-            string nomComplet,
-            string role,
-            int? societeId)
+            DemoUserSeed seed,
+            int societeId)
         {
-            var user = await userManager.FindByEmailAsync(email);
+            var user = await userManager.FindByEmailAsync(seed.Email);
+
             if (user is null)
             {
                 user = new ApplicationUser
                 {
-                    UserName = email,
-                    Email = email,
-                    NomComplet = nomComplet,
+                    UserName = seed.Email,
+                    Email = seed.Email,
+                    NomComplet = seed.NomComplet,
+                    SocieteId = societeId,
                     EmailConfirmed = true,
                     IsActive = true,
-                    SocieteId = societeId,
                     CreatedAt = DateTime.UtcNow,
                 };
 
-                var createResult = await userManager.CreateAsync(user, password);
+                var createResult = await userManager.CreateAsync(user, seed.Password);
                 if (!createResult.Succeeded)
-                {
-                    Console.WriteLine($"❌ Erreur création utilisateur {email} : " +
-                                      $"{string.Join(", ", createResult.Errors.Select(e => e.Description))}");
-                    return;
-                }
+                    throw new InvalidOperationException(
+                        $"Impossible de créer l'utilisateur démo {seed.Email} : " +
+                        $"{string.Join(", ", createResult.Errors.Select(e => e.Description))}");
+
+                Console.WriteLine($"✅ Utilisateur démo créé : {seed.Email}");
             }
             else
             {
                 var changed = false;
-                if (!string.Equals(user.NomComplet, nomComplet, StringComparison.Ordinal))
-                { user.NomComplet = nomComplet; changed = true; }
+
+                if (!string.Equals(user.NomComplet, seed.NomComplet, StringComparison.Ordinal))
+                { user.NomComplet = seed.NomComplet; changed = true; }
+
+                if (user.SocieteId != societeId)
+                { user.SocieteId = societeId; changed = true; }
 
                 if (!user.EmailConfirmed)
                 { user.EmailConfirmed = true; changed = true; }
@@ -668,33 +676,47 @@ namespace backend.Application.Services
                 if (!user.IsActive)
                 { user.IsActive = true; changed = true; }
 
-                if (user.SocieteId != societeId)
-                { user.SocieteId = societeId; changed = true; }
-
                 if (changed)
-                    await userManager.UpdateAsync(user);
+                {
+                    var updateResult = await userManager.UpdateAsync(user);
+                    if (!updateResult.Succeeded)
+                        throw new InvalidOperationException(
+                            $"Impossible de mettre à jour l'utilisateur démo {seed.Email} : " +
+                            $"{string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
+                }
+
+                // Réinitialiser le mot de passe
+                var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+                var resetResult = await userManager.ResetPasswordAsync(user, resetToken, seed.Password);
+
+                if (!resetResult.Succeeded && !await userManager.HasPasswordAsync(user))
+                {
+                    var addPwdResult = await userManager.AddPasswordAsync(user, seed.Password);
+                    if (!addPwdResult.Succeeded)
+                        throw new InvalidOperationException(
+                            $"Impossible de définir le mot de passe démo pour {seed.Email} : " +
+                            $"{string.Join(", ", addPwdResult.Errors.Select(e => e.Description))}");
+                }
             }
 
-            // Aligne le mot de passe seed (utile en local après reset DB)
-            var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
-            var resetResult = await userManager.ResetPasswordAsync(user, resetToken, password);
-            if (!resetResult.Succeeded && !await userManager.HasPasswordAsync(user))
-            {
-                await userManager.AddPasswordAsync(user, password);
-            }
-
-            // Aligne le rôle
+            // Réassigner le rôle proprement
             var currentRoles = await userManager.GetRolesAsync(user);
             if (currentRoles.Count > 0)
-                await userManager.RemoveFromRolesAsync(user, currentRoles);
+            {
+                var removeResult = await userManager.RemoveFromRolesAsync(user, currentRoles);
+                if (!removeResult.Succeeded)
+                    throw new InvalidOperationException(
+                        $"Impossible de réinitialiser les rôles pour {seed.Email} : " +
+                        $"{string.Join(", ", removeResult.Errors.Select(e => e.Description))}");
+            }
 
-            var roleResultFinal = await userManager.AddToRoleAsync(user, role);
-            if (roleResultFinal.Succeeded)
-                Console.WriteLine($"✅ Utilisateur prêt : {email}  →  rôle [{role}]");
-            else
-                Console.WriteLine($"⚠️ Impossible d'assigner le rôle [{role}] à {email} : " +
-                                  $"{string.Join(", ", roleResultFinal.Errors.Select(e => e.Description))}");
+            var addRoleResult = await userManager.AddToRoleAsync(user, seed.Role);
+            if (!addRoleResult.Succeeded)
+                throw new InvalidOperationException(
+                    $"Impossible d'assigner le rôle {seed.Role} à {seed.Email} : " +
+                    $"{string.Join(", ", addRoleResult.Errors.Select(e => e.Description))}");
+
+            return user;
         }
-
     }
 }

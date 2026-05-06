@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class HoldingController : ControllerBase
