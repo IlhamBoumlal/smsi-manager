@@ -12,8 +12,8 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260506094555_create DB")]
-    partial class createDB
+    [Migration("20260511113022_intiMigr")]
+    partial class intiMigr
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
