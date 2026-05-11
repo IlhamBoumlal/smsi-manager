@@ -9,7 +9,8 @@ public record UpdateProcessusCommand(
     string Categorie,
     string Nom,
     string Responsable,
-    string Description
+    string Description,
+    int? SocieteId
 ) : IRequest;
 
 public class UpdateProcessusCommandHandler : IRequestHandler<UpdateProcessusCommand>
@@ -19,7 +20,7 @@ public class UpdateProcessusCommandHandler : IRequestHandler<UpdateProcessusComm
 
     public async Task Handle(UpdateProcessusCommand cmd, CancellationToken ct)
     {
-        var p = await _repo.GetByIdAsync(cmd.Id, ct)
+        var p = await _repo.GetByIdAsync(cmd.Id, cmd.SocieteId, ct)
                 ?? throw new KeyNotFoundException($"Processus {cmd.Id} introuvable.");
         p.Update(cmd.Categorie, cmd.Nom, cmd.Responsable, cmd.Description);
         await _repo.SaveChangesAsync(ct);

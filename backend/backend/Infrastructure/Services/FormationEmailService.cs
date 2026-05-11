@@ -1,44 +1,43 @@
-﻿// Infrastructure/Services/FormationEmailService.cs
-using System.Net;
-using System.Net.Mail;
+﻿using backend.Domain.Interfaces;
 using FluentEmail.Core;
 using FluentEmail.Smtp;
-using Microsoft.Extensions.Configuration;
+using System.Net.Mail;
+using System.Net;
 
-namespace backend.Infrastructure.Services;
-
-public class FormationEmailService(IConfiguration config) : IEmailService
+namespace backend.Infrastructure.Services
 {
-    // Crée un sender FluentEmail via Gmail SMTP
-    private IFluentEmail BuildEmail(string toEmail, string toName)
+    public class FormationEmailService(IConfiguration config) : IEmailServiceSens
     {
-        var smtpClient = new SmtpClient(config["Email:SmtpHost"])
+        // Crée un sender FluentEmail via Gmail SMTP
+        private IFluentEmail BuildEmail(string toEmail, string toName)
         {
-            Port = int.Parse(config["Email:SmtpPort"]!),
-            Credentials = new NetworkCredential(
-                config["Email:SmtpUser"],
-                config["Email:SmtpPassword"]),
-            EnableSsl = true,
-        };
+            var smtpClient = new SmtpClient(config["Email:SmtpServer"])
+            {
+                Port = int.Parse(config["Email:SmtpPort"]!),
+                Credentials = new NetworkCredential(
+                    config["Email:SmtpUser"],
+                    config["Email:SmtpPass"]),
+                EnableSsl = true,
+            };
 
-        var sender = new SmtpSender(smtpClient);
-        Email.DefaultSender = sender;
+            var sender = new SmtpSender(smtpClient);
+            Email.DefaultSender = sender;
 
-        return Email
-            .From(config["Email:FromAddress"], config["Email:FromName"])
-            .To(toEmail, toName);
-    }
+            return Email
+                .From(config["Email:FromEmail"], config["Email:FromName"])
+                .To(toEmail, toName);
+        }
 
-    public async Task SendInvitationAsync(
-        string toEmail, string toName,
-        string formationTitle, DateTime dateDebut,
-        string duree, string formateur,
-        string? lmsLink, CancellationToken ct = default)
-    {
-        var dateFr = dateDebut.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
-        var heureFr = dateDebut.ToString("HH:mm");
+        public async Task SendInvitationAsync(
+            string toEmail, string toName,
+            string formationTitle, DateTime dateDebut,
+            string duree, string formateur,
+            string? lmsLink, CancellationToken ct = default)
+        {
+            var dateFr = dateDebut.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
+            var heureFr = dateDebut.ToString("HH:mm");
 
-        var body = $"""
+            var body = $"""
             <div style="font-family:Inter,sans-serif;max-width:600px;margin:auto">
               <div style="background:#1D4ED8;padding:28px 32px;border-radius:12px 12px 0 0">
                 <h1 style="color:#fff;margin:0;font-size:20px">🛡️ Invitation — Formation SMSI</h1>
@@ -57,21 +56,21 @@ public class FormationEmailService(IConfiguration config) : IEmailService
             </div>
             """;
 
-        await BuildEmail(toEmail, toName)
-            .Subject($"[SMSI] Invitation : {formationTitle}")
-            .Body(body, isHtml: true)
-            .SendAsync(ct);
-    }
+            await BuildEmail(toEmail, toName)
+                .Subject($"[SMSI] Invitation : {formationTitle}")
+                .Body(body, isHtml: true)
+                .SendAsync(ct);
+        }
 
-    public async Task SendRappelAsync(
-        string toEmail, string toName,
-        string formationTitle, DateTime dateDebut,
-        CancellationToken ct = default)
-    {
-        var dateFr = dateDebut.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
-        var heureFr = dateDebut.ToString("HH:mm");
+        public async Task SendRappelAsync(
+            string toEmail, string toName,
+            string formationTitle, DateTime dateDebut,
+            CancellationToken ct = default)
+        {
+            var dateFr = dateDebut.ToString("dddd d MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"));
+            var heureFr = dateDebut.ToString("HH:mm");
 
-        var body = $"""
+            var body = $"""
             <div style="font-family:Inter,sans-serif;max-width:600px;margin:auto">
               <div style="background:#D97706;padding:28px 32px;border-radius:12px 12px 0 0">
                 <h1 style="color:#fff;margin:0;font-size:20px">⏰ Rappel — Formation dans 48h</h1>
@@ -85,20 +84,21 @@ public class FormationEmailService(IConfiguration config) : IEmailService
             </div>
             """;
 
-        await BuildEmail(toEmail, toName)
-            .Subject($"[SMSI] Rappel 48h : {formationTitle}")
-            .Body(body, isHtml: true)
-            .SendAsync(ct);
-    }
+            await BuildEmail(toEmail, toName)
+                .Subject($"[SMSI] Rappel 48h : {formationTitle}")
+                .Body(body, isHtml: true)
+                .SendAsync(ct);
+        }
 
-    public async Task SendNotificationAsync(
-        string toEmail, string toName,
-        string subject, string htmlBody,
-        CancellationToken ct = default)
-    {
-        await BuildEmail(toEmail, toName)
-            .Subject(subject)
-            .Body(htmlBody, isHtml: true)
-            .SendAsync(ct);
+        public async Task SendNotificationAsync(
+            string toEmail, string toName,
+            string subject, string htmlBody,
+            CancellationToken ct = default)
+        {
+            await BuildEmail(toEmail, toName)
+                .Subject(subject)
+                .Body(htmlBody, isHtml: true)
+                .SendAsync(ct);
+        }
     }
 }

@@ -9,10 +9,11 @@ namespace backend.Application.Audits.Commands
         private readonly AppDbContext _db;
         public CreateNonConformiteCommand(AppDbContext db) => _db = db;
 
-        public async Task<NonConformiteDto> ExecuteAsync(CreateNonConformiteDto dto)
+        public async Task<NonConformiteDto> ExecuteAsync(CreateNonConformiteDto dto, int? societeId)
         {
             var nc = new NonConformite
             {
+                SocieteId = societeId,
                 Title = dto.Title,
                 Description = dto.Description,
                 ControlId = dto.ControlId,

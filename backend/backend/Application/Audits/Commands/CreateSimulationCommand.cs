@@ -10,10 +10,11 @@ namespace backend.Application.Audits.Commands
         private readonly AppDbContext _db;
         public CreateSimulationCommand(AppDbContext db) => _db = db;
 
-        public async Task<SimulationAuditDto> ExecuteAsync(CreateSimulationAuditDto dto)
+        public async Task<SimulationAuditDto> ExecuteAsync(CreateSimulationAuditDto dto, int? societeId)
         {
             var sim = new SimulationAudit
             {
+                SocieteId = societeId,
                 Name = dto.Name,
                 Author = dto.Author,
                 Date = string.IsNullOrWhiteSpace(dto.Date) ? DateTime.UtcNow : DateTime.Parse(dto.Date),

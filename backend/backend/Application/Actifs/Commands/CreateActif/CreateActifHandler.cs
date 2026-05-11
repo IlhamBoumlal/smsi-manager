@@ -19,7 +19,8 @@ namespace backend.Application.Actifs.Commands.CreateActif
                 Type = request.Type,
                 Categorie = request.Categorie,
                 Classification = request.Classification,
-                ProprietaireId = request.ProprietaireId
+                ProprietaireId = request.ProprietaireId,
+                SocieteId = request.SocieteId
             };
             var created = await _repository.CreateAsync(actif);
             return new ActifResponseDto(

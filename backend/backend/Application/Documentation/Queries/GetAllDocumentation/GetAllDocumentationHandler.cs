@@ -15,7 +15,7 @@ namespace backend.Application.Documentation.Queries.GetAllDocumentation
 
         public async Task<IEnumerable<DocumentationResponseDto>> Handle(GetAllDocumentationQuery request, CancellationToken cancellationToken)
         {
-            var documents = await _repository.GetAllAsync();
+            var documents = await _repository.GetAllAsync(request.CurrentSocieteId);
             var actor = DocumentationAccessControl.BuildActorContext(
                 request.CurrentUserId,
                 request.CurrentSocieteId,

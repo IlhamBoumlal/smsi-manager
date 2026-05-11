@@ -1,13 +1,11 @@
-﻿namespace backend.Application.DTOs.Authentification
+namespace backend.Application.DTOs.Authentification
 {
     public record RegisterDto(
             string NomComplet,
             string Email,
-            int SocieteId,
+            int? SocieteId,
             string RoleId,
             string Password,
             string ConfirmPassword
-
-
         );
 }

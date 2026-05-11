@@ -1,4 +1,7 @@
+﻿using backend.Application.DTOs.Controles;
 using backend.Application.Services;
+using backend.Domain.Entities;
+using backend.Domain.Enumerations;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using backend.Infrastructure.Repositories;
@@ -10,15 +13,22 @@ using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using FluentEmail.Core;
+using FluentEmail.Smtp;
+using backend.API.Hubs;
+using System.Net.Mail;
+using System.Net;
+using backend.Application.DTOs.Settings;
+using backend.Application.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ─── BASE DE DONNÉES ──────────────────────────────────────────────────────────
+// â”€â”€â”€ BASE DE DONNÃ‰ES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
            .EnableSensitiveDataLogging());
 
-// ─── IDENTITY ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ IDENTITY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 {
     opt.Password.RequiredLength = 8;
@@ -31,7 +41,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opt =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// ─── JWT ──────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ JWT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddAuthentication(opt =>
 {
     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -50,19 +60,45 @@ builder.Services.AddAuthentication(opt =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
+
+    // Configuration pour SignalR
+    opt.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
-// ─── CORS ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SmSiSocieteScope", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireAssertion(context =>
+                  context.User.HasClaim(c => c.Type == "SocieteId") ||
+                  context.User.IsInRole(AppRoles.SuperAdmin) ||
+                  context.User.IsInRole(AppRoles.AdminSociete)));
+});
+
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("AllowReact", p =>
-        p.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        p.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:3001")
          .AllowAnyMethod()
          .AllowAnyHeader()
          .AllowCredentials());
 });
 
-// ─── CONTROLLERS ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ CONTROLLERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddControllers()
     .AddJsonOptions(opt =>
     {
@@ -74,15 +110,60 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ─── MEDIATR - REGISTRATION MANUELLE (sans scanning d'assembly) ───────────────
+// â”€â”€â”€ CONFIGURATION EMAIL CORRIGÃ‰E â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+var emailConfig = builder.Configuration.GetSection("Email");
+var smtpServer = emailConfig["SmtpServer"] ?? "smtp.gmail.com";
+var smtpPort = int.Parse(emailConfig["SmtpPort"] ?? "587");
+var smtpUser = emailConfig["SmtpUser"];
+var smtpPass = emailConfig["SmtpPass"];  // Note: c'est "SmtpPass" dans votre JSON
+var fromEmail = emailConfig["FromEmail"];
+var fromName = emailConfig["FromName"] ?? "SMSI Manager";
 
-// ✅ Bon - spécifie l'assembly courant
+// Logs pour dÃ©boguer
+Console.WriteLine($"ðŸ“§ Configuration Email:");
+Console.WriteLine($"   SmtpServer: {smtpServer}");
+Console.WriteLine($"   SmtpPort: {smtpPort}");
+Console.WriteLine($"   SmtpUser: {smtpUser}");
+Console.WriteLine($"   SmtpPass length: {smtpPass?.Length ?? 0}");
+Console.WriteLine($"   FromEmail: {fromEmail}");
+Console.WriteLine($"   FromName: {fromName}");
+
+if (string.IsNullOrEmpty(smtpUser) || string.IsNullOrEmpty(smtpPass))
+{
+    Console.WriteLine("âš ï¸ ATTENTION: Les identifiants SMTP ne sont pas configurÃ©s!");
+}
+else
+{
+    Console.WriteLine("âœ… Configuration SMTP trouvÃ©e");
+}
+
+// CrÃ©ation du client SMTP
+var smtpClient = new SmtpClient(smtpServer, smtpPort)
+{
+    EnableSsl = true,
+    UseDefaultCredentials = false,
+    Credentials = new NetworkCredential(smtpUser, smtpPass),
+    Timeout = 10000
+};
+
+// Enregistrement FluentEmail
+builder.Services
+    .AddFluentEmail(fromEmail, fromName)
+    .AddSmtpSender(() => smtpClient);
+
+// â”€â”€â”€ SIGNALR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.MaximumReceiveMessageSize = 102400;
+});
+
+// â”€â”€â”€ MEDIATR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddMediatR(cfg => {
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
-}); ;
+});
 
-
-// ─── REPOSITORIES ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ REPOSITORIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISocieteRepository, SocieteRepository>();
 builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
@@ -95,48 +176,49 @@ builder.Services.AddScoped<IRiskStudyRepository, RiskStudyRepository>();
 builder.Services.AddScoped<IFormationRepository, FormationRepository>();
 builder.Services.AddScoped<IProcessusRepository, ProcessusRepository>();
 
-// ─── SERVICES D'INFRASTRUCTURE ────────────────────────────────────────────────
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IModuleRepository, ModuleRepository>();
+builder.Services.AddScoped<IActionRepository, ActionRepository>();
+
+// â”€â”€â”€ SERVICES D'INFRASTRUCTURE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IClauseService, ClauseService>();
+builder.Services.AddScoped<IEmailServiceIncident, EmailServiceIncident>();
+builder.Services.AddScoped<IEmailServiceSens, FormationEmailService>();
 
-// Email services
-builder.Services.AddScoped<IEmailService, FormationEmailService>();
 builder.Services.AddHostedService<RappelHostedService>();
-try
-{
-    // Your existing service registrations
-    builder.Services.AddMediatR(cfg => {
-        cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
-        // or whatever your assembly registration is
-    });
-}
-catch (ReflectionTypeLoadException ex)
-{
-    Console.WriteLine("=== ReflectionTypeLoadException Details ===");
-    foreach (var loaderEx in ex.LoaderExceptions)
-    {
-        Console.WriteLine($"Loader Exception: {loaderEx?.Message}");
-        if (loaderEx is FileNotFoundException fileNotFound)
-        {
-            Console.WriteLine($"  Missing assembly: {fileNotFound.FileName}");
-        }
-    }
-    throw;
-}
+
+//les settings de l'email monitoring
+builder.Services.Configure<EmailMonitoringSettings>(
+    builder.Configuration.GetSection("EmailMonitoring"));
+
+// Ajouter le Background Service
+builder.Services.AddHostedService<EmailMonitoringService>();
+
+// Ajouter HttpClientFactory
+builder.Services.AddHttpClient();
+
+
 var app = builder.Build();
 
-// ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
+// â”€â”€â”€ INITIALISATION BDD + ADMIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 using (var scope = app.Services.CreateScope())
 {
-    await DbInitializer.InitializeAsync(scope.ServiceProvider);
-    await SeedAdminAsync(scope.ServiceProvider);
-
-    var clauseService = scope.ServiceProvider.GetRequiredService<IClauseService>();
-    await clauseService.SeedClausesAsync();
+    try
+    {
+        await DbInitializer.InitializeAsync(scope.ServiceProvider);
+        Console.WriteLine("âœ… Initialisation de la base de donnÃ©es terminÃ©e avec succÃ¨s");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"âŒ Erreur lors de l'initialisation: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+    }
 }
 
-// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ PIPELINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -149,36 +231,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseStaticFiles();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
-
-// ─── SEED ADMIN ───────────────────────────────────────────────────────────────
-static async Task SeedAdminAsync(IServiceProvider services)
-{
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-    const string adminEmail = "admin@alexsys.com";
-    const string adminPassword = "Admin@123456!";
-    const string adminRole = "Admin";
-
-    if (!await roleManager.RoleExistsAsync(adminRole))
-        await roleManager.CreateAsync(new IdentityRole(adminRole));
-
-    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
-    if (existingAdmin is null)
-    {
-        var admin = new ApplicationUser
-        {
-            UserName = adminEmail,
-            Email = adminEmail,
-            NomComplet = "Administrateur",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var result = await userManager.CreateAsync(admin, adminPassword);
-        if (result.Succeeded)
-            await userManager.AddToRoleAsync(admin, adminRole);
-    }
-}

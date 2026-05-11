@@ -1,19 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
 
-// Composant Login : Page de connexion avec formulaire email/mot de passe
-// Gère l'authentification et la redirection selon le rôle utilisateur
+// Fonction pour décoder le token JWT et extraire le rôle
+const decodeToken = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Erreur décodage token:', error);
+    return null;
+  }
+};
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { loginUser, user } = useAuth();
+  const { loginUser, user, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+
+  // Redirection basée sur le user du contexte
+  useEffect(() => {
+    if (user) {
+      console.log('User dans contexte:', user);
+      if (isSuperAdmin) {
+        navigate('/super-admin');
+      } else {
+        navigate('/tableau-bord');
+      }
+    }
+  }, [user, isSuperAdmin, navigate]);
 
   let logoImage = isoLogo;
   if (user) {
@@ -35,21 +59,58 @@ export default function Login() {
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const res = await login(form);
-      loginUser(res.data);
-      // Rediriger vers le tableau de bord (même pour l'admin)
-      navigate('/tableau-bord');
-    } catch (err) {
-      setError(err.response?.data || 'Identifiants incorrects.');
-    } finally {
-      setLoading(false);
+  // Dans Login.jsx - modifier handleSubmit
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+  try {
+    const res = await login(form);
+    console.log('Réponse API:', res.data);
+    
+    const { token, nomComplet, email, societe } = res.data;
+    
+    // Décoder le token pour extraire le rôle
+    const decodedToken = decodeToken(token);
+    console.log('Token décodé:', decodedToken);
+    
+    // Extraire le rôle du token (claim "role")
+    const userRole = decodedToken?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken?.role;
+    console.log('Rôle extrait:', userRole);
+    
+    // Créer l'objet utilisateur avec le rôle
+    const userData = {
+      id: decodedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
+      token,
+      nomComplet,
+      email,
+      societe,
+      role: userRole,
+      roleName: userRole,
+      isActive: true
+    };
+    
+    console.log('UserData à stocker:', userData);
+    loginUser(userData);
+    
+  } catch (err) {
+    console.error('Erreur:', err);
+    const errorMessage = err.response?.data;
+    
+    // Vérifier si c'est une erreur de compte désactivé
+    if (typeof errorMessage === 'string') {
+      if (errorMessage.includes('désactivé') || errorMessage.includes('desactive') || errorMessage.includes('inactive')) {
+        setError('❌ Votre compte a été désactivé. Veuillez contacter un administrateur.');
+      } else {
+        setError(errorMessage || 'Identifiants incorrects.');
+      }
+    } else {
+      setError('Identifiants incorrects.');
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={styles.page}>
@@ -265,7 +326,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '48px',
-    position: 'relative', // Ajouté pour le positionnement du bouton retour
+    position: 'relative',
   },
   backBtn: {
     position: 'absolute',

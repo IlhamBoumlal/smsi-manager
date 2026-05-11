@@ -16,5 +16,6 @@ public record UpdateFormationCommand(
     string FormateurType,
     string Departement,
     string Role,
-    string? LmsLink
+    string? LmsLink,
+    int? SocieteId
 ) : IRequest<bool>;

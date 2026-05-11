@@ -9,7 +9,7 @@ public class UpdateItemHandler : IRequestHandler<UpdateItemCommand>
 
     public async Task Handle(UpdateItemCommand cmd, CancellationToken ct)
     {
-        var item = await _repo.GetItemByIdAsync(cmd.Id, ct)
+        var item = await _repo.GetItemByIdAsync(cmd.Id, cmd.SocieteId, ct)
             ?? throw new InvalidOperationException("Item introuvable.");
         if (cmd.Status is not null) item.Status = cmd.Status;
         if (cmd.Text   is not null) item.Text   = cmd.Text;

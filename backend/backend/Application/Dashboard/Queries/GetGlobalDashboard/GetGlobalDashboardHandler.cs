@@ -29,11 +29,21 @@ namespace backend.Application.Dashboard.Queries.GetGlobalDashboard
 
         public async Task<GlobalDashboardDto> Handle(GetGlobalDashboardQuery request, CancellationToken ct)
         {
-            var users = await _userRepository.GetAllWithSocieteAsync();
-            var societes = await _societeRepository.GetAllAsync();
-            var holdings = await _holdingRepository.GetAllAsync();
-            var actifs = (await _actifRepository.GetAllAsync()).ToList();
-            var controles = await _controleRepository.GetAllAsync();
+            var users = (await _userRepository.GetAllWithSocieteAsync())
+                .Where(u => request.CurrentSocieteId.HasValue && u.SocieteId == request.CurrentSocieteId.Value)
+                .ToList();
+            var societes = (await _societeRepository.GetAllAsync())
+                .Where(s => request.CurrentSocieteId.HasValue && s.Id == request.CurrentSocieteId.Value)
+                .ToList();
+            var holdings = (await _holdingRepository.GetAllAsync())
+                .Where(h => request.CurrentSocieteId.HasValue && h.Societes.Any(s => s.Id == request.CurrentSocieteId.Value))
+                .ToList();
+            var actifs = (await _actifRepository.GetAllAsync())
+                .Where(a => request.CurrentSocieteId.HasValue && a.SocieteId == request.CurrentSocieteId.Value)
+                .ToList();
+            var controles = (await _controleRepository.GetAllAsync())
+                .Where(c => request.CurrentSocieteId.HasValue && c.SocieteId == request.CurrentSocieteId.Value)
+                .ToList();
 
             var totalControles = controles.Count;
             var controlesConformes = controles.Count(c => c.Statut == Statut.Conforme);

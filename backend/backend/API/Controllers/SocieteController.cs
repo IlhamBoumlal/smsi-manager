@@ -1,5 +1,4 @@
-﻿using backend.Application.DTOs.Societe;
-using backend.Application.Services;
+using backend.Application.DTOs.Societe;
 using backend.Application.Societes.Commands.CreateSociete;
 using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
@@ -10,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class SocieteController : ControllerBase

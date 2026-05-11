@@ -1,5 +1,6 @@
-﻿using backend.Application.Auth.Commands.Login;
+using backend.Application.Auth.Commands.Login;
 using backend.Application.Auth.Commands.Register;
+using backend.Application.Auth.Queries;
 using backend.Application.DTOs.Authentification;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,19 @@ namespace backend.API.Controllers
             var (success, error, data) = await _mediator.Send(new LoginCommand(dto.Email, dto.Password));
             return success ? Ok(data) : Unauthorized(error);
         }
+        [Authorize]
+        [HttpGet("check-status")]
+        public async Task<IActionResult> CheckUserStatus()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var user = await _mediator.Send(new CheckUserStatusQuery(userId));
+            return Ok(user);
+        }
 
         [Authorize]
         [HttpGet("me")]
@@ -43,5 +57,6 @@ namespace backend.API.Controllers
             nomComplet = User.FindFirst("NomComplet")?.Value,
             societeId = User.FindFirst("SocieteId")?.Value
         });
+
     }
 }

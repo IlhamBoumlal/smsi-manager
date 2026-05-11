@@ -1,4 +1,5 @@
-﻿using backend.Domain.Interfaces;
+using backend.Application.Societes;
+using backend.Domain.Interfaces;
 using MediatR;
 
 namespace backend.Application.Societes.Commands.UpdateSociete
@@ -21,6 +22,8 @@ namespace backend.Application.Societes.Commands.UpdateSociete
 
             if (string.IsNullOrWhiteSpace(req.Nom))
                 return (false, "Le nom est requis.");
+            if (SocieteNamePolicy.IsReserved(req.Nom))
+                return (false, "Ce nom de societe est reserve.");
 
             societe.Nom = req.Nom;
             societe.HoldingId = req.HoldingId;

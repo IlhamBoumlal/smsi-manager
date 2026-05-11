@@ -17,11 +17,12 @@ namespace backend.Application.Users.Queries.GetAllUsers
             foreach (var user in users)
             {
                 var roles = await _userRepo.GetRolesAsync(user);
-                var nomRole = roles.FirstOrDefault() ?? "Utilisateur";
+                var nomRole = roles.FirstOrDefault() ?? "Sans role";
                 result.Add(new UserDisplayDto(
                     user.Id,
                     user.NomComplet,
                     user.Email!,
+                    user.SocieteId,
                     user.Societe?.Nom ?? "—",
                     nomRole,
                     user.CreatedAt.ToString("dd/MM/yyyy"),
@@ -33,3 +34,4 @@ namespace backend.Application.Users.Queries.GetAllUsers
         }
     }
 }
+

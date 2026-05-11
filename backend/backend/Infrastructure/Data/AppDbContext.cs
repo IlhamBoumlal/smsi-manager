@@ -1,9 +1,9 @@
-using backend.Domain.Entities;
+﻿using backend.Domain.Entities;
 using backend.Domain.Enumerations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using Action = backend.Domain.Entities.Action;
 
 namespace backend.Infrastructure.Data
 {
@@ -38,12 +38,17 @@ namespace backend.Infrastructure.Data
         public DbSet<FormationParticipant> FormationParticipants { get; set; }
         public DbSet<FormationDocument> FormationDocuments { get; set; }
         public DbSet<FormationNotification> FormationNotifications { get; set; }
-
+        public DbSet<Profil> Profils { get; set; }
+        public DbSet<ControleHistorique> ControleHistoriques { get; set; }
+        public DbSet<Incident> Incidents { get; set; }
+        public DbSet<Module> Modules { get; set; }
+        public DbSet<Action> Actions { get; set; }
+        public DbSet<Permission> Permissions { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // ── ConformityProof ────────────────────────────────────────────────
+            // â”€â”€ ConformityProof â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<ConformityProof>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -52,13 +57,19 @@ namespace backend.Infrastructure.Data
                  .HasForeignKey(p => p.IsoClauseId)
                  .OnDelete(DeleteBehavior.Cascade);
                 e.HasIndex(p => new { p.IsoClauseId, p.UserId });
+                e.HasIndex(p => p.SocieteId);
+                e.HasOne(p => p.Societe)
+                 .WithMany()
+                 .HasForeignKey(p => p.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ── FileAttachment ─────────────────────────────────────────────────
+            // â”€â”€ FileAttachment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<FileAttachment>(e =>
             {
                 e.HasKey(f => f.Id);
                 e.Property(f => f.Content).IsRequired();
+                e.HasIndex(f => f.SocieteId);
 
                 e.HasOne(f => f.ConformityProof)
                  .WithMany(p => p.Files)
@@ -72,16 +83,39 @@ namespace backend.Infrastructure.Data
                  .IsRequired(false)
                  .OnDelete(DeleteBehavior.Cascade);
 
+                e.HasOne(f => f.DocumentationDocument)
+                 .WithMany()
+                 .HasForeignKey(f => f.DocumentationDocumentId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.SetNull);
+
                 e.HasIndex(f => f.ConformityProofId);
                 e.HasIndex(f => f.ActionPlanId);
+                e.HasIndex(f => f.DocumentationDocumentId);
                 e.HasIndex(f => f.UserId);
+                e.HasOne(f => f.Societe)
+                 .WithMany()
+                 .HasForeignKey(f => f.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ── ApplicationUser → Société ──────────────────────────────────────
+            // â”€â”€ ApplicationUser â†’ SociÃ©tÃ© â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<ApplicationUser>()
                 .HasOne(u => u.Societe)
                 .WithMany()
                 .HasForeignKey(u => u.SocieteId);
+
+            // ── PDCA cycles ───────────────────────────────────────────────────────────────────
+            modelBuilder.Entity<PdcaCycle>(entity =>
+            {
+                entity.ToTable("PdcaCycles");
+                entity.HasIndex(c => c.SocieteId);
+
+                entity.HasOne(c => c.Societe)
+                    .WithMany()
+                    .HasForeignKey(c => c.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
 
             // ── DocumentationDocument ──────────────────────────────────────────
             modelBuilder.Entity<DocumentationDocument>(entity =>
@@ -90,6 +124,7 @@ namespace backend.Infrastructure.Data
                 entity.HasIndex(d => d.UpdatedAt);
                 entity.HasIndex(d => new { d.SocieteId, d.Status });
                 entity.HasIndex(d => new { d.SocieteId, d.Category });
+                entity.HasIndex(d => new { d.SocieteId, d.FileHash });
 
                 entity.HasOne(d => d.Societe)
                     .WithMany()
@@ -112,7 +147,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // ── RiskStudy ──────────────────────────────────────────────────────
+            // â”€â”€ RiskStudy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<RiskStudy>(entity =>
             {
                 entity.ToTable("RiskStudies");
@@ -141,7 +176,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // ── Controle : enum → string + index ──────────────────────────────
+            // â”€â”€ Controle : enum â†’ string + index â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<Controle>()
                 .Property(c => c.Domaine)
                 .HasConversion<string>();
@@ -153,13 +188,54 @@ namespace backend.Infrastructure.Data
             modelBuilder.Entity<Controle>()
                 .HasIndex(c => c.Code);
 
+            modelBuilder.Entity<Controle>(entity =>
+            {
+                entity.HasIndex(c => c.SocieteId);
+
+                entity.HasOne(c => c.Societe)
+                    .WithMany()
+                    .HasForeignKey(c => c.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ── Actif ──────────────────────────────────────────────────────────
+            modelBuilder.Entity<Actif>(entity =>
+            {
+                entity.HasIndex(a => a.SocieteId);
+
+                entity.HasOne(a => a.Societe)
+                    .WithMany()
+                    .HasForeignKey(a => a.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ── Incident ─────────────────────────────────────────────────────────
+            modelBuilder.Entity<Incident>(entity =>
+            {
+                entity.HasIndex(i => i.SocieteId);
+
+                entity.HasOne(i => i.Societe)
+                    .WithMany()
+                    .HasForeignKey(i => i.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
             // ── IsoClause : index sur Number ───────────────────────────────────
             modelBuilder.Entity<IsoClause>()
                 .HasIndex(c => c.Number);
 
-            // ── ActionPlan : deux FK vers IsoClause ───────────────────────────
+            // â”€â”€ ActionPlan : deux FK vers IsoClause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<ActionPlan>()
-     .HasKey(ap => ap.Id);  // Id is now int
+                .HasKey(ap => ap.Id);  // Id is now int
+
+            modelBuilder.Entity<ActionPlan>()
+                .HasIndex(ap => ap.SocieteId);
+
+            modelBuilder.Entity<ActionPlan>()
+                .HasOne(ap => ap.Societe)
+                .WithMany()
+                .HasForeignKey(ap => ap.SocieteId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<ActionPlan>()
                 .HasOne(ap => ap.Clause)
@@ -174,6 +250,16 @@ namespace backend.Infrastructure.Data
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<ConformityStatus>(entity =>
+            {
+                entity.HasIndex(cs => cs.SocieteId);
+                entity.HasIndex(cs => new { cs.IsoClauseId, cs.UserId });
+                entity.HasOne(cs => cs.Societe)
+                    .WithMany()
+                    .HasForeignKey(cs => cs.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
             // ── Processus ──────────────────────────────────────────────────────
             modelBuilder.Entity<Processus>(e =>
             {
@@ -182,13 +268,20 @@ namespace backend.Infrastructure.Data
                 e.Property(p => p.Nom).HasMaxLength(200).IsRequired();
                 e.Property(p => p.Responsable).HasMaxLength(100);
                 e.Property(p => p.Description).HasMaxLength(500);
+                e.HasIndex(p => p.SocieteId);
+
+                e.HasOne(p => p.Societe)
+                    .WithMany()
+                    .HasForeignKey(p => p.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
                 e.HasMany(p => p.Documents)
-                 .WithOne()
+                 .WithOne(d => d.Processus)
                  .HasForeignKey(d => d.ProcessusId)
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ── Document ───────────────────────────────────────────────────────
+            // â”€â”€ Document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<Document>(e =>
             {
                 e.HasKey(d => d.Id);
@@ -199,12 +292,21 @@ namespace backend.Infrastructure.Data
                 e.Property(d => d.FichierNom).HasMaxLength(260);
                 e.Property(d => d.FichierType).HasMaxLength(100);
                 e.Property(d => d.FichierData);
+                e.HasIndex(d => d.SocieteId);
+
+                e.HasOne(d => d.Societe)
+                    .WithMany()
+                    .HasForeignKey(d => d.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ── Audit ──────────────────────────────────────────────────────────
+            // â”€â”€ Audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<Audit>(e =>
             {
                 e.HasKey(a => a.Id);
+                e.HasIndex(a => a.SocieteId);
+                e.HasIndex(a => new { a.SocieteId, a.UpdatedAt });
+
                 e.Property(a => a.Title).IsRequired().HasMaxLength(300);
                 e.Property(a => a.Type).IsRequired().HasMaxLength(50);
                 e.Property(a => a.Status).IsRequired().HasMaxLength(50);
@@ -217,6 +319,11 @@ namespace backend.Infrastructure.Data
                 e.Property(a => a.Author).HasMaxLength(200);
                 e.Property(a => a.Date).HasMaxLength(10);
 
+                e.HasOne(a => a.Societe)
+                 .WithMany()
+                 .HasForeignKey(a => a.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
                 e.HasMany(a => a.ControlStatuses)
                  .WithOne(s => s.Audit)
                  .HasForeignKey(s => s.AuditId)
@@ -228,7 +335,7 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ── AuditControlStatus ────────────────────────────────────────────
+            // â”€â”€ AuditControlStatus â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<AuditControlStatus>(e =>
             {
                 e.HasKey(s => s.Id);
@@ -237,10 +344,13 @@ namespace backend.Infrastructure.Data
                 e.Property(s => s.Comment).HasMaxLength(1000);
             });
 
-            // ── NonConformite ─────────────────────────────────────────────────
+            // â”€â”€ NonConformite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<NonConformite>(e =>
             {
                 e.HasKey(n => n.Id);
+                e.HasIndex(n => n.SocieteId);
+                e.HasIndex(n => new { n.SocieteId, n.UpdatedAt });
+
                 e.Property(n => n.Title).IsRequired().HasMaxLength(300);
                 e.Property(n => n.ControlId).IsRequired().HasMaxLength(10);
                 e.Property(n => n.Status).IsRequired().HasMaxLength(50);
@@ -250,13 +360,18 @@ namespace backend.Infrastructure.Data
                 e.Property(n => n.Description).HasMaxLength(2000);
                 e.Property(n => n.CorrectiveAction).HasMaxLength(2000);
 
+                e.HasOne(n => n.Societe)
+                 .WithMany()
+                 .HasForeignKey(n => n.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
                 e.HasMany(n => n.CorrectiveActions)
                  .WithOne(a => a.NonConformite)
                  .HasForeignKey(a => a.NonConformiteId)
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ── ActionCorrective ──────────────────────────────────────────────
+            // â”€â”€ ActionCorrective â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<ActionCorrective>(e =>
             {
                 e.HasKey(a => a.Id);
@@ -265,22 +380,36 @@ namespace backend.Infrastructure.Data
                 e.Property(a => a.Status).IsRequired().HasMaxLength(50);
             });
 
-            // ── SimulationAudit ───────────────────────────────────────────────
+            // â”€â”€ SimulationAudit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<SimulationAudit>(e =>
             {
                 e.HasKey(s => s.Id);
+                e.HasIndex(s => s.SocieteId);
+                e.HasIndex(s => new { s.SocieteId, s.CreatedAt });
+
                 e.Property(s => s.Name).IsRequired().HasMaxLength(300);
                 e.Property(s => s.Author).HasMaxLength(200);
                 e.Property(s => s.AnswersJson).IsRequired().HasColumnType("nvarchar(max)");
                 e.Property(s => s.CommentsJson).IsRequired().HasColumnType("nvarchar(max)");
+
+                e.HasOne(s => s.Societe)
+                 .WithMany()
+                 .HasForeignKey(s => s.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // ── Formation ─────────────────────────────────────────────────────
+            // â”€â”€ Formation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<Formation>(e =>
             {
                 e.HasKey(f => f.Id);
                 e.Property(f => f.Reference).IsRequired().HasMaxLength(20);
                 e.Property(f => f.Title).IsRequired().HasMaxLength(200);
+                e.HasIndex(f => f.SocieteId);
+
+                e.HasOne(f => f.Societe)
+                 .WithMany()
+                 .HasForeignKey(f => f.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
 
                 e.HasMany(f => f.Participants)
                  .WithOne(p => p.Formation)
@@ -299,7 +428,7 @@ namespace backend.Infrastructure.Data
             });
             // Add this to your OnModelCreating method, preferably near the ActionPlan configuration:
 
-            // ── PlanStep ──────────────────────────────────────────────────────
+            // â”€â”€ PlanStep â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             modelBuilder.Entity<PlanStep>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -340,76 +469,40 @@ namespace backend.Infrastructure.Data
             modelBuilder.Entity<FormationParticipant>().HasKey(p => p.Id);
             modelBuilder.Entity<FormationDocument>().HasKey(d => d.Id);
             modelBuilder.Entity<FormationNotification>().HasKey(n => n.Id);
-
-            // ── Seeding (UN SEUL appel) ────────────────────────────────────────
-            SeedControles(modelBuilder);
             modelBuilder.Entity<Controle>().ToTable("controles");
+            modelBuilder.Entity<Permission>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+
+                // NE METTEZ PAS de .HasDatabaseName(...) ici
+                entity.HasIndex(p => new { p.RoleId, p.ModuleId, p.ActionId })
+                      .IsUnique();
+
+                entity.HasOne(p => p.Module)
+                      .WithMany(m => m.Permissions)
+                      .HasForeignKey(p => p.ModuleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Action)
+                      .WithMany()
+                      .HasForeignKey(p => p.ActionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(p => p.RoleId);
+            });
+            // Index uniques
+            modelBuilder.Entity<Module>()
+                .HasIndex(m => m.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<Action>()
+                .HasIndex(a => a.Code)
+                .IsUnique();
+
         }
 
-        private void SeedControles(ModelBuilder modelBuilder)
-        {
-            var basePath = AppContext.BaseDirectory;
-            var projectPath = Path.GetFullPath(Path.Combine(basePath, "..", "..", ".."));
-            var filePath = Path.Combine(projectPath, "Infrastructure", "SeedData", "controles.json");
+        
 
-            if (!File.Exists(filePath))
-            {
-                filePath = Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json");
-            }
-
-            if (File.Exists(filePath))
-            {
-                try
-                {
-                    var jsonString = File.ReadAllText(filePath);
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        Converters = { new JsonStringEnumConverter() }
-                    };
-
-                    var controles = JsonSerializer.Deserialize<List<Controle>>(jsonString, options);
-
-                    if (controles != null)
-                    {
-                        var seedData = new List<Controle>();
-
-                        foreach (var c in controles)
-                        {
-                            var controle = new Controle
-                            {
-                                Id = GenerateGuidFromCode(c.Code),
-                                Code = c.Code,
-                                Titre = c.Titre,
-                                Description = c.Description,
-                                Domaine = c.Domaine,
-                                Applicable = c.Applicable,
-                                JustificationApplicabilite = c.JustificationApplicabilite ?? string.Empty,
-                                Statut = c.Statut,
-                                Preuves = c.Preuves ?? string.Empty,
-                                Responsable = c.Responsable ?? string.Empty,
-                                ReferenceDocument = c.ReferenceDocument ?? string.Empty,
-                                DateMiseAJour = DateTime.SpecifyKind(c.DateMiseAJour, DateTimeKind.Utc),
-                                SocieteId = c.SocieteId
-                            };
-
-                            seedData.Add(controle);
-                        }
-
-                        modelBuilder.Entity<Controle>().HasData(seedData);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Erreur lors du seeding JSON : {ex.Message}");
-                    throw;
-                }
-            }
-            else
-            {
-                throw new FileNotFoundException($"Le fichier de seed n'a pas été trouvé : {filePath}");
-            }
-        }
 
         private static Guid GenerateGuidFromCode(string code)
         {

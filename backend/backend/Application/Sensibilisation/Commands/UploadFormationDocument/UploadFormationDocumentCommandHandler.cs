@@ -15,7 +15,7 @@ public class UploadFormationDocumentCommandHandler(IFormationRepository repo)
     public async Task<DocumentDto> Handle(
         UploadFormationDocumentCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.FormationId, ct)
+        var f = await repo.GetByIdAsync(cmd.FormationId, cmd.SocieteId, ct)
             ?? throw new InvalidOperationException("Formation introuvable");
 
         Directory.CreateDirectory(_root);

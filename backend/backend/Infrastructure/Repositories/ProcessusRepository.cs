@@ -10,11 +10,23 @@ public class ProcessusRepository : IProcessusRepository
     private readonly AppDbContext _ctx;
     public ProcessusRepository(AppDbContext ctx) => _ctx = ctx;
 
-    public Task<List<Processus>> GetAllAsync(CancellationToken ct = default) =>
-        _ctx.Processus.Include(p => p.Documents).ToListAsync(ct);
+    public Task<List<Processus>> GetAllAsync(int? societeId = null, CancellationToken ct = default)
+    {
+        var query = _ctx.Processus.Include(p => p.Documents).AsQueryable();
+        query = societeId.HasValue
+            ? query.Where(p => p.SocieteId == societeId.Value)
+            : query.Where(_ => false);
+        return query.ToListAsync(ct);
+    }
 
-    public Task<Processus?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _ctx.Processus.Include(p => p.Documents).FirstOrDefaultAsync(p => p.Id == id, ct);
+    public Task<Processus?> GetByIdAsync(Guid id, int? societeId = null, CancellationToken ct = default)
+    {
+        var query = _ctx.Processus.Include(p => p.Documents).Where(p => p.Id == id).AsQueryable();
+        query = societeId.HasValue
+            ? query.Where(p => p.SocieteId == societeId.Value)
+            : query.Where(_ => false);
+        return query.FirstOrDefaultAsync(ct);
+    }
 
     public async Task AddAsync(Processus p, CancellationToken ct = default) =>
         await _ctx.Processus.AddAsync(p, ct);

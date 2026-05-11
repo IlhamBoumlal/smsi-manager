@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Cartographie.Commands;
 
-public record DeleteDocumentCommand(Guid ProcessusId, Guid DocumentId) : IRequest;
+public record DeleteDocumentCommand(Guid ProcessusId, Guid DocumentId, int? SocieteId) : IRequest;
 
 public class DeleteDocumentCommandHandler : IRequestHandler<DeleteDocumentCommand>
 {
@@ -13,7 +13,7 @@ public class DeleteDocumentCommandHandler : IRequestHandler<DeleteDocumentComman
 
     public async Task Handle(DeleteDocumentCommand cmd, CancellationToken ct)
     {
-        var p = await _repo.GetByIdAsync(cmd.ProcessusId, ct)
+        var p = await _repo.GetByIdAsync(cmd.ProcessusId, cmd.SocieteId, ct)
                 ?? throw new KeyNotFoundException($"Processus {cmd.ProcessusId} introuvable.");
         p.RemoveDocument(cmd.DocumentId);
         await _repo.SaveChangesAsync(ct);

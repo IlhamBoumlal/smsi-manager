@@ -7,6 +7,7 @@ namespace backend.Domain.Entities
     {
         public int Id { get; set; }
         public int IsoClauseId { get; set; }
+        public int? SocieteId { get; set; }
         public string UserId { get; set; } = "";
 
         // "non-conforme" | "partiellement-conforme" | "conforme" | "non-applicable"
@@ -20,5 +21,6 @@ namespace backend.Domain.Entities
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         public IsoClause? Clause { get; set; }
+        public Societe? Societe { get; set; }
     }
 }

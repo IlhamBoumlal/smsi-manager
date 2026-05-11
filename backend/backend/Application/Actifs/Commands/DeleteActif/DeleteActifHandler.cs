@@ -9,6 +9,6 @@ namespace backend.Application.Actifs.Commands.DeleteActif
         public DeleteActifHandler(IActifRepository repository) => _repository = repository;
 
         public async Task<bool> Handle(DeleteActifCommand request, CancellationToken ct) =>
-            await _repository.DeleteAsync(request.Id);
+            await _repository.DeleteAsync(request.Id, request.SocieteId);
     }
 }

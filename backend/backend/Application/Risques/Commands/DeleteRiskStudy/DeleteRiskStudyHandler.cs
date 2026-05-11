@@ -17,14 +17,11 @@ namespace backend.Application.Risques.Commands.DeleteRiskStudy
             if (string.IsNullOrWhiteSpace(request.CurrentUserId) || !request.CurrentSocieteId.HasValue)
                 return (false, "FORBIDDEN:NO_ACCESS_SCOPE");
 
-            var existing = await _repository.GetByIdAsync(request.Id);
+            var existing = await _repository.GetByIdAsync(request.Id, request.CurrentSocieteId);
             if (existing is null)
                 return (false, "NOT_FOUND:RISK_STUDY");
 
-            if (existing.SocieteId != request.CurrentSocieteId.Value)
-                return (false, "FORBIDDEN:FOREIGN_SOCIETE_SCOPE");
-
-            var deleted = await _repository.DeleteAsync(request.Id);
+            var deleted = await _repository.DeleteAsync(request.Id, request.CurrentSocieteId);
             return deleted
                 ? (true, null)
                 : (false, "NOT_FOUND:RISK_STUDY");

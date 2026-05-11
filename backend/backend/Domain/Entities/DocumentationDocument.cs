@@ -19,6 +19,7 @@ namespace backend.Domain.Entities
         public string? FilePath { get; set; }
         public string? OriginalFileName { get; set; }
         public long? FileSizeBytes { get; set; }
+        public string? FileHash { get; set; }
         public string? CreatedByUserId { get; set; }
         public ApplicationUser? CreatedByUser { get; set; }
         public string? LastModifiedByUserId { get; set; }

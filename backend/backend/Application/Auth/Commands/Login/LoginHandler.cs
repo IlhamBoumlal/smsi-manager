@@ -20,6 +20,12 @@ namespace backend.Application.Auth.Commands.Login
             var user = await _userRepo.GetByEmailAsync(req.Email);
             if (user == null) return (false, "Identifiants incorrects.", null);
 
+            // Vérifier si le compte est actif
+            if (!user.IsActive)
+            {
+                return (false, "Votre compte a été désactivé. Veuillez contacter un administrateur.", null);
+            }
+
             var result = await _userRepo.CheckPasswordAsync(user, req.Password);
             if (!result.Succeeded) return (false, "Identifiants incorrects.", null);
 

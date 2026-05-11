@@ -10,27 +10,47 @@ namespace backend.Infrastructure.Repositories
         private readonly AppDbContext _context;
         public ControleRepository(AppDbContext context) => _context = context;
 
-        public Task<List<Controle>> GetAllAsync() =>
-            _context.Controles.OrderBy(c => c.Code).ToListAsync();
+        public Task<List<Controle>> GetAllAsync(int? societeId = null, CancellationToken ct = default) =>
+            ApplyFilter(societeId).OrderBy(c => c.Code).ToListAsync(ct);
 
-        public Task<Controle?> GetByIdAsync(Guid id) =>
-            _context.Controles.FirstOrDefaultAsync(c => c.Id == id);
+        public Task<Controle?> GetByIdAsync(Guid id, int? societeId = null, CancellationToken ct = default) =>
+            ApplyFilter(societeId).FirstOrDefaultAsync(c => c.Id == id, ct);
 
+        private IQueryable<Controle> ApplyFilter(int? societeId) =>
+            societeId.HasValue
+                ? _context.Controles.Where(c => c.SocieteId == societeId.Value)
+                : _context.Controles.Where(_ => false);
         public async Task<Controle?> UpdateAsync(Controle controle)
         {
             var existing = await _context.Controles.FindAsync(controle.Id);
             if (existing is null) return null;
 
+            existing.Code = controle.Code;
             existing.Titre = controle.Titre;
             existing.Description = controle.Description;
             existing.Domaine = controle.Domaine;
-            existing.Statut = controle.Statut;
+
+            // Applicabilité
             existing.Applicable = controle.Applicable;
-            existing.JustificationApplicabilite = controle.JustificationApplicabilite;
+            existing.RaisonsApplicabilite = controle.RaisonsApplicabilite;
+            existing.RaisonExclusion = controle.RaisonExclusion;
+
+            // Évaluation
+            existing.Statut = controle.Statut;
+            existing.JustificationConformite = controle.JustificationConformite;
+            existing.Remarque = controle.Remarque;
             existing.Preuves = controle.Preuves;
-            existing.Responsable = controle.Responsable;
-            existing.ReferenceDocument = controle.ReferenceDocument;
-            existing.DateMiseAJour = DateTime.UtcNow;
+
+            // Plan d'action
+            existing.Steps = controle.Steps;
+            existing.Priorite = controle.Priorite;
+            existing.StatutPlan = controle.StatutPlan;
+            existing.ResponsablePlan = controle.ResponsablePlan;
+            existing.DateEcheance = controle.DateEcheance;
+
+            existing.DateMiseAJour = controle.DateMiseAJour ?? DateTime.UtcNow;
+            existing.DernierModificateurId = controle.DernierModificateurId;
+            existing.DernierModificateurNom = controle.DernierModificateurNom;
 
             await _context.SaveChangesAsync();
             return existing;

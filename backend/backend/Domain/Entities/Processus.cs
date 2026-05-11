@@ -1,19 +1,21 @@
-﻿namespace backend.Domain.Entities;
+namespace backend.Domain.Entities;
 
 public class Processus
 {
     public Guid Id { get; private set; }
-    public string Categorie { get; private set; }   // "mgmt" | "real" | "supp"
-    public string Nom { get; private set; }
-    public string Responsable { get; private set; }
-    public string Description { get; private set; }
+    public string Categorie { get; private set; } = string.Empty;   // "mgmt" | "real" | "supp"
+    public string Nom { get; private set; } = string.Empty;
+    public string Responsable { get; private set; } = string.Empty;
+    public string Description { get; private set; } = string.Empty;
+    public int? SocieteId { get; private set; }
+    public Societe? Societe { get; private set; }
     public IReadOnlyCollection<Document> Documents => _documents.AsReadOnly();
 
     private readonly List<Document> _documents = new();
 
     private Processus() { }  // EF Core
 
-    public static Processus Create(string categorie, string nom, string responsable, string description)
+    public static Processus Create(string categorie, string nom, string responsable, string description, int? societeId = null)
     {
         return new Processus
         {
@@ -22,6 +24,7 @@ public class Processus
             Nom = nom,
             Responsable = responsable,
             Description = description,
+            SocieteId = societeId,
         };
     }
 
@@ -39,7 +42,7 @@ public class Processus
                               byte[]? fichierData = null)
     {
         var doc = Document.Create(Id, nom, type, reference, statut,
-                                  fichierNom, fichierType, fichierData);
+                                  fichierNom, fichierType, fichierData, SocieteId);
         _documents.Add(doc);
         return doc;
     }

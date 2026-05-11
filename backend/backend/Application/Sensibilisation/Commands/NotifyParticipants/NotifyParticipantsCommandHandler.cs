@@ -3,17 +3,18 @@ using MediatR;
 using backend.Domain.Entities;
 using backend.Infrastructure.Repositories;
 using backend.Infrastructure.Services;
+using backend.Domain.Interfaces;
 
 namespace backend.Application.Sensibilisation.Commands.NotifyParticipants;
 
 public class NotifyParticipantsCommandHandler(
     IFormationRepository repo,
-    IEmailService emailService)
+    IEmailServiceSens emailService)
     : IRequestHandler<NotifyParticipantsCommand, bool>
 {
     public async Task<bool> Handle(NotifyParticipantsCommand cmd, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(cmd.FormationId, ct);
+        var f = await repo.GetByIdAsync(cmd.FormationId, cmd.SocieteId, ct);
         if (f is null) return false;
 
         // Envoi email à chaque participant

@@ -87,7 +87,7 @@ function getWorkshopCardKpis(study, workshopId, stepsCount) {
 export default function RiskStudyDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { getStudyById, updateStudyMeta } = useRiskStudies();
+  const { getStudyById, updateStudyMeta, loading } = useRiskStudies();
   const study = getStudyById(id);
 
   const [editMeta, setEditMeta] = useState(false);
@@ -114,6 +114,17 @@ export default function RiskStudyDetailPage() {
     () => (study ? WORKSHOP_META.filter((workshop) => isWorkshopBlocked(study, workshop.id)).length : 0),
     [study],
   );
+
+  if (loading && !study) {
+    return (
+      <div className="risk-page p-6">
+        <RiskCard className="mx-auto max-w-3xl p-8 text-center">
+          <h2 className="text-xl font-black text-slate-900">Chargement de l'etude...</h2>
+          <p className="mt-2 text-sm text-slate-500">Synchronisation avec la base de donnees en cours.</p>
+        </RiskCard>
+      </div>
+    );
+  }
 
   if (!study) {
     return (

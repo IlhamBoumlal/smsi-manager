@@ -123,12 +123,8 @@ function fileIconInfo(ct="", name="") {
 
 /* ════════════════════════════════════════════════════════════
    HYBRID ITEM HELPERS
-   Un HybridItem est : { type:"text"|"file", value:string,
-     fileId?, downloadUrl?, contentType?, fileSize?,
-     uploading?, progress?, pendingFile? }
 ════════════════════════════════════════════════════════════ */
 function toHybridItems(arr) {
-  // Défense totale : null, undefined, non-array → tableau vide
   if (!arr || !Array.isArray(arr)) return [];
   return arr.map(item => {
     if (!item) return null;
@@ -220,8 +216,6 @@ async function flushPendingFiles(planId, form, setForm) {
 function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, accentColor, label, labelStyle }) {
   const items = Array.isArray(itemsProp) ? itemsProp : [];
 
-  // On utilise un ref pour avoir accès à la liste courante dans les callbacks
-  // async sans dépendre d'une closure périmée.
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
 
@@ -238,7 +232,6 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
   const handleFile = async (file) => {
     const tempId = `tmp-${Date.now()}`;
 
-    // 1. Ajouter le placeholder immédiatement
     const withPlaceholder = [...itemsRef.current, {
       type:"file", value:file.name, tempId,
       uploading:true, progress:0,
@@ -248,15 +241,12 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
 
     try {
       if (onFileAdd) {
-        // 2a. Plan existant — upload vers le serveur
         const saved = await onFileAdd(file, (pct) => {
-          // Mise à jour de la progression : on lit depuis le ref
           const updated = itemsRef.current.map(i =>
             i.tempId === tempId ? { ...i, progress: pct } : i
           );
           onChange(updated);
         });
-        // 3a. Remplacer le placeholder par le fichier sauvegardé
         const withSaved = itemsRef.current.map(i =>
           i.tempId === tempId
             ? { type:"file", value:saved.originalName, fileId:saved.id,
@@ -266,7 +256,6 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
         );
         onChange(withSaved);
       } else {
-        // 2b. Nouveau plan — stocker le File en attente (sera uploadé après création)
         const withPending = itemsRef.current.map(i =>
           i.tempId === tempId
             ? { type:"file", value:file.name, pendingFile:file,
@@ -276,7 +265,6 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
         onChange(withPending);
       }
     } catch {
-      // En cas d'erreur, retirer le placeholder
       onChange(itemsRef.current.filter(i => i.tempId !== tempId));
     }
   };
@@ -345,7 +333,6 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
         </div>
       )}
 
-      {/* Input row */}
       <div style={{
         display:"flex", gap:6, alignItems:"center",
         padding:"5px 8px", borderRadius:9,
@@ -388,7 +375,7 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
 }
 
 /* ════════════════════════════════════════════════════════════
-   DOCUMENT FIELD (champ unique texte + fichier optionnel)
+   DOCUMENT FIELD
 ════════════════════════════════════════════════════════════ */
 function DocumentField({ value={}, onChange, onFileAdd, onFileRemove, accentColor, placeholder, inputStyle }) {
   const [uploading, setUploading] = useState(false);
@@ -683,7 +670,7 @@ function StepRow({ step, index, meta, onStatusChange, onDelete }) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   ENJEUX TABLE
+   ENJEUX TABLE (CORRIGÉE)
 ════════════════════════════════════════════════════════════ */
 function EnjeuxTable({ title, data, onChange, meta }) {
   const [nr, setNr]=useState({domaine:"",enjeu:"",niveauImpact:"moyen",mesureAssociee:""});
@@ -696,20 +683,30 @@ function EnjeuxTable({ title, data, onChange, meta }) {
       {data.length>0&&(
         <div style={{border:"1px solid #E4E8F0",borderRadius:10,overflow:"hidden",marginBottom:10}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-            <thead><tr style={{background:"#F8FAFC"}}>
-              {["Domaine","Enjeu","Impact","Mesure associée",""].map(h=>(
-                <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",fontSize:10,borderBottom:"1px solid #E4E8F0"}}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>{data.map((row,i)=>(
-              <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:i%2===0?"#fff":"#FAFBFC"}}>
-                <td style={{padding:"8px 10px",fontWeight:600,color:"#374151"}}>{row.domaine}</td>
-                <td style={{padding:"8px 10px",color:"#374151",maxWidth:200}}>{row.enjeu}</td>
-                <td style={{padding:"8px 10px"}}><span style={{fontSize:10,fontWeight:700,color:IMPACT_COLOR[row.niveauImpact]||"#64748B",background:(IMPACT_COLOR[row.niveauImpact]||"#64748B")+"20",padding:"2px 8px",borderRadius:4}}>{row.niveauImpact}</span></td>
-                <td style={{padding:"8px 10px",color:"#64748B",maxWidth:180}}>{row.mesureAssociee}</td>
-                <td style={{padding:"8px 10px"}}><button onClick={()=>onChange(data.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FDA4AF",fontSize:12}}><FontAwesomeIcon icon={faTrash}/></button></td>
+            <thead>
+              <tr style={{background:"#F8FAFC"}}>
+                {["Domaine","Enjeu","Impact","Mesure associée",""].map(h=>(
+                  <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",fontSize:10,borderBottom:"1px solid #E4E8F0"}}>{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {data.map((row,i)=>(
+                <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:i%2===0?"#fff":"#FAFBFC"}}>
+                  <td style={{padding:"8px 10px",fontWeight:600,color:"#374151"}}>{row.domaine}</td>
+                  <td style={{padding:"8px 10px",color:"#374151",maxWidth:200}}>{row.enjeu}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:IMPACT_COLOR[row.niveauImpact]||"#64748B",background:(IMPACT_COLOR[row.niveauImpact]||"#64748B")+"20",padding:"2px 8px",borderRadius:4}}>{row.niveauImpact}</span>
+                  </td>
+                  <td style={{padding:"8px 10px",color:"#64748B",maxWidth:180}}>{row.mesureAssociee}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <button onClick={()=>onChange(data.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#FDA4AF",fontSize:12}}>
+                      <FontAwesomeIcon icon={faTrash}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
@@ -934,7 +931,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
                 <textarea value={form.mesureImmediate||""} onChange={e=>upd("mesureImmediate",e.target.value)} placeholder="Ex: Organisation d'un atelier d'urgence, notification des parties prenantes..." rows={4} style={{...IS,resize:"vertical",lineHeight:1.6}} onFocus={focusStyle} onBlur={blurStyle}/>
               </div>
 
-              {/* ── PREUVES HYBRIDES ── */}
               <HybridListField
                 label="Preuves de l'action immédiate"
                 labelStyle={LS}
@@ -984,7 +980,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div>
                   <label style={LS}>Document à produire *</label>
-                  {/* ── DOCUMENT FIELD HYBRIDE ── */}
                   <DocumentField
                     value={form.documentAProduire}
                     placeholder="Référence (ex: SMSI-CTX-001 v2.0)"
@@ -1054,8 +1049,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
           {/* ── TAB 5 : VÉRIFICATION ── */}
           {tab===4&&(
             <div style={{display:"flex",flexDirection:"column",gap:16,animation:"tabFadeIn .2s ease"}}>
-
-              {/* ── MÉTHODES HYBRIDES ── */}
               <HybridListField
                 label="Critères de vérification de l'efficacité *"
                 labelStyle={LS}
@@ -1079,7 +1072,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
                 <textarea value={form.resultatsObtenus||""} onChange={e=>upd("resultatsObtenus",e.target.value)} placeholder="À remplir après la vérification : constats, preuves d'efficacité..." rows={4} style={{...IS,resize:"vertical",lineHeight:1.6}} onFocus={focusStyle} onBlur={blurStyle}/>
               </div>
 
-              {/* ── PIÈCES JOINTES HYBRIDES ── */}
               <HybridListField
                 label="Pièces jointes"
                 labelStyle={LS}
@@ -1158,7 +1150,7 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
 /* ════════════════════════════════════════════════════════════
    PLAN CARD
 ════════════════════════════════════════════════════════════ */
-function PlanCard({ plan, meta, subClauses, onEdit, onDelete }) {
+function PlanCard({ plan, meta, subClauses, onEdit, onDelete, canEdit, canDelete }) {
   const pct=calcProgress(plan);
   const sc={"ouverte":{l:"Ouverte",c:"#64748B",bg:"#F1F5F9"},"en-cours":{l:"En cours",c:"#0369A1",bg:"#E0F2FE"},"en-attente":{l:"En attente",c:"#D97706",bg:"#FEF9C3"},"terminee":{l:"Terminée",c:"#16A34A",bg:"#DCFCE7"}}[plan.statut]||{l:plan.statut,c:"#64748B",bg:"#F1F5F9"};
   const gc={"mineure":{l:"Mineure",c:"#CA8A04",bg:"#FEF9C3"},"majeure":{l:"Majeure",c:"#DC2626",bg:"#FEE2E2"}}[plan.gravite];
@@ -1193,13 +1185,17 @@ function PlanCard({ plan, meta, subClauses, onEdit, onDelete }) {
         {plan.dateEcheanceGlobale&&<span style={{display:"flex",alignItems:"center",gap:4}}><FontAwesomeIcon icon={faCalendar} style={{fontSize:9,color:meta.color}}/>{plan.dateEcheanceGlobale}</span>}
       </div>
       <div style={{display:"flex",gap:8,paddingTop:10,borderTop:"1px solid #F1F5F9"}}>
-        <button onClick={()=>onEdit(plan)} style={{flex:1,padding:"7px",borderRadius:8,border:`1px solid ${meta.border}`,background:meta.bg,color:meta.color,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
-          onMouseEnter={e=>{e.currentTarget.style.background=meta.color;e.currentTarget.style.color="#fff";}}
-          onMouseLeave={e=>{e.currentTarget.style.background=meta.bg;e.currentTarget.style.color=meta.color;}}
-        ><FontAwesomeIcon icon={faPen}/> Modifier</button>
-        <button onClick={()=>onDelete(plan.id)} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #FECACA",background:"#FEF2F2",color:"#DC2626",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,transition:"all .15s"}}
-          onMouseEnter={e=>e.currentTarget.style.background="#FEE2E2"} onMouseLeave={e=>e.currentTarget.style.background="#FEF2F2"}
-        ><FontAwesomeIcon icon={faTrash}/></button>
+        {canEdit && (
+          <button onClick={()=>onEdit(plan)} style={{flex:1,padding:"7px",borderRadius:8,border:`1px solid ${meta.border}`,background:meta.bg,color:meta.color,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
+            onMouseEnter={e=>{e.currentTarget.style.background=meta.color;e.currentTarget.style.color="#fff";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=meta.bg;e.currentTarget.style.color=meta.color;}}
+          ><FontAwesomeIcon icon={faPen}/> Modifier</button>
+        )}
+        {canDelete && (
+          <button onClick={()=>onDelete(plan.id)} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #FECACA",background:"#FEF2F2",color:"#DC2626",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,transition:"all .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="#FEE2E2"} onMouseLeave={e=>e.currentTarget.style.background="#FEF2F2"}
+          ><FontAwesomeIcon icon={faTrash}/> Supprimer</button>
+        )}
       </div>
     </div>
   );
@@ -1208,17 +1204,14 @@ function PlanCard({ plan, meta, subClauses, onEdit, onDelete }) {
 /* ════════════════════════════════════════════════════════════
    SUB-CLAUSE CARD
 ════════════════════════════════════════════════════════════ */
-function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCreatePlan, onEditPlan, onDeletePlan, index }) {
+function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCreatePlan, onEditPlan, onDeletePlan, index, canWrite, canEdit, canDelete }) {
   const [expanded, setExpanded]       = useState(false);
   const [evalOpen, setEvalOpen]       = useState(false);
   const [form,     setForm]           = useState({status:"non-conforme",score:0,lastAudit:"",nextAudit:"",comments:""});
   const [saving,   setSaving]         = useState(false);
   const [proofs,   setProofs]         = useState([]);
   const [proofsLoaded, setPL]         = useState(false);
-  // Fichiers ajoutés PENDANT l'évaluation (avant save) quand statut = conforme
   const [pendingProofFiles, setPendingProofFiles] = useState([]);
-  const [uploadingProof,    setUploadingProof]    = useState(false);
-  const [uploadProofPct,    setUploadProofPct]    = useState(0);
   const proofFileRef = useRef(null);
 
   useEffect(()=>{ if(conformity) setForm({status:conformity.status,score:conformity.score||0,lastAudit:conformity.lastAudit||"",nextAudit:conformity.nextAudit||"",comments:conformity.comments||""}); },[conformity]);
@@ -1242,7 +1235,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
       const saved = await upsertConformity(sub.id, form);
       onConformitySaved(saved);
 
-      // Si conforme et fichiers en attente → créer la preuve puis uploader
       if (form.status === "conforme" && pendingProofFiles.length > 0) {
         const proof = await upsertConformityProof(sub.id, "");
         for (const file of pendingProofFiles) {
@@ -1260,7 +1252,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
           } catch { /* continue */ }
         }
         setPendingProofFiles([]);
-        setPL(false); // forcer le rechargement des preuves
+        setPL(false);
       }
 
       setEvalOpen(false);
@@ -1268,7 +1260,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
     finally { setSaving(false); }
   };
 
-  // Upload immédiat d'un fichier preuve dans le panel d'évaluation
   const handleEvalProofFile = async (file) => {
     setPendingProofFiles(prev => [...prev, file]);
   };
@@ -1277,14 +1268,12 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
     setPendingProofFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Peut-on enregistrer ? Si conforme → au moins 1 preuve requise
   const canSave = form.status !== "conforme" || pendingProofFiles.length > 0 || allProofFiles.length > 0;
 
   const inputS={width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #E2E8F0",fontSize:11,outline:"none",fontFamily:"inherit",color:"#0D1117",transition:"border-color .15s,box-shadow .15s"};
 
   return (
     <div style={{background:"#fff",border:`1px solid ${isConforme?"#BBF7D0":isNC?"#FECACA":"#E8ECF4"}`,borderLeft:`4px solid ${isConforme?"#16A34A":isNC?"#DC2626":"#CBD5E1"}`,borderRadius:12,overflow:"hidden",transition:"all .25s",boxShadow:expanded?`0 6px 24px rgba(0,0,0,.06)`:"none",animation:`subCardIn .4s cubic-bezier(.4,0,.2,1) ${index*60}ms both`}}>
-      {/* SUMMARY ROW */}
       <div style={{padding:"13px 18px",display:"flex",alignItems:"center",gap:12,background:isConforme?"#F0FDF4":isNC?"#FFF5F5":"#fff",borderBottom:expanded?"1px solid #F1F5F9":"none",transition:"background .2s"}}>
         <span style={{fontSize:10,fontWeight:800,fontFamily:"'Sora',sans-serif",color:isConforme?"#16A34A":isNC?"#DC2626":meta.color,background:isConforme?"#DCFCE7":isNC?"#FEE2E2":meta.bg,padding:"3px 9px",borderRadius:6,border:`1px solid ${isConforme?"#BBF7D0":isNC?"#FECACA":meta.border}`,flexShrink:0}}>{sub.number}</span>
         <span onClick={()=>setExpanded(e=>!e)} style={{fontSize:13,fontWeight:600,color:"#0D1117",flex:1,lineHeight:1.3,cursor:"pointer"}}>{sub.title}</span>
@@ -1301,12 +1290,10 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
         <FontAwesomeIcon icon={expanded?faChevronUp:faChevronDown} onClick={()=>setExpanded(e=>!e)} style={{fontSize:10,color:"#CBD5E1",cursor:"pointer",flexShrink:0}}/>
       </div>
 
-      {/* EVAL PANEL */}
       {expanded&&evalOpen&&(
         <div style={{margin:"0 16px",borderRadius:"0 0 10px 10px",border:`1px solid ${meta.border}`,borderTop:"none",background:meta.bg+"66",padding:"16px",animation:"evalIn .2s ease"}}>
           <div style={{fontSize:11,fontWeight:700,color:meta.color,marginBottom:12,display:"flex",alignItems:"center",gap:6,textTransform:"uppercase",letterSpacing:".5px"}}><FontAwesomeIcon icon={faShield}/> Évaluation — {sub.number}</div>
 
-          {/* Choix du statut */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
             {CONFORMITY_OPTIONS.map(o=>(
               <label key={o.value} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",borderRadius:8,cursor:"pointer",border:`2px solid ${form.status===o.value?o.color:"#E2E8F0"}`,background:form.status===o.value?o.bg:"#fff",transition:"all .12s",boxShadow:form.status===o.value?`0 0 0 4px ${o.color}18`:"none"}}>
@@ -1317,7 +1304,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
             ))}
           </div>
 
-          {/* Zone preuves — obligatoire si conforme */}
           {form.status==="conforme" && (
             <div style={{marginBottom:14,padding:"12px 14px",borderRadius:10,border:"1.5px solid #BBF7D0",background:"#F0FDF4"}}>
               <div style={{fontSize:11,fontWeight:700,color:"#15803D",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
@@ -1326,7 +1312,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                 <span style={{fontSize:10,fontWeight:500,color:"#16A34A",marginLeft:4}}>— obligatoire avant d'enregistrer</span>
               </div>
 
-              {/* Fichiers déjà persistés (modification d'une évaluation existante) */}
               {allProofFiles.length > 0 && (
                 <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:8}}>
                   {allProofFiles.map(f=>{
@@ -1342,7 +1327,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                 </div>
               )}
 
-              {/* Fichiers en attente (ajoutés maintenant, uploadés au save) */}
               {pendingProofFiles.length > 0 && (
                 <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:8}}>
                   {pendingProofFiles.map((file,idx)=>{
@@ -1362,7 +1346,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                 </div>
               )}
 
-              {/* Bouton d'ajout */}
               <button onClick={()=>proofFileRef.current?.click()}
                 style={{width:"100%",padding:"8px",borderRadius:8,border:"1.5px dashed #86EFAC",background:"transparent",color:"#16A34A",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all .2s"}}
                 onMouseEnter={e=>{e.currentTarget.style.background="#DCFCE7";e.currentTarget.style.borderStyle="solid";}}
@@ -1375,7 +1358,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                 onChange={e=>{const f=e.target.files?.[0];if(f){handleEvalProofFile(f);e.target.value="";}}}
               />
 
-              {/* Message de blocage */}
               {pendingProofFiles.length===0 && allProofFiles.length===0 && (
                 <p style={{fontSize:10,color:"#DC2626",margin:"6px 0 0",display:"flex",alignItems:"center",gap:4}}>
                   <FontAwesomeIcon icon={faTriangleExclamation} style={{fontSize:10}}/> Ajoutez au moins une preuve pour pouvoir enregistrer.
@@ -1413,7 +1395,6 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
         </div>
       )}
 
-      {/* EXPANDED BODY */}
       {expanded&&(
         <div style={{animation:"bodyIn .2s ease"}}>
           <div style={{padding:"16px 18px"}}>
@@ -1437,16 +1418,18 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
                       <div style={{width:5,height:5,borderRadius:99,background:"#DC2626"}}/>Plans d'action correctifs
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
-                      {subPlans.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={[sub]} onEdit={onEditPlan} onDelete={onDeletePlan}/>)}
+                      {subPlans.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={[sub]} onEdit={onEditPlan} onDelete={onDeletePlan} canEdit={canEdit} canDelete={canDelete}/>)}
                     </div>
                   </div>
                 )}
-                <button onClick={e=>{e.stopPropagation();onCreatePlan(sub.id);}} style={{padding:"10px 20px",borderRadius:10,border:"1.5px dashed #DC2626",background:"transparent",color:"#DC2626",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:8,width:"100%",justifyContent:"center",transition:"all .2s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.background="#FEF2F2";e.currentTarget.style.borderStyle="solid";}}
-                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderStyle="dashed";}}>
-                  <div style={{width:22,height:22,borderRadius:6,background:"#DC2626",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}><FontAwesomeIcon icon={faPlus}/></div>
-                  Ajouter un plan d'action pour {sub.number}
-                </button>
+                {canWrite && (
+                  <button onClick={e=>{e.stopPropagation();onCreatePlan(sub.id);}} style={{padding:"10px 20px",borderRadius:10,border:"1.5px dashed #DC2626",background:"transparent",color:"#DC2626",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:8,width:"100%",justifyContent:"center",transition:"all .2s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#FEF2F2";e.currentTarget.style.borderStyle="solid";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderStyle="dashed";}}>
+                    <div style={{width:22,height:22,borderRadius:6,background:"#DC2626",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}><FontAwesomeIcon icon={faPlus}/></div>
+                    Ajouter un plan d'action pour {sub.number}
+                  </button>
+                )}
               </div>
             )}
             {isConforme&&!evalOpen&&(
@@ -1477,7 +1460,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
 function LoadingSkeleton() {
   return (
     <div style={{minHeight:"100vh",background:BG_PAGE,fontFamily:"'Sora','Segoe UI',sans-serif"}}>
-      <div style={{maxWidth:1120,margin:"24px auto",padding:"0 32px",display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{maxWidth:1120,margin:"0 auto",padding:"24px 32px 60px",display:"flex",flexDirection:"column",gap:12}}>
         {[1,2,3].map(i=>(
           <div key={i} style={{background:"#fff",borderRadius:12,padding:18,border:"1px solid #E8ECF4",animation:`skeletonPulse 1.4s ease ${i*.1}s infinite`}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1498,7 +1481,8 @@ function LoadingSkeleton() {
 ════════════════════════════════════════════════════════════ */
 export default function ClauseDetail() {
   const { id }           = useParams();
-  const { logout }       = useAuth();
+  const { canRead, canWrite, canEdit, canDelete } = useAuth();
+  const moduleCode = "clauses";
   const navigate         = useNavigate();
 
   const [clause,             setClause]            = useState(null);
@@ -1547,7 +1531,6 @@ export default function ClauseDetail() {
         showToast("Plan mis à jour avec succès");
       } else {
         const r=await createActionPlan({...dto,isoClauseId:+id});
-        // Upload les fichiers en attente
         await flushPendingFiles(r.id, formData);
         setPlans(p=>[r,...p]);
         showToast("Plan d'action créé avec succès");
@@ -1562,7 +1545,23 @@ export default function ClauseDetail() {
     catch(e){ showToast(e.message,"error"); }
   };
 
+  const hasAccess = canRead(moduleCode);
+
   if(loading) return <LoadingSkeleton/>;
+  
+  if(!hasAccess) {
+    return (
+      <div style={{minHeight:"100vh",background:BG_PAGE,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,fontFamily:"'Sora',sans-serif"}}>
+        <FontAwesomeIcon icon={faTriangleExclamation} style={{fontSize:48,color:"#EF4444"}}/>
+        <div style={{fontSize:18,fontWeight:700,color:"#374151"}}>Accès non autorisé</div>
+        <p style={{fontSize:13,color:"#64748B"}}>Vous n'avez pas les permissions nécessaires pour accéder à cette clause.</p>
+        <button onClick={()=>navigate("/clauses")} style={{padding:"9px 22px",borderRadius:10,border:"none",background:ACCENT,color:"#fff",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          <FontAwesomeIcon icon={faArrowLeft}/> Retour aux clauses
+        </button>
+      </div>
+    );
+  }
+
   if(error) return (
     <div style={{minHeight:"100vh",background:BG_PAGE,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,fontFamily:"'Sora',sans-serif"}}>
       <FontAwesomeIcon icon={faTriangleExclamation} style={{fontSize:40,color:"#EF4444"}}/>
@@ -1599,9 +1598,8 @@ export default function ClauseDetail() {
 
   return (
     <div style={{minHeight:"100vh",background:BG_PAGE,fontFamily:"'Sora','Segoe UI',sans-serif"}}>
-      <div style={{maxWidth:1120,margin:"0 auto",padding:"24px 32px 60px"}}>
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"24px 36px 60px",width:"100%"}}>
 
-        {/* BREADCRUMB */}
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22,fontSize:12,animation:"fadeDown .4s ease"}}>
           <button onClick={()=>navigate("/clauses")} style={{background:"none",border:"none",cursor:"pointer",color:meta.color,fontWeight:700,fontSize:12,padding:0,display:"flex",alignItems:"center",gap:5,transition:"opacity .15s"}}
             onMouseEnter={e=>e.currentTarget.style.opacity=".7"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}
@@ -1612,7 +1610,6 @@ export default function ClauseDetail() {
           <span style={{color:"#374151",fontWeight:700}}>{clause.title}</span>
         </div>
 
-        {/* HERO BANNER */}
         <div style={{borderRadius:14,marginBottom:28,overflow:"hidden",boxShadow:`0 16px 48px ${meta.color}30`,animation:"heroIn .5s cubic-bezier(.4,0,.2,1)"}}>
           <div style={{height:3,background:`linear-gradient(90deg,${meta.grad[0]},#60A5FA,${meta.grad[1]})`}}/>
           <div style={{background:`linear-gradient(135deg,${meta.grad[0]} 0%,${meta.grad[1]} 100%)`,padding:"28px 32px",position:"relative",overflow:"hidden"}}>
@@ -1652,17 +1649,17 @@ export default function ClauseDetail() {
           </div>
         </div>
 
-        {/* TABS */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22,flexWrap:"wrap",gap:12}}>
           <SlidingTabs tabs={mainTabs} active={tab} onChange={setTab}/>
-          <button onClick={()=>{setDefaultSubClauseId(null);setEditingPlan(null);setShowForm(true);}}
-            style={{padding:"10px 20px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${meta.grad[0]},${meta.grad[1]})`,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 16px ${meta.color}44`,display:"flex",alignItems:"center",gap:7,transition:"transform .15s,box-shadow .15s"}}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 6px 22px ${meta.color}55`;}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=`0 4px 16px ${meta.color}44`;}}
-          ><FontAwesomeIcon icon={faPlus}/> Nouveau plan d'action</button>
+          {canWrite(moduleCode) && (
+            <button onClick={()=>{setDefaultSubClauseId(null);setEditingPlan(null);setShowForm(true);}}
+              style={{padding:"10px 20px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${meta.grad[0]},${meta.grad[1]})`,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 16px ${meta.color}44`,display:"flex",alignItems:"center",gap:7,transition:"transform .15s,box-shadow .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 6px 22px ${meta.color}55`;}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=`0 4px 16px ${meta.color}44`;}}
+            ><FontAwesomeIcon icon={faPlus}/> Nouveau plan d'action</button>
+          )}
         </div>
 
-        {/* TAB EXIGENCES */}
         {tab==="exigences"&&(
           <div>
             <div style={{marginBottom:18}}>
@@ -1679,6 +1676,9 @@ export default function ClauseDetail() {
                     onCreatePlan={(sid)=>{setDefaultSubClauseId(sid);setEditingPlan(null);setShowForm(true);setTab("plans");}}
                     onEditPlan={p=>{setEditingPlan(p);setShowForm(true);}}
                     onDeletePlan={handleDelete}
+                    canWrite={canWrite(moduleCode)}
+                    canEdit={canEdit(moduleCode)}
+                    canDelete={canDelete(moduleCode)}
                   />
                 ))}
               </div>
@@ -1686,7 +1686,6 @@ export default function ClauseDetail() {
           </div>
         )}
 
-        {/* TAB PLANS */}
         {tab==="plans"&&(
           <div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
@@ -1699,9 +1698,11 @@ export default function ClauseDetail() {
               ?<div style={{background:"#fff",border:"2px dashed #E4E8F0",borderRadius:18,padding:"56px",textAlign:"center"}}>
                 <div style={{width:64,height:64,borderRadius:18,background:meta.bg,border:`2px solid ${meta.border}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}><FontAwesomeIcon icon={meta.faIcon} style={{fontSize:28,color:meta.color}}/></div>
                 <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:8}}>Aucun plan d'action</div>
-                <button onClick={()=>{setDefaultSubClauseId(null);setEditingPlan(null);setShowForm(true);}} style={{padding:"11px 28px",borderRadius:11,border:"none",background:`linear-gradient(135deg,${meta.grad[0]},${meta.grad[1]})`,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,boxShadow:`0 4px 16px ${meta.color}44`}}>
-                  <FontAwesomeIcon icon={faPlus}/> Créer le premier plan
-                </button>
+                {canWrite(moduleCode) && (
+                  <button onClick={()=>{setDefaultSubClauseId(null);setEditingPlan(null);setShowForm(true);}} style={{padding:"11px 28px",borderRadius:11,border:"none",background:`linear-gradient(135deg,${meta.grad[0]},${meta.grad[1]})`,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,boxShadow:`0 4px 16px ${meta.color}44`}}>
+                    <FontAwesomeIcon icon={faPlus}/> Créer le premier plan
+                  </button>
+                )}
               </div>
               :<div style={{display:"flex",flexDirection:"column",gap:28}}>
                 {subClauses.map(sub=>{
@@ -1715,7 +1716,7 @@ export default function ClauseDetail() {
                         <span style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:meta.color,background:meta.bg,padding:"2px 9px",borderRadius:99}}>{sp.length} plan{sp.length!==1?"s":""}</span>
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}}>
-                        {sp.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={subClauses} onEdit={p=>{setEditingPlan(p);setShowForm(true);}} onDelete={handleDelete}/>)}
+                        {sp.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={subClauses} onEdit={p=>{setEditingPlan(p);setShowForm(true);}} onDelete={handleDelete} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>)}
                       </div>
                     </div>
                   );
@@ -1726,7 +1727,7 @@ export default function ClauseDetail() {
                       <span style={{fontSize:10,fontWeight:800,color:"#64748B",background:"#F1F5F9",padding:"3px 11px",borderRadius:7,border:"1px solid #E4E8F0"}}>Non classés</span>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}}>
-                      {unassignedPlans.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={subClauses} onEdit={p=>{setEditingPlan(p);setShowForm(true);}} onDelete={handleDelete}/>)}
+                      {unassignedPlans.map(plan=><PlanCard key={plan.id} plan={plan} meta={meta} subClauses={subClauses} onEdit={p=>{setEditingPlan(p);setShowForm(true);}} onDelete={handleDelete} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>)}
                     </div>
                   </div>
                 )}

@@ -8,7 +8,7 @@ namespace backend.Infrastructure.Repositories;
 public class FormationRepository(AppDbContext ctx) : IFormationRepository
 {
     public async Task<IEnumerable<Formation>> GetAllAsync(
-        Guid? societeId, CancellationToken ct = default)
+        int? societeId, CancellationToken ct = default)
     {
         var q = ctx.Formations
             .Include(f => f.Participants)
@@ -16,16 +16,18 @@ public class FormationRepository(AppDbContext ctx) : IFormationRepository
 
         if (societeId.HasValue)
             q = q.Where(f => f.SocieteId == societeId);
+        else
+            q = q.Where(_ => false);
 
         return await q.OrderByDescending(f => f.DateDebut).ToListAsync(ct);
     }
 
-    public async Task<Formation?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<Formation?> GetByIdAsync(Guid id, int? societeId, CancellationToken ct = default)
         => await ctx.Formations
             .Include(f => f.Participants)
             .Include(f => f.FormationDocuments)
             .Include(f => f.Notifications)
-            .FirstOrDefaultAsync(f => f.Id == id, ct);
+            .FirstOrDefaultAsync(f => societeId.HasValue && f.Id == id && f.SocieteId == societeId, ct);
 
     public async Task AddAsync(Formation formation, CancellationToken ct = default)
         => await ctx.Formations.AddAsync(formation, ct);

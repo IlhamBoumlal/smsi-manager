@@ -247,7 +247,7 @@ function KpiStrip({ data }) {
 }
 
 /* ════════ SECTION ROW ════════ */
-function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, onDeleteSection, onRenameSection, onAddItem }) {
+function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, onDeleteSection, onRenameSection, onAddItem, canEdit, canDelete }) {
   const [open, setOpen]               = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal]       = useState(sec.title ?? '');
@@ -309,7 +309,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
             fontFamily: "'JetBrains Mono',monospace", fontSize: 10,
             padding: "2px 7px", borderRadius: 5, fontWeight: 600
           }}>{done}/{total}</span>
-          {editMode && (
+          {editMode && canDelete && (
             <button onClick={e => { e.stopPropagation(); onDeleteSection(phaseKey, sec.id); }}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#93C5FD", padding: "0 2px", lineHeight: 1 }}>🗑</button>
           )}
@@ -348,7 +348,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
                   padding: "2px 7px", borderRadius: 4, fontWeight: 600,
                   background: ss.bg, color: ss.color, flexShrink: 0, cursor: "pointer"
                 }}>{STATUS_LABEL[item.s]}</span>
-                {editMode && (
+                {editMode && canDelete && (
                   <button onClick={() => onDeleteItem(phaseKey, sec.id, item.id)} style={{
                     background: "none", border: "none", cursor: "pointer",
                     fontSize: 12, color: "#BFDBFE", padding: 0, flexShrink: 0, lineHeight: 1, transition: "color .15s"
@@ -359,7 +359,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
               </div>
             );
           })}
-          {editMode && (
+          {editMode && canEdit && (
             <div style={{ display: "flex", gap: 6, padding: "5px 10px 7px" }}>
               <input value={newItemName} onChange={e => setNewItemName(e.target.value)}
                 onKeyDown={e => {
@@ -392,7 +392,7 @@ function SectionRow({ sec, phaseKey, phase, editMode, onToggle, onDeleteItem, on
 }
 
 /* ════════ PHASE PANEL ════════ */
-function PhasePanel({ phase, isOpen, onClose, onToggle, onDeleteItem, onDeleteSection, onRenameSection, onAddItem, onAddSection }) {
+function PhasePanel({ phase, isOpen, onClose, onToggle, onDeleteItem, onDeleteSection, onRenameSection, onAddItem, onAddSection, canEdit, canDelete }) {
   const [editMode, setEditMode]     = useState(false);
   const [newSecName, setNewSecName] = useState("");
   const newSecRef = useRef(null);
@@ -484,7 +484,8 @@ function PhasePanel({ phase, isOpen, onClose, onToggle, onDeleteItem, onDeleteSe
           phase.sections.map(sec => (
             <SectionRow key={sec.id} sec={sec} phaseKey={phase.key} phase={phase}
               editMode={editMode} onToggle={onToggle} onDeleteItem={onDeleteItem}
-              onDeleteSection={onDeleteSection} onRenameSection={onRenameSection} onAddItem={onAddItem} />
+              onDeleteSection={onDeleteSection} onRenameSection={onRenameSection} onAddItem={onAddItem}
+              canEdit={canEdit} canDelete={canDelete} />
           ))
         )}
       </div>
@@ -517,15 +518,17 @@ function PhasePanel({ phase, isOpen, onClose, onToggle, onDeleteItem, onDeleteSe
             }}>✓ Fin</button>
           </div>
         ) : (
-          <button onClick={() => setEditMode(true)} style={{
-            width: "100%", padding: "7px", borderRadius: 9,
-            border: `1.5px dashed ${phase.borderColor}`, background: phase.lightBg,
-            color: phase.color, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .15s"
-          }}
-            onMouseEnter={e => { e.currentTarget.style.background = phase.color; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderStyle = "solid"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = phase.lightBg; e.currentTarget.style.color = phase.color; e.currentTarget.style.borderStyle = "dashed"; }}>
-            ✎ Mode édition
-          </button>
+          canEdit && (
+            <button onClick={() => setEditMode(true)} style={{
+              width: "100%", padding: "7px", borderRadius: 9,
+              border: `1.5px dashed ${phase.borderColor}`, background: phase.lightBg,
+              color: phase.color, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .15s"
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = phase.color; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderStyle = "solid"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = phase.lightBg; e.currentTarget.style.color = phase.color; e.currentTarget.style.borderStyle = "dashed"; }}>
+              ✎ Mode édition
+            </button>
+          )
         )}
       </div>
     </div>
@@ -550,7 +553,9 @@ function Toast({ msg, visible }) {
 
 /* ════════ MAIN ════════ */
 export default function Progression() {
-  const { user, logout } = useAuth();
+  const { user, logout, canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "pdca";
+  const hasAccess = canRead(moduleCode);
   const navigate = useNavigate();
 
   const [data,     setData]     = useState(INITIAL_DATA);
@@ -621,6 +626,10 @@ export default function Progression() {
   }, [data, mutate, showToast]);
 
   const handleDeleteItem = useCallback(async (pk, sid, iid) => {
+    if (!canDelete(moduleCode)) {
+      showToast("❌ Vous n'avez pas la permission de supprimer");
+      return;
+    }
     mutate(d => {
       const sec = d[pk].sections.find(s => s.id === sid);
       if (sec) sec.items = sec.items.filter(i => i.id !== iid);
@@ -632,9 +641,13 @@ export default function Progression() {
       console.error("Erreur suppression item:", e);
       showToast("❌ Erreur lors de la suppression");
     }
-  }, [mutate, showToast]);
+  }, [mutate, showToast, canDelete, moduleCode]);
 
   const handleDeleteSection = useCallback(async (pk, sid) => {
+    if (!canDelete(moduleCode)) {
+      showToast("❌ Vous n'avez pas la permission de supprimer");
+      return;
+    }
     mutate(d => { d[pk].sections = d[pk].sections.filter(s => s.id !== sid); });
     try {
       await deleteSection(sid);
@@ -643,7 +656,7 @@ export default function Progression() {
       console.error("Erreur suppression section:", e);
       showToast("❌ Erreur lors de la suppression");
     }
-  }, [mutate, showToast]);
+  }, [mutate, showToast, canDelete, moduleCode]);
 
   const handleRenameSection = useCallback(async (pk, sid, name) => {
     mutate(d => {
@@ -659,6 +672,10 @@ export default function Progression() {
   }, [mutate, showToast]);
 
   const handleAddItem = useCallback(async (pk, sid, name) => {
+    if (!canWrite(moduleCode)) {
+      showToast("❌ Vous n'avez pas la permission d'ajouter");
+      return;
+    }
     try {
       const res   = await addItem({ sectionId: sid, text: name });
       const newId = res.id;
@@ -671,9 +688,13 @@ export default function Progression() {
       console.error("Erreur ajout item:", e);
       showToast("❌ Erreur lors de l'ajout");
     }
-  }, [mutate, showToast]);
+  }, [mutate, showToast, canWrite, moduleCode]);
 
   const handleAddSection = useCallback(async (pk, name) => {
+    if (!canWrite(moduleCode)) {
+      showToast("❌ Vous n'avez pas la permission d'ajouter");
+      return;
+    }
     const phaseId = data[pk]?.phaseId;
     if (!phaseId) { showToast("❌ Phase non initialisée"); return; }
     try {
@@ -685,13 +706,24 @@ export default function Progression() {
       console.error("Erreur ajout section:", e);
       showToast("❌ Erreur lors de l'ajout");
     }
-  }, [mutate, showToast, data]);
+  }, [mutate, showToast, data, canWrite, moduleCode]);
 
   const handleLogout    = () => { logout(); navigate("/login"); };
   const handleAxeChange = id => { setActiveAxe(id); if (id !== "pdca" && AXE_ROUTES[id]) navigate(AXE_ROUTES[id]); };
 
   const global = calcGlobal(data);
   const HUB_R  = 52, hubCirc = 2 * Math.PI * HUB_R;
+
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#F8F9FB", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>⛔</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#374151" }}>Accès non autorisé</div>
+        <p style={{ fontSize: 13, color: "#6B7280" }}>Vous n'avez pas les permissions nécessaires pour accéder au cycle PDCA.</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -855,7 +887,8 @@ export default function Progression() {
               onClose={() => setSelected(null)}
               onToggle={handleToggle} onDeleteItem={handleDeleteItem}
               onDeleteSection={handleDeleteSection} onRenameSection={handleRenameSection}
-              onAddItem={handleAddItem} onAddSection={handleAddSection} />
+              onAddItem={handleAddItem} onAddSection={handleAddSection}
+              canEdit={canWrite(moduleCode)} canDelete={canDelete(moduleCode)} />
           ))}
 
           {!selected && (

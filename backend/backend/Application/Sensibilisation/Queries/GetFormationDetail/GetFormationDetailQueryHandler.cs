@@ -11,7 +11,7 @@ public class GetFormationDetailQueryHandler(IFormationRepository repo)
     public async Task<FormationDetailDto?> Handle(
         GetFormationDetailQuery request, CancellationToken ct)
     {
-        var f = await repo.GetByIdAsync(request.Id, ct);
+        var f = await repo.GetByIdAsync(request.Id, request.SocieteId, ct);
         return f?.ToDetailDto();
     }
 }

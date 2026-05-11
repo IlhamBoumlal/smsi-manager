@@ -9,7 +9,7 @@ public class RenameSectionHandler : IRequestHandler<RenameSectionCommand>
 
     public async Task Handle(RenameSectionCommand cmd, CancellationToken ct)
     {
-        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, ct)
+        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, cmd.SocieteId, ct)
             ?? throw new InvalidOperationException("Section introuvable.");
         section.Title     = cmd.NewTitle;
         section.UpdatedAt = DateTime.UtcNow;

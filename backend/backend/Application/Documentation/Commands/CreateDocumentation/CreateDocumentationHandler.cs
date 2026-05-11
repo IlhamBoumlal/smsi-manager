@@ -36,9 +36,10 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
                 return (false, "L'auteur est requis.", null);
 
             if (!DocumentationHelpers.IsAllowedFile(request.File))
-                return (false, "Fichier invalide. Formats autorisés: PDF, DOCX, XLSX. Taille max: 20 Mo.", null);
+                return (false, "Fichier invalide. Taille max: 20 Mo.", null);
 
             var storedPath = await _fileStorage.SaveDocumentAsync(request.File);
+            var fileHash = await DocumentationHashing.ComputeSha256HexAsync(request.File, cancellationToken);
             var normalizedStatus = DocumentationHelpers.NormalizeStatus(request.Status);
 
             var document = new DocumentationDocument
@@ -58,6 +59,7 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
                 FilePath = storedPath,
                 OriginalFileName = request.File?.FileName,
                 FileSizeBytes = request.File?.Length,
+                FileHash = fileHash,
                 CreatedByUserId = actor.UserId,
                 LastModifiedByUserId = actor.UserId
             };
@@ -78,3 +80,4 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
         }
     }
 }
+

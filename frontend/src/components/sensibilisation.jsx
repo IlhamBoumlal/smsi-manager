@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Search, Download, RefreshCw, ArrowLeft,
-  Send, Check, X, Upload, BookOpen, Shield, Loader2, Trash2,
+  Check, X, Upload, BookOpen, Shield, Loader2, Trash2,
 } from 'lucide-react';
 import {
   getDashboard,
   getFormations,
   getFormation,
   createFormation,
-  updateFormation,
   notifyParticipants,
   updateParticipantStatus,
   uploadFormationDocument,
@@ -16,6 +15,7 @@ import {
   downloadFormationDocument,
   deleteFormation,
 } from '../api/sensibilisation';
+import { useAuth } from '../context/AuthContext';
 
 const DEPARTMENTS = [
   'Software Development & Agentic',
@@ -170,7 +170,7 @@ function ActionBar({ active, onChange }) {
 }
 
 // ─── Vue Liste ────────────────────────────────────────────────────────────────
-function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
+function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canWrite, canDelete }) {
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType,   setFilterType]   = useState('');
@@ -188,6 +188,10 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
   });
 
   const handleNotify = async (f) => {
+    if (!canWrite) {
+      onToast('Vous n\'avez pas la permission d\'envoyer des notifications', 'error');
+      return;
+    }
     setNotifying(f.id);
     try {
       await notifyParticipants(f.id, 'Notification manuelle');
@@ -201,6 +205,10 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
   };
 
   const handleDelete = async (id) => {
+    if (!canDelete) {
+      onToast('Vous n\'avez pas la permission de supprimer des formations', 'error');
+      return;
+    }
     setDeleting(id);
     setConfirmId(null);
     try {
@@ -221,10 +229,12 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
           <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest font-mono mb-1">ISO 27001 · Clause 7.2 &amp; 7.3</div>
           <h1 className="text-[22px] font-medium text-gray-900">Sensibilisation et formation</h1>
         </div>
-        <button onClick={onNew}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
-          <Plus className="w-3.5 h-3.5" /> Nouvelle formation
-        </button>
+        {canWrite && (
+          <button onClick={onNew}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
+            <Plus className="w-3.5 h-3.5" /> Nouvelle formation
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -288,37 +298,39 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
                           className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
                           Voir
                         </button>
-                        <button
-                          onClick={() => handleNotify(f)}
-                          disabled={notifying === f.id}
-                          className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
-                          {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
-                        </button>
-
-                        {/* Bouton supprimer — deux états : icône → confirmation inline */}
-                        {confirmId === f.id ? (
-                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                            <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
-                            <button
-                              onClick={() => handleDelete(f.id)}
-                              disabled={deleting === f.id}
-                              className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
-                              {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
-                            </button>
-                            <span className="text-red-300">·</span>
-                            <button onClick={() => setConfirmId(null)}
-                              className="text-[11px] text-gray-500 hover:text-gray-700 px-1">
-                              Non
-                            </button>
-                          </div>
-                        ) : (
+                        {canWrite && (
                           <button
-                            onClick={() => setConfirmId(f.id)}
-                            disabled={deleting === f.id}
-                            className="p-1.5 border border-gray-200 text-gray-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                            title="Supprimer">
-                            <Trash2 className="w-3.5 h-3.5" />
+                            onClick={() => handleNotify(f)}
+                            disabled={notifying === f.id}
+                            className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
+                            {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
                           </button>
+                        )}
+                        {canDelete && (
+                          confirmId === f.id ? (
+                            <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                              <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
+                              <button
+                                onClick={() => handleDelete(f.id)}
+                                disabled={deleting === f.id}
+                                className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
+                                {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
+                              </button>
+                              <span className="text-red-300">·</span>
+                              <button onClick={() => setConfirmId(null)}
+                                className="text-[11px] text-gray-500 hover:text-gray-700 px-1">
+                                Non
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmId(f.id)}
+                              disabled={deleting === f.id}
+                              className="p-1.5 border border-gray-200 text-gray-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Supprimer">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )
                         )}
                       </div>
                     </td>
@@ -337,7 +349,7 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh }) {
 }
 
 // ─── Vue Créer ────────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSave }) {
+function CreateView({ onBack, onSave, canWrite, onToast }) {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: '',
@@ -354,11 +366,9 @@ function CreateView({ onBack, onSave }) {
     lmsLink: '',
     notifInvit: true,
     notifRappel: true,
-    // Participants saisis manuellement : [{ fullName, email, department }]
     participants: [],
   });
 
-  // Champ temporaire pour ajouter un participant
   const [partInput, setPartInput] = useState({ fullName: '', email: '', department: '' });
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
@@ -373,6 +383,10 @@ function CreateView({ onBack, onSave }) {
     set('participants', form.participants.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
+    if (!canWrite) {
+      onToast('Vous n\'avez pas la permission de créer des formations', 'error');
+      return;
+    }
     if (!form.title || !form.date) return;
     setSubmitting(true);
     try {
@@ -451,7 +465,6 @@ function CreateView({ onBack, onSave }) {
         {/* Participants */}
         <SectionDivider>Participants</SectionDivider>
         
-        {/* Ajout participants nominatifs */}
         <div className="bg-gray-50 rounded-xl p-4 mb-2">
           <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-3">Participants spécifiques (avec email pour notifications)</div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -532,7 +545,7 @@ function CreateView({ onBack, onSave }) {
 
         <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-gray-100">
           <button onClick={onBack} className="px-4 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
-          <button onClick={handleSubmit} disabled={submitting || !form.title || !form.date}
+          <button onClick={handleSubmit} disabled={submitting || !form.title || !form.date || !canWrite}
             className="px-4 py-2 bg-gray-900 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity disabled:opacity-50 flex items-center gap-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             Planifier la formation →
@@ -544,10 +557,9 @@ function CreateView({ onBack, onSave }) {
 }
 
 // ─── Vue Détail ───────────────────────────────────────────────────────────────
-function DetailView({ formationId, onBack, onToast }) {
+function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete }) {
   const [formation,  setFormation]  = useState(null);
   const [loading,    setLoading]    = useState(true);
-  const [notifying,  setNotifying]  = useState(false);
   const [uploading,  setUploading]  = useState(false);
   const fileInputRef = useRef(null);
 
@@ -560,24 +572,29 @@ function DetailView({ formationId, onBack, onToast }) {
     } finally {
       setLoading(false);
     }
-  }, [formationId]);
+  }, [formationId, onToast]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleNotify = async () => {
-    setNotifying(true);
+    if (!canWrite) {
+      onToast('Vous n\'avez pas la permission d\'envoyer des notifications', 'error');
+      return;
+    }
     try {
       await notifyParticipants(formation.id, 'Notification manuelle');
       onToast('Notifications envoyées');
       await load();
     } catch {
       onToast('Erreur d\'envoi', 'error');
-    } finally {
-      setNotifying(false);
     }
   };
 
   const handleStatusChange = async (participantId, status) => {
+    if (!canEdit) {
+      onToast('Vous n\'avez pas la permission de modifier le statut des participants', 'error');
+      return;
+    }
     try {
       await updateParticipantStatus(formation.id, participantId, status);
       await load();
@@ -587,6 +604,10 @@ function DetailView({ formationId, onBack, onToast }) {
   };
 
   const handleFileUpload = async (e) => {
+    if (!canEdit) {
+      onToast('Vous n\'avez pas la permission d\'ajouter des documents', 'error');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -603,6 +624,10 @@ function DetailView({ formationId, onBack, onToast }) {
   };
 
   const handleDeleteDoc = async (docId) => {
+    if (!canDelete) {
+      onToast('Vous n\'avez pas la permission de supprimer des documents', 'error');
+      return;
+    }
     try {
       await deleteFormationDocument(formation.id, docId);
       onToast('Document supprimé');
@@ -637,13 +662,18 @@ function DetailView({ formationId, onBack, onToast }) {
             className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
             <ArrowLeft className="w-4 h-4" /> Retour
           </button>
+          {canWrite && (
+            <button onClick={handleNotify}
+              className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+              <SendIcon className="w-4 h-4" /> Notifier
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
         {/* Colonne gauche */}
         <div className="flex flex-col gap-4">
-          {/* Fiche */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">
               <Badge status={formation.status} />
@@ -715,7 +745,8 @@ function DetailView({ formationId, onBack, onToast }) {
                   <select
                     value={p.status}
                     onChange={e => handleStatusChange(p.id, e.target.value)}
-                    className="text-[11px] border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-700 focus:outline-none cursor-pointer">
+                    disabled={!canEdit}
+                    className="text-[11px] border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-700 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                     <option>Invité</option><option>Présent</option>
                   </select>
                 </div>
@@ -730,12 +761,14 @@ function DetailView({ formationId, onBack, onToast }) {
               <div className="flex items-center gap-2">
                 {uploading && <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
                 <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.pptx" onChange={handleFileUpload} />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50">
-                  <Upload className="w-3 h-3" /> Ajouter
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50">
+                    <Upload className="w-3 h-3" /> Ajouter
+                  </button>
+                )}
               </div>
             </div>
             {formation.docs.length === 0
@@ -755,10 +788,12 @@ function DetailView({ formationId, onBack, onToast }) {
                       className="px-2 py-1 border border-gray-200 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">
                       ↓
                     </button>
-                    <button onClick={() => handleDeleteDoc(doc.id)}
-                      className="px-2 py-1 border border-red-100 text-[11px] text-red-400 rounded-lg hover:bg-red-50 transition-colors">
-                      ×
-                    </button>
+                    {canDelete && (
+                      <button onClick={() => handleDeleteDoc(doc.id)}
+                        className="px-2 py-1 border border-red-100 text-[11px] text-red-400 rounded-lg hover:bg-red-50 transition-colors">
+                        ×
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -770,8 +805,21 @@ function DetailView({ formationId, onBack, onToast }) {
   );
 }
 
+// Composant SendIcon
+function SendIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 export default function Sensibilisation() {
+  const { canRead, canWrite, canEdit, canDelete } = useAuth();
+  const moduleCode = "sensibilisation";
+  const hasAccess = canRead(moduleCode);
+  
   const [module,      setModule]      = useState('list');
   const [formations,  setFormations]  = useState([]);
   const [dashboard,   setDashboard]   = useState(null);
@@ -823,6 +871,10 @@ export default function Sensibilisation() {
   };
 
   const handleSave = async (form) => {
+    if (!canWrite(moduleCode)) {
+      showToast('Vous n\'avez pas la permission de créer des formations', 'error');
+      throw new Error('Permission denied');
+    }
     try {
       await createFormation({
         title:         form.title,
@@ -852,30 +904,44 @@ export default function Sensibilisation() {
     }
   };
 
+  // Vérification d'accès
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion de la sensibilisation.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-gray-50" style={{ fontFamily: "'Inter','DM Sans',system-ui,sans-serif" }}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="w-full px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Sensibilisation ISO 27001</h1>
-              <p className="text-xs text-gray-400">Clause 7.2 &amp; 7.3 · Gestion des formations SMSI</p>
-            </div>
-          </div>
-          <button onClick={handleRefresh}
-            className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-            <RefreshCw className="w-4 h-4 text-gray-400" />
-          </button>
-        </div>
-      </div>
+      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
 
-      <div className="w-full px-6 py-6 space-y-5">
+        {/* Page header */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+            <div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+                Sensibilisation et formation
+              </h1>
+              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+                Clause 7.2 &amp; 7.3 · Gestion des formations SMSI
+              </p>
+            </div>
+            <button onClick={handleRefresh}
+              className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
+              <RefreshCw className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-5">
         <KpiStrip data={dashboard} loading={loadingKpi} />
 
         <ActionBar
@@ -891,19 +957,25 @@ export default function Sensibilisation() {
             onNew={() => setModule('create')}
             onToast={showToast}
             onRefresh={handleRefresh}
+            canWrite={canWrite(moduleCode)}
+            canDelete={canDelete(moduleCode)}
           />
         )}
         {module === 'create' && (
-          <CreateView onBack={() => setModule('list')} onSave={handleSave} />
+          <CreateView onBack={() => setModule('list')} onSave={handleSave} canWrite={canWrite(moduleCode)} onToast={showToast} />
         )}
         {module === 'detail' && selectedId && (
           <DetailView
             formationId={selectedId}
             onBack={() => { setModule('list'); setSelectedId(null); }}
             onToast={showToast}
+            canWrite={canWrite(moduleCode)}
+            canEdit={canEdit(moduleCode)}
+            canDelete={canDelete(moduleCode)}
           />
         )}
-      </div>
+        </div>
+      </main>
 
       <style>{`
         body,html{margin:0;padding:0;width:100%;overflow-x:hidden}

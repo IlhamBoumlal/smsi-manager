@@ -24,13 +24,16 @@ namespace backend.Application.Users.Commands.UpdateUser
             var user = await _userRepo.GetByIdAsync(req.UserId);
             if (user == null) return (false, "Utilisateur introuvable.");
 
-            var societe = await _societeRepo.GetByIdAsync(req.SocieteId);
-            if (societe == null) return (false, "Société introuvable.");
+            if (!req.SocieteId.HasValue)
+                return (false, "Societe requise.");
+
+            var societe = await _societeRepo.GetByIdAsync(req.SocieteId.Value);
+            if (societe == null) return (false, "Societe introuvable.");
 
             user.NomComplet = req.NomComplet;
             user.Email = req.Email;
             user.UserName = req.Email;
-            user.SocieteId = req.SocieteId;
+            user.SocieteId = req.SocieteId.Value;
             user.IsActive = req.IsActive;
 
             var updateResult = await _userRepo.UpdateAsync(user);

@@ -27,11 +27,14 @@ namespace backend.Application.Auth.Commands.Register
             if (req.Password != req.ConfirmPassword)
                 return (false, "Les mots de passe ne correspondent pas.", null);
 
-            var societe = await _societeRepo.GetByIdAsync(req.SocieteId);
-            if (societe == null) return (false, "Société introuvable.", null);
+            if (!req.SocieteId.HasValue)
+                return (false, "Societe requise.", null);
+
+            var societe = await _societeRepo.GetByIdAsync(req.SocieteId.Value);
+            if (societe == null) return (false, "Societe introuvable.", null);
 
             var role = await _roleRepo.GetByIdAsync(req.RoleId.ToString());
-            if (role == null) return (false, "Rôle introuvable.", null);
+            if (role == null) return (false, "Role introuvable.", null);
 
             var user = new ApplicationUser
             {
@@ -49,10 +52,10 @@ namespace backend.Application.Auth.Commands.Register
             await _userRepo.AddToRoleAsync(user, role.Name!);
             await _userRepo.AddClaimsAsync(user, new[]
             {
-            new Claim("NomComplet", req.NomComplet),
-            new Claim("SocieteId", req.SocieteId.ToString()),
-            new Claim("SocieteNom", societe.Nom)
-        });
+                new Claim("NomComplet", req.NomComplet),
+                new Claim("SocieteId", req.SocieteId.Value.ToString()),
+                new Claim("SocieteNom", societe.Nom ?? string.Empty)
+            });
 
             var token = await _jwtService.GenerateTokenAsync(user);
             var societeInfo = new SocieteInfoDto(societe.Id, societe.Nom, societe.Logo);

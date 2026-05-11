@@ -9,7 +9,7 @@ public class DeleteSectionHandler : IRequestHandler<DeleteSectionCommand>
 
     public async Task Handle(DeleteSectionCommand cmd, CancellationToken ct)
     {
-        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, ct)
+        var section = await _repo.GetSectionByIdAsync(cmd.SectionId, cmd.SocieteId, ct)
             ?? throw new InvalidOperationException("Section introuvable.");
         _repo.RemoveSection(section);
         await _repo.SaveChangesAsync(ct);

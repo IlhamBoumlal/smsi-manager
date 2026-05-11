@@ -1,171 +1,507 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, X, CheckCircle, ChevronDown, Building2, Upload, Factory } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Building2, Factory, Upload, X, CheckCircle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 
-const API = 'http://localhost:5006/api';
-
-// Composant GestionSocietes : Interface d'administration pour gérer les sociétés
-// Permet d'ajouter, modifier, supprimer des sociétés avec upload de logo et liaison à une holding
+const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
+const API_BASE = 'http://localhost:5006';
 
 export default function GestionSocietes() {
-  const [societes,  setSocietes]  = useState([]);
-  const [holdings,  setHoldings]  = useState([]);
-  const [search,    setSearch]    = useState('');
-  const [modal,     setModal]     = useState(false);
-  const [editing,   setEditing]   = useState(null);
-  const [loading,   setLoading]   = useState(false);
+  const [societes, setSocietes] = useState([]);
+  const [holdings, setHoldings] = useState([]);
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState("table");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formNom, setFormNom] = useState("");
+  const [formHoldingId, setFormHoldingId] = useState("");
   const [logoPreview, setLogoPreview] = useState(null);
-  const [logoFile,    setLogoFile]    = useState(null);
-  const [form, setForm] = useState({ nom: '', holdingId: '' });
+  const [logoFile, setLogoFile] = useState(null);
+  const [deleteLogo, setDeleteLogo] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const fetchAll = async () => {
-    const [s, h] = await Promise.all([axios.get(`${API}/societe`), axios.get(`${API}/holding`)]);
-    setSocietes(s.data); setHoldings(h.data);
+  // Fonction pour récupérer les headers avec le token
+  const getAuthConfig = () => {
+    const token = localStorage.getItem('token');
+    return {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
   };
 
-  const reset = () => { setForm({ nom: '', holdingId: '' }); setEditing(null); setLogoPreview(null); setLogoFile(null); };
-  const closeModal = () => { setModal(false); reset(); };
-  const openNew    = () => { reset(); setModal(true); };
-  const openEdit   = (s) => { setEditing(s); setForm({ nom: s.nom, holdingId: s.holdingId?.toString() || '' }); setLogoPreview(null); setLogoFile(null); setModal(true); };
-
-  const handleLogo = (e) => {
-    const file = e.target.files[0];
-    if (file) { setLogoFile(file); const r = new FileReader(); r.onloadend = () => setLogoPreview(r.result); r.readAsDataURL(file); }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const fetchData = useCallback(async () => {
+    setFetchLoading(true);
+    setError("");
     try {
-      const fd = new FormData(); fd.append('nom', form.nom); fd.append('holdingId', form.holdingId || ''); if (logoFile) fd.append('logo', logoFile);
-      if (editing) await axios.put(`${API}/societe/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      else         await axios.post(`${API}/societe`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      await fetchAll(); closeModal();
-    } catch (err) { alert(`Erreur: ${err.response?.data || "Une erreur est survenue"}`); }
-    finally { setLoading(false); }
+      const config = getAuthConfig();
+      
+      const [societesRes, holdingsRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/societe`, config),
+        axios.get(`${API_BASE}/api/holding`, config)
+      ]);
+
+      setSocietes(societesRes.data || []);
+      setHoldings(holdingsRes.data || []);
+    } catch (error) {
+      console.error("Erreur chargement :", error);
+      if (error.response?.status === 401) {
+        setError("Session expirée. Veuillez vous reconnecter.");
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }, 2000);
+      } else {
+        setError(error.response?.data?.message || "Impossible de charger les données.");
+      }
+    } finally {
+      setFetchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleSave = async () => {
+    if (!formNom.trim()) {
+      alert("Le nom de la société est requis.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      
+      formData.append('Nom', formNom);
+      if (formHoldingId) {
+        formData.append('HoldingId', formHoldingId);
+      }
+      
+      // Si on a un nouveau fichier logo
+      if (logoFile) {
+        formData.append('logo', logoFile);
+      }
+      
+      // Si on veut supprimer le logo existant
+      if (deleteLogo && editing && !logoFile) {
+        formData.append('deleteLogo', 'true');
+      }
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      };
+
+      if (editing) {
+        await axios.put(`${API_BASE}/api/societe/${editing.id}`, formData, config);
+      } else {
+        await axios.post(`${API_BASE}/api/societe`, formData, config);
+      }
+
+      await fetchData();
+      
+      setModalOpen(false);
+      setEditing(null);
+      setFormNom("");
+      setFormHoldingId("");
+      setLogoPreview(null);
+      setLogoFile(null);
+      setDeleteLogo(false);
+    } catch (error) {
+      console.error("Erreur sauvegarde :", error);
+      alert(error.response?.data || "Erreur lors de la sauvegarde.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette société ?")) return;
-    try { await axios.delete(`${API}/societe/${id}`); await fetchAll(); }
-    catch (e) { alert(`Erreur: ${e.response?.data}`); }
+
+    try {
+      const config = getAuthConfig();
+      await axios.delete(`${API_BASE}/api/societe/${id}`, config);
+      await fetchData();
+    } catch (error) {
+      console.error("Erreur suppression :", error);
+      alert(error.response?.data?.message || "Erreur lors de la suppression.");
+    }
   };
 
   const getLogo = (s) => {
-    if (s.logo) return <img src={`http://localhost:5006${s.logo}`} alt="Logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200"/>;
-    const init = s.nom?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    return <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-lg flex items-center justify-center font-bold text-xs">{init}</div>;
+    if (s.logo) {
+      const logoUrl = s.logo.startsWith('http') ? s.logo : `${API_BASE}${s.logo}`;
+      return <img src={logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-cover border" />;
+    }
+    const init = s.nom?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+    return <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-lg flex items-center justify-center font-bold text-xs">{init || "?"}</div>;
   };
 
-  const filtered = societes.filter(s => s.nom?.toLowerCase().includes(search.toLowerCase()));
+  const getHoldingName = (holdingId) => {
+    const holding = holdings.find(h => h.id === holdingId);
+    return holding?.nom || "Sans holding";
+  };
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestion des sociétés</h1>
-          <p className="text-sm text-slate-400 mt-1">{societes.length} société{societes.length > 1 ? 's' : ''}</p>
+  const filtered = societes.filter(s =>
+    s.nom?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const stats = {
+    total: societes.length,
+    withLogo: societes.filter(s => s.logo).length,
+    withoutLogo: societes.filter(s => !s.logo).length,
+    holdingsCount: new Set(societes.map(s => s.holdingId).filter(Boolean)).size,
+  };
+
+  const kpis = [
+    { label: 'Total sociétés', value: stats.total, sub: `${stats.total} société(s)`, primary: true },
+    { label: 'Avec logo', value: stats.withLogo, sub: `${Math.round((stats.withLogo / (stats.total || 1)) * 100)}% du total` },
+    { label: 'Sans logo', value: stats.withoutLogo, sub: `${Math.round((stats.withoutLogo / (stats.total || 1)) * 100)}% du total` },
+    { label: 'Holdings', value: stats.holdingsCount, sub: `${stats.holdingsCount} holding(s) associée(s)` },
+  ];
+
+  if (fetchLoading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-500">Chargement des sociétés...</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-            <input type="text" placeholder="Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-lg w-64 text-sm focus:outline-none focus:border-blue-300"/>
-          </div>
-          <button onClick={openNew} className="flex items-center gap-2 bg-[#1e3a5f] text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
-            <Plus size={15}/> Ajouter une société
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center p-6">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-md">
+          <p className="text-red-600">{error}</p>
+          <button 
+            onClick={fetchData}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+          >
+            Réessayer
           </button>
         </div>
       </div>
+    );
+  }
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <th className="px-6 py-4">Logo</th>
-              <th className="px-6 py-4">ID</th>
-              <th className="px-6 py-4">Nom</th>
-              <th className="px-6 py-4">Holding</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filtered.map(s => (
-              <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4">{getLogo(s)}</td>
-                <td className="px-6 py-4 text-sm text-slate-400 font-mono">SOC-{String(s.id).padStart(3,'0')}</td>
-                <td className="px-6 py-4 font-semibold text-slate-800">{s.nom}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{holdings.find(h => h.id === s.holdingId)?.nom || '—'}</td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => openEdit(s)} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"><Edit size={15}/></button>
-                    <button onClick={() => handleDelete(s.id)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={15}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">Aucune société trouvée</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+  return (
+    <div className="min-h-screen bg-[#f8f9fb]" style={{ fontFamily: "'Sora', 'Segoe UI', sans-serif" }}>
+      <div className="mx-auto max-w-[1400px] px-9 py-9 pb-16 w-full">
+        
+        {/* En-tête */}
+        <div className="flex justify-between items-center mb-7">
+          <div>
+            <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Gestion des sociétés</h1>
+            <p className="mt-1 text-[13.5px] text-slate-500">Administration des sociétés et de leurs logos</p>
+          </div>
+          <button 
+            onClick={() => { setEditing(null); setFormNom(""); setFormHoldingId(""); setLogoPreview(null); setLogoFile(null); setDeleteLogo(false); setModalOpen(true); }} 
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
+          >
+            <Plus size={18} /> Nouvelle société
+          </button>
+        </div>
 
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center rounded-t-2xl">
-              <h3 className="text-base font-bold text-slate-900">{editing ? "Modifier la société" : "Nouvelle société"}</h3>
-              <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-lg"><X size={16}/></button>
+        {/* KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
+          {kpis.map((k, i) => (
+            <div 
+              key={i} 
+              className="rounded-2xl p-5 shadow-sm" 
+              style={{ 
+                background: k.primary ? GRAD_BLUE : "#fff", 
+                boxShadow: k.primary ? "0 8px 24px rgba(29,78,216,.35)" : "0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)",
+                animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
+              }}
+            >
+              <div className="text-3xl font-bold" style={{ color: k.primary ? "#fff" : "#111827" }}>{k.value}</div>
+              <div className="text-xs font-semibold mt-1" style={{ color: k.primary ? "rgba(255,255,255,.9)" : "#374151" }}>{k.label}</div>
+              <div className="text-xs mt-0.5" style={{ color: k.primary ? "rgba(255,255,255,.6)" : "#9CA3AF" }}>{k.sub}</div>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Nom de la société</label>
-                <div className="relative">
-                  <Factory className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15}/>
-                  <input required value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} type="text" placeholder="Nom de la société" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg outline-none text-sm focus:border-blue-400"/>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Holding (optionnel)</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15}/>
-                  <select value={form.holdingId} onChange={e => setForm({...form, holdingId: e.target.value})} className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg outline-none text-sm appearance-none bg-white focus:border-blue-400">
-                    <option value="">Aucune holding</option>
-                    {holdings.map(h => <option key={h.id} value={h.id}>{h.nom}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13}/>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Logo {editing && <span className="text-slate-400 font-normal text-xs">(laisser vide pour conserver l'actuel)</span>}</label>
-                <div className="flex items-center gap-4">
-                  {editing?.logo && !logoPreview && <img src={`http://localhost:5006${editing.logo}`} alt="actuel" className="w-12 h-12 rounded-lg object-cover border border-slate-200"/>}
-                  <div className="flex-1">
-                    <input type="file" accept="image/*" onChange={handleLogo} className="hidden" id="logo-up"/>
-                    <label htmlFor="logo-up" className="flex items-center justify-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 cursor-pointer text-sm text-slate-500 transition-colors">
-                      <Upload size={16}/> Choisir un logo
-                    </label>
-                  </div>
-                  {logoPreview && (
-                    <div className="relative">
-                      <img src={logoPreview} alt="nouveau" className="w-12 h-12 rounded-lg object-cover border-2 border-blue-400"/>
-                      <button type="button" onClick={() => { setLogoPreview(null); setLogoFile(null); }} className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full"><X size={11}/></button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Annuler</button>
-                <button type="submit" disabled={loading} className="px-5 py-2 bg-[#1e3a5f] text-white rounded-lg hover:bg-blue-800 text-sm font-medium flex items-center gap-2 disabled:opacity-50">
-                  {loading ? "Chargement…" : <><CheckCircle size={15}/> {editing ? "Enregistrer" : "Créer"}</>}
-                </button>
-              </div>
-            </form>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 shadow-sm">
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+              placeholder="Rechercher une société..." 
+              className="w-full h-12 pl-11 pr-4 rounded-xl border border-slate-300 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="flex justify-between items-center">
+            <button 
+              onClick={() => setSearch("")} 
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-xl text-sm hover:bg-slate-50 transition"
+            >
+              <SlidersHorizontal size={15} />
+              Réinitialiser
+            </button>
+            <div className="flex border border-slate-300 rounded-xl overflow-hidden">
+              <button 
+                onClick={() => setViewMode("grid")} 
+                className={`px-3 py-2 transition ${viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                <LayoutGrid size={17} />
+              </button>
+              <button 
+                onClick={() => setViewMode("table")} 
+                className={`px-3 py-2 transition ${viewMode === "table" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                <List size={17} />
+              </button>
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Results */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <p className="text-slate-500">Aucune société trouvée.</p>
+            {search && (
+              <button 
+                onClick={() => setSearch("")}
+                className="mt-3 text-blue-600 text-sm hover:underline"
+              >
+                Effacer la recherche
+              </button>
+            )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map((s, idx) => (
+              <div key={s.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition" style={{ animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${idx * 60}ms both` }}>
+                <div className="flex items-start gap-3 mb-3">
+                  {getLogo(s)}
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-800">{s.nom}</div>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs border border-indigo-200">
+                    {getHoldingName(s.holdingId)}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setEditing(s); setFormNom(s.nom); setFormHoldingId(s.holdingId?.toString() || ""); setLogoPreview(null); setLogoFile(null); setDeleteLogo(false); setModalOpen(true); }} 
+                    className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition"
+                  >
+                    <Edit size={14} />
+                    Modifier
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(s.id)} 
+                    className="flex-1 py-2 bg-red-50 text-red-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-red-100 transition"
+                  >
+                    <Trash2 size={14} />
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px]">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left">Logo</th>
+                    <th className="px-6 py-4 text-left">Société</th>
+                    <th className="px-6 py-4 text-left">Holding</th>
+                    <th className="px-6 py-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s, i) => (
+                    <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 transition ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
+                      <td className="px-6 py-4">{getLogo(s)}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-800 text-sm">{s.nom}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{getHoldingName(s.holdingId)}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center gap-2">
+                          <button 
+                            onClick={() => { setEditing(s); setFormNom(s.nom); setFormHoldingId(s.holdingId?.toString() || ""); setLogoPreview(null); setLogoFile(null); setDeleteLogo(false); setModalOpen(true); }} 
+                            className="p-2 bg-blue-50 rounded-lg text-blue-600 hover:bg-blue-100 transition"
+                            title="Modifier"
+                          >
+                            <Edit size={15} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(s.id)} 
+                            className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 transition"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl">
+              <div className="px-6 py-4 border-b flex justify-between items-center rounded-t-2xl" style={{ background: GRAD_BLUE }}>
+                <h3 className="font-bold text-white">{editing ? "Modifier la société" : "Nouvelle société"}</h3>
+                <button 
+                  onClick={() => setModalOpen(false)} 
+                  className="p-2 hover:bg-white/15 rounded-lg transition"
+                >
+                  <X size={16} className="text-white" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Nom de la société</label>
+                  <div className="relative mt-1">
+                    <Factory className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                    <input 
+                      value={formNom} 
+                      onChange={e => setFormNom(e.target.value)} 
+                      type="text" 
+                      placeholder="Nom de la société" 
+                      className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Holding (optionnel)</label>
+                  <div className="relative mt-1">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                    <select 
+                      value={formHoldingId} 
+                      onChange={e => setFormHoldingId(e.target.value)} 
+                      className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Aucune holding</option>
+                      {holdings.map(h => (
+                        <option key={h.id} value={h.id}>{h.nom}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={13} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Logo</label>
+                  <div className="flex items-center gap-4 mt-1">
+                    <div className="flex-1">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => { 
+                          const file = e.target.files[0]; 
+                          if(file) { 
+                            setLogoFile(file);
+                            setDeleteLogo(false);
+                            const reader = new FileReader(); 
+                            reader.onloadend = () => setLogoPreview(reader.result); 
+                            reader.readAsDataURL(file); 
+                          } 
+                        }} 
+                        className="hidden" 
+                        id="logo-upload" 
+                      />
+                      <label 
+                        htmlFor="logo-upload" 
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer text-sm hover:border-blue-400 transition"
+                      >
+                        <Upload size={16} /> Choisir un logo
+                      </label>
+                    </div>
+                    
+                    {/* Affiche le logo si non supprimé */}
+                    {!deleteLogo && (logoPreview || (editing?.logo && !logoFile)) && (
+                      <div className="relative">
+                        <img 
+                          src={logoPreview || (editing?.logo && (editing.logo.startsWith('http') ? editing.logo : `${API_BASE}${editing.logo}`))} 
+                          alt="logo" 
+                          className="w-12 h-12 rounded-lg object-cover border-2 border-blue-400" 
+                        />
+                        <button
+                          onClick={() => {
+                            setLogoPreview(null);
+                            setLogoFile(null);
+                            setDeleteLogo(true);
+                          }}
+                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition shadow-md"
+                          title="Supprimer le logo"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Message si logo supprimé */}
+                  {deleteLogo && editing && (
+                    <p className="text-xs text-red-500 mt-2">Logo supprimé (sera enlevé lors de l'enregistrement)</p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                  <button 
+                    onClick={() => setModalOpen(false)} 
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={handleSave} 
+                    disabled={loading || !formNom.trim()} 
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <CheckCircle size={15} />
+                    )}
+                    {editing ? "Enregistrer" : "Créer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
+        
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        
+        * { box-sizing: border-box; }
+        button { outline: none; }
+      `}</style>
     </div>
   );
 }
