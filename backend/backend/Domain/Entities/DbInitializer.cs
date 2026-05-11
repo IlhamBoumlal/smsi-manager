@@ -50,25 +50,25 @@ namespace backend.Application.Services
             // ══════════════════════════════════════════════════════════════
 
             // ÉTAPE 1 : Rôles
-            //  await SeedRolesAsync(roleManager);
+            await SeedRolesAsync(roleManager);
 
             // ÉTAPE 2 : Actions
-            //  await SeedActionsAsync(dbContext);
+            await SeedActionsAsync(dbContext);
 
             // ÉTAPE 3 : Modules
-            //await SeedModulesAsync(dbContext);
+            await SeedModulesAsync(dbContext);
 
             // ÉTAPE 4 : Permissions
-            //await SeedPermissionsAsync(dbContext);
+            await SeedPermissionsAsync(dbContext);
 
             // ÉTAPE 5 : Contrôles ISO 27001 (depuis fichier JSON)
-            // await SeedControlesAsync(serviceProvider);
+            await SeedControlesAsync(serviceProvider);
 
             // ÉTAPE 6 : Utilisateurs système
-            //await SeedUsersAsync(userManager, config);
+            await SeedUsersAsync(userManager, config);
 
             // ÉTAPE 7 : Démo RBAC (utilisateurs démo + documents)
-            // await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
+            await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
 
             // ══════════════════════════════════════════════════════════════
 

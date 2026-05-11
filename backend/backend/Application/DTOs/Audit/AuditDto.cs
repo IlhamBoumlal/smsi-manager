@@ -95,6 +95,7 @@ public class ActionCorrectiveDto
 
 public class CreateActionCorrectiveDto
 {
+    public string? Id { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Responsible { get; set; }
     public string? Deadline { get; set; }

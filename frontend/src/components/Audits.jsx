@@ -24,6 +24,7 @@ import {
   createSimulation,
   deleteSimulation,
 } from '../api/audits';
+import { getAllControles, updateControle } from '../api/controles';
 import { useAuth } from '../context/AuthContext';
 
 // ─── ISO 27001:2022 — 93 contrôles ───────────────────────────────────────────
@@ -145,6 +146,277 @@ const ISO_THEMES = [
 
 const ALL_CONTROLS = ISO_THEMES.flatMap(t => t.controls.map(c => ({ ...c, theme: t })));
 const TOTAL_CONTROLS = ALL_CONTROLS.length;
+
+const CONTROLE_DOMAIN_BY_THEME = {
+  '5': 'Organisationnel',
+  '6': 'Personnes',
+  '7': 'Physique',
+  '8': 'Technologique',
+};
+
+const normalizeControlCode = (value) => {
+  const cleaned = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase()
+    .replace(/^CONTROLE[\s._/-]*/i, '')
+    .replace(/^CONTROL[\s._/-]*/i, '')
+    .replace(/^A[\s._/-]*/i, '')
+    .replace(/\s+/g, '');
+
+  return cleaned
+    .split('.')
+    .map(part => (/^\d+$/.test(part) ? String(Number(part)) : part))
+    .join('.');
+};
+
+const readControleField = (controle, camel, pascal) => controle?.[camel] ?? controle?.[pascal] ?? null;
+
+const readBooleanField = (value, fallback = true) => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (['false', '0', 'non', 'no'].includes(normalized)) return false;
+  if (['true', '1', 'oui', 'yes'].includes(normalized)) return true;
+  return fallback;
+};
+
+const parseControleJsonArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const controleStatutToAuditStatus = (statut) => {
+  if (statut === 'Conforme' || statut === 'Remarque') return 'C';
+  if (statut === 'NCMineure' || statut === 'NCMajeure') return 'NC';
+  return '';
+};
+
+const auditStatusToControleStatut = (status, previousStatut) => {
+  if (status === 'C') return 'Conforme';
+  if (status === 'NC') return previousStatut === 'NCMajeure' ? 'NCMajeure' : 'NCMineure';
+  return previousStatut || 'NonEvalue';
+};
+
+const getAuditName = (audit) => audit?.name || audit?.title || audit?.Title || '';
+const getAuditDate = (audit) => audit?.date || audit?.startDate || audit?.StartDate || '';
+
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const raw = String(value).includes('T') ? String(value).split('T')[0] : String(value);
+  const [year, month, day] = raw.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const todayDateOnly = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const canOpenPostAudit = (audit) => {
+  const status = String(audit?.status || audit?.Status || '').toLowerCase();
+  if (['in-progress', 'completed', 'realized', 'realised', 'realise', 'réalisé'].includes(status)) return true;
+  const auditDate = parseDateOnly(getAuditDate(audit));
+  return auditDate ? auditDate <= todayDateOnly() : false;
+};
+
+const buildControleIndex = (controles = []) => {
+  const index = new Map();
+  controles.forEach(controle => {
+    const code = normalizeControlCode(readControleField(controle, 'code', 'Code'));
+    if (code) index.set(code, controle);
+  });
+  return index;
+};
+
+const buildOriginalSoA = (controles = []) => {
+  const index = buildControleIndex(controles);
+  return ALL_CONTROLS.map(control => {
+    const controle = index.get(control.id);
+    const statut = readControleField(controle, 'statut', 'Statut') || 'NonEvalue';
+    const applicable = readBooleanField(readControleField(controle, 'applicable', 'Applicable'), true);
+    return {
+      controlId: control.id,
+      controlName: control.name,
+      theme: control.theme.shortName,
+      controleId: readControleField(controle, 'id', 'Id'),
+      code: readControleField(controle, 'code', 'Code') || `A.${control.id}`,
+      applicable,
+      statut,
+      auditStatus: controleStatutToAuditStatus(statut),
+      justification: readControleField(controle, 'justificationConformite', 'JustificationConformite') || '',
+      remarque: readControleField(controle, 'remarque', 'Remarque') || '',
+      raisonExclusion: readControleField(controle, 'raisonExclusion', 'RaisonExclusion') || '',
+      raw: controle || null,
+    };
+  });
+};
+
+const buildPostAuditSoA = (originalSoA = [], statuses = {}, comments = {}, ncForms = {}) =>
+  ALL_CONTROLS.map(control => {
+    const original = originalSoA.find(row => row.controlId === control.id) || {};
+    const status = statuses[control.id] || '';
+    const nc = ncForms[control.id] || {};
+    return {
+      ...original,
+      controlId: control.id,
+      controlName: control.name,
+      theme: control.theme.shortName,
+      postAuditStatus: status,
+      statut: auditStatusToControleStatut(status, original.statut),
+      commentaireAudit: comments[control.id] || '',
+      recommandation: nc.action || '',
+      responsable: nc.resp || '',
+      deadline: nc.deadline || '',
+      ncTitle: nc.title || '',
+      ncDescription: nc.desc || '',
+    };
+  });
+
+const buildControleUpdateCommand = (row) => {
+  const raw = row.raw || {};
+  const previousStatut = readControleField(raw, 'statut', 'Statut') || row.statut || 'NonEvalue';
+  const nextStatut = auditStatusToControleStatut(row.postAuditStatus, previousStatut);
+  const commentaire = row.commentaireAudit || row.ncDescription || row.justification || row.remarque || null;
+  const rawSteps = readControleField(raw, 'steps', 'Steps');
+  const steps = Array.isArray(rawSteps) ? rawSteps : parseControleJsonArray(rawSteps);
+  const postAuditSteps = row.postAuditStatus === 'NC' && row.recommandation
+    ? [{ title: 'Action post-audit', desc: row.recommandation, completed: false }]
+    : steps;
+  return {
+    Id: row.controleId,
+    Code: readControleField(raw, 'code', 'Code') || row.code || `A.${row.controlId}`,
+    Titre: readControleField(raw, 'titre', 'Titre') || row.controlName,
+    Description: readControleField(raw, 'description', 'Description') || null,
+    Domaine: readControleField(raw, 'domaine', 'Domaine') || CONTROLE_DOMAIN_BY_THEME[String(row.controlId).split('.')[0]] || null,
+    Applicable: row.applicable,
+    Statut: nextStatut,
+    RaisonsApplicabilite: parseControleJsonArray(readControleField(raw, 'raisonsApplicabilite', 'RaisonsApplicabilite')),
+    Steps: postAuditSteps.length ? postAuditSteps : null,
+    RaisonExclusion: row.raisonExclusion || readControleField(raw, 'raisonExclusion', 'RaisonExclusion') || null,
+    JustificationConformite: nextStatut === 'Conforme' ? commentaire : readControleField(raw, 'justificationConformite', 'JustificationConformite') || null,
+    Remarque: nextStatut === 'Conforme' ? readControleField(raw, 'remarque', 'Remarque') || null : commentaire,
+    Preuves: readControleField(raw, 'preuves', 'Preuves') || '[]',
+    Priorite: row.postAuditStatus === 'NC' ? (readControleField(raw, 'priorite', 'Priorite') || 'Moyenne') : readControleField(raw, 'priorite', 'Priorite') || null,
+    StatutPlan: row.postAuditStatus === 'NC' ? (readControleField(raw, 'statutPlan', 'StatutPlan') || 'NonDemarre') : readControleField(raw, 'statutPlan', 'StatutPlan') || null,
+    ResponsablePlan: row.responsable || readControleField(raw, 'responsablePlan', 'ResponsablePlan') || null,
+    DateEcheance: row.deadline || readControleField(raw, 'dateEcheance', 'DateEcheance') || null,
+    SocieteId: readControleField(raw, 'societeId', 'SocieteId') || null,
+    NcDescription: row.postAuditStatus === 'NC' ? (row.ncDescription || commentaire) : null,
+    Impact: readControleField(raw, 'impact', 'Impact') || null,
+    PlanCorrectif: row.recommandation || readControleField(raw, 'planCorrectif', 'PlanCorrectif') || null,
+  };
+};
+
+const exportAuditReportPdf = async ({ audit, originalSoA, postAuditSoA, conformes, nonConformes, onToast }) => {
+  try {
+    const [{ jsPDF }, autoTableModule] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
+    const autoTable = autoTableModule.default || autoTableModule.autoTable;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const auditName = audit?.title || audit?.name || 'Audit ISO 27001';
+    const dateLabel = new Date().toLocaleDateString('fr-FR');
+    const originalMap = new Map((originalSoA || []).map(row => [row.controlId, row]));
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Rapport d audit ISO 27001:2022', 14, 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Audit : ${auditName}`, 14, 28);
+    doc.text(`Auditeur : ${audit?.auditor || '-'}`, 14, 34);
+    doc.text(`Perimetre : ${audit?.scope || '-'}`, 14, 40);
+    doc.text(`Date de generation : ${dateLabel}`, 14, 46);
+
+    autoTable(doc, {
+      startY: 54,
+      head: [['Indicateur', 'Valeur']],
+      body: [
+        ['Controles audites', String(postAuditSoA.filter(row => row.postAuditStatus).length)],
+        ['Conformes', String(conformes)],
+        ['Non-conformes', String(nonConformes)],
+        ['SoA original synchronise', `${originalSoA?.filter(row => row.raw).length || 0}/${TOTAL_CONTROLS}`],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [29, 78, 216] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [['Code', 'Controle', 'SoA original', 'Post-audit', 'Commentaire', 'Recommandation']],
+      body: postAuditSoA.map(row => {
+        const original = originalMap.get(row.controlId);
+        return [
+          row.controlId,
+          row.controlName,
+          original?.statut || 'Non evalue',
+          row.postAuditStatus === 'C' ? 'Conforme' : row.postAuditStatus === 'NC' ? 'NC' : 'Non audite',
+          row.commentaireAudit || '-',
+          row.recommandation || '-',
+        ];
+      }),
+      styles: { fontSize: 7, cellPadding: 1.8, overflow: 'linebreak' },
+      headStyles: { fillColor: [31, 41, 55] },
+      columnStyles: {
+        0: { cellWidth: 14 },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 43 },
+        5: { cellWidth: 43 },
+      },
+    });
+
+    const safeName = auditName.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'audit';
+    doc.save(`rapport-audit-${safeName}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    onToast?.('Rapport d audit genere', 'success');
+  } catch (err) {
+    console.error(err);
+    onToast?.('Erreur lors de la generation du rapport', 'error');
+  }
+};
+
+const exportSoACsv = (soaData = [], onToast) => {
+  try {
+    const headers = ['Code', 'Controle', 'Theme', 'Applicable', 'Statut SoA', 'Statut NC', 'NC Id', 'NC Titre', 'NC Description'];
+    const rows = soaData.map(row => [
+      row.controlId || '',
+      row.controlName ? `"${row.controlName.replace(/"/g, '""')}"` : '',
+      row.theme || '',
+      row.applicable === false ? 'Non applicable' : 'Applicable',
+      row.statut || 'NonEvalue',
+      row.status || '',
+      row.nc?.id || '',
+      row.nc?.title ? `"${row.nc.title.replace(/"/g, '""')}"` : '',
+      row.nc?.desc ? `"${row.nc.desc.replace(/"/g, '""')}"` : '',
+    ]);
+    const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `soa_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    onToast?.('SoA exporte', 'success');
+  } catch (err) {
+    console.error('Erreur export SoA', err);
+    onToast?.('Erreur lors de l exportation du SoA', 'error');
+  }
+};
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -435,24 +707,51 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
   const [comments, setComments] = useState({});
   const [savedToast, setSavedToast] = useState(false);
   const [viewingSim, setViewingSim] = useState(null);
+  const [deletingSimId, setDeletingSimId] = useState(null);
+  const [continueMode, setContinueMode] = useState(false);
 
   const filtered = themeFilter ? ALL_CONTROLS.filter(c=>c.theme.id===themeFilter) : ALL_CONTROLS;
   const totalAnswered = Object.keys(answers).length;
   const totalOui = Object.values(answers).filter(v=>v==='yes').length;
   const totalNon = Object.values(answers).filter(v=>v==='no').length;
-  const score = totalAnswered > 0 ? Math.round((totalOui / totalAnswered) * 100) : 0;
+  const score = TOTAL_CONTROLS > 0 ? Math.round((totalOui / TOTAL_CONTROLS) * 100) : 0;
 
   const handleSave = () => {
     if (!canWrite) return;
     const sim = { id:`sim-${Date.now()}`, name:simName, author:simAuthor, date:simDate, answers:{...answers}, comments:{...comments}, score, totalAnswered, oui:totalOui, non:totalNon };
     onSaveSimulation(sim);
     setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 3000);
+    setTimeout(() => {
+      setSavedToast(false);
+      setView('list');
+    }, 2000);
   };
 
   const handleReset = () => {
     setAnswers({}); setComments({}); setSimName(''); setSimAuthor('');
-    setThemeFilter(null); setExpandedId(null); setView('list'); setSavedToast(false);
+    setThemeFilter(null); setExpandedId(null); setView('list'); setSavedToast(false); setContinueMode(false);
+  };
+
+  const handleContinueSimulation = (sim) => {
+    setSimName(sim.name);
+    setSimAuthor(sim.author);
+    setSimDate(sim.date);
+    setAnswers({...sim.answers});
+    setComments({...sim.comments});
+    setContinueMode(true);
+    setView('quiz');
+  };
+
+  const handleDeleteSimulation = async (simId) => {
+    try {
+      await deleteSimulation(simId);
+      // Retirer de l'historique local
+      onSaveSimulation({action:'delete', id:simId});
+      setDeletingSimId(null);
+    } catch (err) {
+      console.error('Erreur suppression:', err);
+      setDeletingSimId(null);
+    }
   };
 
   if (view === 'history-detail' && viewingSim) {
@@ -515,15 +814,11 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
 
       <div className="space-y-3">
         {simHistory.map(sim => {
-          const scoreColor = sim.score >= 70 ? 'text-emerald-600' : sim.score >= 40 ? 'text-amber-500' : 'text-red-500';
+          const isComplete = sim.totalAnswered === TOTAL_CONTROLS;
           return (
-            <Card key={sim.id} onClick={()=>{ setViewingSim(sim); setView('history-detail'); }} className="border border-gray-200 hover:border-indigo-300">
+            <Card key={sim.id} className="border border-gray-200">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center border border-gray-200 bg-gray-50 flex-shrink-0">
-                  <span className={`text-xl font-extrabold leading-none ${scoreColor}`}>{sim.score}%</span>
-                  <span className="text-[9px] font-semibold text-gray-400 mt-0.5">Score</span>
-                </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={()=>{ setViewingSim(sim); setView('history-detail'); }}>
                   <h4 className="font-bold text-gray-900 text-sm">{sim.name}</h4>
                   <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
                     {sim.author && <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{sim.author}</span>}
@@ -536,8 +831,25 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
                     <div className="bg-emerald-500 h-1.5 rounded-full" style={{width:`${(sim.oui/TOTAL_CONTROLS)*100}%`}}/>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0"/>
+                <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                  {!isComplete && canWrite && (
+                    <Btn size="sm" variant="outline" icon={RefreshCw} onClick={()=>handleContinueSimulation(sim)}>Continuer</Btn>
+                  )}
+                  <Btn size="sm" variant="outline" icon={Eye} onClick={()=>{ setViewingSim(sim); setView('history-detail'); }}>Voir</Btn>
+                  {canWrite && (
+                    <button onClick={()=>setDeletingSimId(sim.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors">
+                      <Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/>
+                    </button>
+                  )}
+                </div>
               </div>
+              {deletingSimId === sim.id && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
+                  <span className="text-xs text-gray-600 flex-1 flex items-center">Confirmer la suppression ?</span>
+                  <Btn size="sm" variant="outline" onClick={()=>setDeletingSimId(null)}>Annuler</Btn>
+                  <Btn size="sm" icon={Trash2} className="bg-red-500 hover:bg-red-600 text-white" onClick={()=>handleDeleteSimulation(sim.id)}>Supprimer</Btn>
+                </div>
+              )}
             </Card>
           );
         })}
@@ -633,7 +945,6 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
             <div className="flex gap-3 text-xs font-bold">
               <span className="text-emerald-600">{totalOui} Oui</span>
               <span className="text-red-500">{totalNon} Non</span>
-              <span className="text-gray-300">{TOTAL_CONTROLS-totalAnswered} sans réponse</span>
             </div>
             {totalAnswered > 0 && canWrite && (
               <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
@@ -682,11 +993,11 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
                 </button>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={()=>{ setAnswers(p=>({...p,[ctrl.id]:'yes'})); setExpandedId(null); }}
-                    className={`px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all ${ans==='yes'?'bg-emerald-600 text-white border-emerald-600':'bg-white text-emerald-700 border-emerald-200 hover:border-emerald-400'}`}>
+                   className={`px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all ${ans==='yes'?'bg-gray-700 text-white border-gray-700':'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
                     ✓ Oui
                   </button>
                   <button onClick={()=>{ setAnswers(p=>({...p,[ctrl.id]:'no'})); setExpandedId(ctrl.id); }}
-                    className={`px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all ${ans==='no'?'bg-red-600 text-white border-red-600':'bg-white text-red-700 border-red-200 hover:border-red-400'}`}>
+                    className={`px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all ${ans==='no'?'bg-gray-700 text-white border-gray-700':'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
                     ✗ Non
                   </button>
                   <button onClick={()=>setExpandedId(isExp?null:ctrl.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -709,7 +1020,7 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
         <div className="sticky bottom-4 z-20">
           <div className="bg-gray-900 rounded-2xl shadow-2xl p-4 flex items-center justify-between gap-4">
             <div className="text-sm text-white font-medium">
-              <span className="font-bold">{totalAnswered}/{TOTAL_CONTROLS}</span> répondus · <span className="text-gray-300">{score}% conforme</span>
+              <span className="font-bold">{totalAnswered}/{TOTAL_CONTROLS}</span> répondus
             </div>
             <div className="flex gap-2">
               <Btn size="sm" variant="save" icon={Save} onClick={handleSave} disabled={savedToast}>{savedToast ? '✓ Enregistré' : 'Enregistrer'}</Btn>
@@ -727,7 +1038,7 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODULE 3 — POST-AUDIT
 // ═══════════════════════════════════════════════════════════════════════════════
-function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
+function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite, onAuditCreated, onAuditCompleted }) {
   const [view, setView] = useState('list');
   const [localAudits, setLocalAudits] = useState([]);
   const [selectedAudit, setSelectedAudit] = useState(null);
@@ -737,6 +1048,10 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   const [comments, setComments] = useState({});
   const [ncForms, setNcForms] = useState({});
   const [soaGenerated, setSoaGenerated] = useState(false);
+  const [originalSoA, setOriginalSoA] = useState([]);
+  const [soaSyncing, setSoaSyncing] = useState(false);
+  const [generatingSoA, setGeneratingSoA] = useState(false);
+  const [reportReady, setReportReady] = useState(false);
 
   const EMPTY_AUDIT = {
     name: '',
@@ -761,12 +1076,30 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
     return !Object.keys(e).length;
   };
 
-  const handleCreateAudit = () => {
+  const handleCreateAudit = async () => {
     if(!validateAudit()) return;
-    const a = { id: `local-${Date.now()}`, ...auditForm, type: auditForm.type || 'external_cert' };
-    setLocalAudits(p=>[a,...p]);
-    setAuditForm(EMPTY_AUDIT);
-    setView('list');
+    const fallbackAudit = { id: `local-${Date.now()}`, ...auditForm, type: auditForm.type || 'external_cert' };
+    try {
+      const saved = await onAuditCreated?.({
+        title: auditForm.name,
+        type: auditForm.type || 'external_cert',
+        status: auditForm.status || 'in-progress',
+        startDate: auditForm.date,
+        endDate: auditForm.date,
+        auditor: auditForm.auditor,
+        org: auditForm.author || 'SMSI',
+        scope: auditForm.scope,
+        objectives: '',
+        author: auditForm.author,
+        date: auditForm.date,
+      });
+      if (!saved) setLocalAudits(p=>[fallbackAudit,...p]);
+      setAuditForm(EMPTY_AUDIT);
+      setView('list');
+      if (saved) await openVerify(saved);
+    } catch {
+      onToast?.('Erreur lors de la creation de l audit', 'error');
+    }
   };
 
   const mergedAudits = useMemo(() => {
@@ -775,12 +1108,38 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
     return [...baseAudits, ...localWithType.filter(a=>!baseAudits.find(m=>m.id===a.id))];
   }, [localAudits, allAudits]);
 
-  const openVerify = (a) => {
+  const openVerify = async (a) => {
+    if (!canOpenPostAudit(a)) {
+      onToast('Cet audit est planifie pour une date future : le post-audit sera disponible a partir de la date prevue ou apres passage en statut En cours/Termine.', 'error');
+      return;
+    }
     setSelectedAudit(a);
-    setStatuses(a.controlStatuses||{});
     setComments(a.controlComments||{});
-    setNcForms({}); setSoaGenerated(false); setThemeFilter(null); setExpandedId(null);
+    setNcForms({}); setSoaGenerated(false); setReportReady(false); setThemeFilter(null); setExpandedId(null);
     setView('verify');
+    setSoaSyncing(true);
+    try {
+      const controles = await getAllControles();
+      const soa = buildOriginalSoA(controles);
+      const initialStatuses = soa.reduce((acc, row) => {
+        if (row.applicable !== false && row.auditStatus) acc[row.controlId] = row.auditStatus;
+        return acc;
+      }, {});
+      const nonApplicableIds = new Set(soa.filter(row => row.applicable === false).map(row => row.controlId));
+      const savedStatuses = Object.fromEntries(
+        Object.entries(a.controlStatuses || {}).filter(([controlId]) => !nonApplicableIds.has(normalizeControlCode(controlId)))
+      );
+      setOriginalSoA(soa);
+      setStatuses({ ...initialStatuses, ...savedStatuses });
+      onToast(`SoA original recupere depuis Controles (${soa.filter(row => row.raw).length}/${TOTAL_CONTROLS})`, 'success');
+    } catch (err) {
+      console.error(err);
+      setOriginalSoA([]);
+      setStatuses({});
+      onToast('Impossible de recuperer le SoA original depuis Controles', 'error');
+    } finally {
+      setSoaSyncing(false);
+    }
   };
 
   const setNcField = (id,field,val) => setNcForms(p=>({...p,[id]:{...(p[id]||{}),[field]:val}}));
@@ -788,22 +1147,71 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   const auditedCount = Object.keys(statuses).length;
   const conformeCount = Object.values(statuses).filter(v=>v==='C').length;
   const ncCount = Object.values(statuses).filter(v=>v==='NC').length;
+  const soaReady = originalSoA.some(row => row.raw);
 
-  const handleGenerateSoA = () => {
-    const auditName = selectedAudit.title || selectedAudit.name || '';
+  const handleGeneratePostAuditSoA = async () => {
+    if (generatingSoA) return;
+    if (!soaReady) {
+      onToast('Le SoA original doit etre synchronise depuis Controles avant de finaliser l audit', 'error');
+      return;
+    }
+    setGeneratingSoA(true);
+    const auditName = getAuditName(selectedAudit);
     const isLocalId = !selectedAudit.id || String(selectedAudit.id).startsWith('local-');
-    const auditId   = isLocalId ? null : selectedAudit.id;
-    ALL_CONTROLS.filter(c=>statuses[c.id]==='NC').forEach(c=>{
-      const f = ncForms[c.id]||{};
-      onNCCreated({
-        controlId: c.id, title: f.title || c.name, description: f.desc || comments[c.id] || '',
-        correctiveAction: f.action || '', responsible: f.resp || '', deadline: f.deadline || '',
-        auditName, auditId,
+    const auditId = isLocalId ? null : selectedAudit.id;
+    const postAuditSoA = buildPostAuditSoA(originalSoA, statuses, comments, ncForms);
+    try {
+      await Promise.all(ALL_CONTROLS.filter(c=>statuses[c.id]==='NC').map(c=>{
+        const f = ncForms[c.id]||{};
+        return onNCCreated({
+          controlId: c.id, title: f.title || c.name, description: f.desc || comments[c.id] || '',
+          correctiveAction: f.action || '', responsible: f.resp || '', deadline: f.deadline || '',
+          auditName, auditId,
+        });
+      }));
+
+      const rowsToUpdate = postAuditSoA.filter(row => row.postAuditStatus && row.controleId);
+      await Promise.all(rowsToUpdate.map(row => updateControle(row.controleId, buildControleUpdateCommand(row))));
+
+      try {
+        await onAuditCompleted?.({
+          audit: selectedAudit,
+          statuses,
+          comments,
+          originalSoA,
+          postAuditSoA,
+        });
+      } catch (archiveErr) {
+        console.warn('Archivage audit post-audit non bloquant', archiveErr);
+      }
+
+      setSoaGenerated(true);
+      setReportReady(true);
+      onToast(`SoA post-audit genere et Controles mis a jour (${rowsToUpdate.length}/${TOTAL_CONTROLS})`,'success');
+      await exportAuditReportPdf({
+        audit: selectedAudit,
+        originalSoA,
+        postAuditSoA,
+        conformes: conformeCount,
+        nonConformes: ncCount,
+        onToast,
       });
-    });
-    setSoaGenerated(true);
-    onToast(`SoA généré — ${conformeCount} conformes, ${ncCount} NC enregistrées`,'success');
+    } catch (err) {
+      console.error(err);
+      onToast('Erreur lors de la generation du SoA post-audit', 'error');
+    } finally {
+      setGeneratingSoA(false);
+    }
   };
+
+  const handleExportReport = () => exportAuditReportPdf({
+    audit: selectedAudit,
+    originalSoA,
+    postAuditSoA: buildPostAuditSoA(originalSoA, statuses, comments, ncForms),
+    conformes: conformeCount,
+    nonConformes: ncCount,
+    onToast,
+  });
 
   const filtered = themeFilter ? ALL_CONTROLS.filter(c=>c.theme.id===themeFilter) : ALL_CONTROLS;
 
@@ -814,31 +1222,26 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
           <p className="text-xs text-gray-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
         </div>
       </div>
-      <div className="flex justify-end">
-        {canWrite && <Btn icon={Plus} onClick={()=>setView('create')}>Créer un audit</Btn>}
-      </div>
-      {mergedAudits.length===0 && (
-        <Card className="text-center py-14 border border-dashed border-gray-300">
-          <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-          <p className="font-semibold text-gray-500">Aucun audit créé</p>
-        </Card>
-      )}
       {mergedAudits.map(a=>{
         const sc = STATUS_CFG[a.status]||STATUS_CFG['in-progress'];
+        const isAccessible = canOpenPostAudit(a);
         return (
-          <Card key={a.id} onClick={()=>openVerify(a)} className="border border-gray-200 hover:border-emerald-400 cursor-pointer">
+          <Card key={a.id} onClick={()=>isAccessible && openVerify(a)} className={`border border-gray-200 ${isAccessible ? 'hover:border-emerald-400 cursor-pointer' : 'opacity-70 cursor-not-allowed'}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <StatusBadge cfg={sc}/>
                   <TypeBadge type={a.type} />
                 </div>
-                <h3 className="font-bold text-gray-900 text-sm">{a.name}</h3>
+                <h3 className="font-bold text-gray-900 text-sm">{getAuditName(a)}</h3>
                 <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
                   <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{a.auditor}</span>
-                  <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{a.date}</span>
+                  <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{getAuditDate(a)}</span>
                   <span className="flex items-center gap-1"><Target className="w-3 h-3"/>{a.scope}</span>
                 </div>
+                {!isAccessible && (
+                  <p className="mt-2 text-xs font-semibold text-amber-600">Post-audit bloque jusqu'a la date prevue.</p>
+                )}
               </div>
               <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1 flex-shrink-0"><ArrowRight className="w-4 h-4"/>Vérifier C / NC</span>
             </div>
@@ -883,8 +1286,8 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
         </button>
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
           <div>
-            <h3 className="font-bold text-gray-900 text-base">{selectedAudit?.name}</h3>
-            <p className="text-xs text-gray-400">{selectedAudit?.auditor} · {selectedAudit?.date} · {selectedAudit?.scope}</p>
+            <h3 className="font-bold text-gray-900 text-base">{getAuditName(selectedAudit)}</h3>
+            <p className="text-xs text-gray-400">{selectedAudit?.auditor} · {getAuditDate(selectedAudit)} · {selectedAudit?.scope}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex gap-4 text-sm font-bold">
@@ -892,26 +1295,18 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
               <span className="text-emerald-600">{conformeCount} C</span>
               <span className="text-red-500">{ncCount} NC</span>
             </div>
-            <Btn size="sm" icon={BookOpen} variant="success" disabled={auditedCount===0||soaGenerated} onClick={handleGenerateSoA}>{soaGenerated?'SoA généré ✓':'Générer SoA'}</Btn>
+            <Btn size="sm" icon={BookOpen} variant="primary" loading={generatingSoA} disabled={soaSyncing||!soaReady||auditedCount===0||soaGenerated} onClick={handleGeneratePostAuditSoA}>{soaGenerated?'SoA genere':'Generer SoA post-audit'}</Btn>
+            {reportReady && <Btn size="sm" icon={Download} variant="outline" onClick={handleExportReport}>Rapport audit</Btn>}
           </div>
         </div>
         <PBar value={auditedCount} max={TOTAL_CONTROLS}/>
         {soaGenerated && (
           <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0"/>
-            <p className="text-xs font-semibold text-emerald-700">SoA généré — {conformeCount} conformes, {ncCount} non-conformité(s) transférées dans le module NC</p>
+            <p className="text-xs font-semibold text-emerald-700">SoA post-audit genere, rapport audit disponible et page Controles mise a jour</p>
           </div>
         )}
       </Card>
-
-      <div className="grid grid-cols-3 gap-3">
-        {[{label:'Audités',value:auditedCount,val:'text-gray-700'},{label:'Conformes (C)',value:conformeCount,val:'text-emerald-600'},{label:'Non-conformes (NC)',value:ncCount,val:'text-red-500'}].map(s=>(
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4 text-center">
-            <div className={`text-2xl font-extrabold ${s.val}`}>{s.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
-          </div>
-        ))}
-      </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
@@ -935,26 +1330,41 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
           const st = statuses[ctrl.id];
           const isExp = expandedId===ctrl.id;
           const nc = ncForms[ctrl.id]||{};
+          const originalRow = originalSoA.find(row => row.controlId === ctrl.id);
+          const isNotApplicable = originalRow?.applicable === false;
           return (
-            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${st==='C'?'border-emerald-300 bg-emerald-50/20':st==='NC'?'border-red-300 bg-red-50/20':'border-gray-200 bg-white'}`}>
+            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${isNotApplicable?'border-gray-200 bg-gray-100/70 opacity-80':st==='C'?'border-emerald-300 bg-emerald-50/20':st==='NC'?'border-red-300 bg-red-50/20':'border-gray-200 bg-white'}`}>
               <div className="flex items-center gap-3 p-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border" style={{background:ctrl.theme.bgHex,borderColor:ctrl.theme.colorHex+'40'}}>
                   <span className="text-[10px] font-extrabold" style={{color:ctrl.theme.colorHex}}>{ctrl.id}</span>
                 </div>
-                <button className="flex-1 text-left min-w-0" onClick={()=>setExpandedId(isExp?null:ctrl.id)}>
+                <button className="flex-1 text-left min-w-0" onClick={()=>!isNotApplicable && setExpandedId(isExp?null:ctrl.id)}>
                   <p className="text-sm font-semibold text-gray-800">{ctrl.name}</p>
-                  <p className="text-xs text-gray-400">{ctrl.theme.shortName}</p>
+                  <p className="text-xs text-gray-400">
+                    {ctrl.theme.shortName} · SoA original: {originalRow?.applicable === false ? 'Non applicable' : (originalRow?.statut || 'Non synchronise')}
+                  </p>
+                  {isNotApplicable && (
+                    <p className="mt-1 text-xs font-semibold text-gray-500">Controle exclu du perimetre : verification C/NC bloquee.</p>
+                  )}
                 </button>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={()=>{ setStatuses(p=>({...p,[ctrl.id]:'C'})); if(expandedId===ctrl.id) setExpandedId(null); }}
-                    className={`px-5 py-2.5 rounded-xl border-2 font-extrabold text-sm transition-all ${st==='C'?'bg-emerald-600 text-white border-emerald-600':'bg-white text-emerald-700 border-emerald-200 hover:border-emerald-400'}`}>
-                    ✓ C
-                  </button>
-                  <button onClick={()=>{ setStatuses(p=>({...p,[ctrl.id]:'NC'})); setExpandedId(ctrl.id); }}
-                    className={`px-4 py-2.5 rounded-xl border-2 font-extrabold text-sm transition-all ${st==='NC'?'bg-red-600 text-white border-red-600':'bg-white text-red-700 border-red-200 hover:border-red-400'}`}>
-                    ✗ NC
-                  </button>
-                  <button onClick={()=>setExpandedId(isExp?null:ctrl.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                  {isNotApplicable ? (
+                    <span className="px-3 py-2 rounded-xl border-2 border-gray-200 bg-gray-100 text-gray-400 text-xs font-semibold italic select-none">
+                      Non applicable
+                    </span>
+                  ) : (
+                    <>
+                      <button disabled={soaSyncing || !soaReady} onClick={()=>{ setStatuses(p=>({...p,[ctrl.id]:'C'})); if(expandedId===ctrl.id) setExpandedId(null); }}
+                        className={`px-5 py-2.5 rounded-xl border-2 font-extrabold text-sm transition-all ${st==='C'?'bg-gray-700 text-white border-gray-700':'bg-white text-gray-600 border-gray-300 hover:border-gray-400'} disabled:opacity-40 disabled:cursor-not-allowed`}>
+                        ✓ C
+                      </button>
+                      <button disabled={soaSyncing || !soaReady} onClick={()=>{ setStatuses(p=>({...p,[ctrl.id]:'NC'})); setExpandedId(ctrl.id); }}
+                        className={`px-4 py-2.5 rounded-xl border-2 font-extrabold text-sm transition-all ${st==='NC'?'bg-gray-700 text-white border-gray-700':'bg-white text-gray-600 border-gray-300 hover:border-gray-400'} disabled:opacity-40 disabled:cursor-not-allowed`}>
+                        ✗ NC
+                      </button>
+                    </>
+                  )}
+                  <button disabled={isNotApplicable} onClick={()=>setExpandedId(isExp?null:ctrl.id)} className="p-1.5 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
                     {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
                   </button>
                 </div>
@@ -985,7 +1395,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
       {soaGenerated && (
         <Card className="border border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-gray-900 flex items-center gap-2"><BookOpen className="w-5 h-5 text-amber-500"/>SoA Post-Audit — {selectedAudit?.name}</h4>
+            <h4 className="font-bold text-gray-900 flex items-center gap-2"><BookOpen className="w-5 h-5 text-amber-500"/>SoA Post-Audit — {getAuditName(selectedAudit)}</h4>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">{conformeCount}/{TOTAL_CONTROLS} conformes</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-gray-200">
@@ -1062,14 +1472,6 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        {[{label:'Ouvertes',value:openCount,val:'text-red-500'},{label:'En cours',value:inProgCount,val:'text-amber-500'},{label:'Résolues',value:resolvedCount,val:'text-emerald-600'}].map(s=>(
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4 text-center">
-            <div className={`text-2xl font-extrabold ${s.val}`}>{s.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
-          </div>
-        ))}
-      </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-40">
@@ -1223,6 +1625,28 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   const [activeTab, setActiveTab] = useState('soa');
   const [themeFilter, setThemeFilter] = useState(null);
   const [filterAudit, setFilterAudit] = useState('');
+  const [controlsSoA, setControlsSoA] = useState([]);
+  const [loadingSoA, setLoadingSoA] = useState(false);
+
+  const loadControlsSoA = useCallback(async () => {
+    setLoadingSoA(true);
+    try {
+      const controles = await getAllControles();
+      const soa = buildOriginalSoA(controles);
+      setControlsSoA(soa);
+      onToast?.(`SoA synchronise depuis Controles (${soa.filter(row => row.raw).length}/${TOTAL_CONTROLS})`, 'success');
+    } catch (err) {
+      console.error(err);
+      setControlsSoA([]);
+      onToast?.('Impossible de recuperer le SoA depuis Controles', 'error');
+    } finally {
+      setLoadingSoA(false);
+    }
+  }, [onToast]);
+
+  useEffect(() => {
+    loadControlsSoA();
+  }, [loadControlsSoA]);
 
   const filteredNCs = useMemo(() => {
     if (!filterAudit) return ncs;
@@ -1230,13 +1654,28 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   }, [ncs, filterAudit]);
 
   const soaData = useMemo(()=>
-    ALL_CONTROLS.map(c=>{ const nc=filteredNCs.find(n=>n.controlId===c.id); return {...c,status:nc?'non_conforme':'conforme',nc}; })
-  ,[filteredNCs]);
+    ALL_CONTROLS.map(c=>{
+      const original = controlsSoA.find(row => row.controlId === c.id);
+      const nc = filteredNCs.find(n=>normalizeControlCode(n.controlId)===c.id);
+      const statut = original?.statut || 'NonEvalue';
+      const applicable = original ? original.applicable !== false : true;
+      const status = !applicable
+        ? 'non_applicable'
+        : nc || statut === 'NCMineure' || statut === 'NCMajeure'
+          ? 'non_conforme'
+          : statut === 'Conforme' || statut === 'Remarque'
+            ? 'conforme'
+            : 'non_evalue';
+      return {...c, ...original, id:c.id, name:c.name, theme:c.theme, status, nc};
+    })
+  ,[controlsSoA, filteredNCs]);
 
   const conformes=soaData.filter(c=>c.status==='conforme').length;
   const nonConformes=soaData.filter(c=>c.status==='non_conforme').length;
+  const nonApplicables=soaData.filter(c=>c.status==='non_applicable').length;
+  const nonEvalues=soaData.filter(c=>c.status==='non_evalue').length;
   const filtered=themeFilter?soaData.filter(c=>c.theme.id===themeFilter):soaData;
-  const gaps=filteredNCs.map(nc=>({...nc,ctrl:ALL_CONTROLS.find(c=>c.id===nc.controlId)}));
+  const gaps=filteredNCs.map(nc=>({...nc,ctrl:ALL_CONTROLS.find(c=>c.id===normalizeControlCode(nc.controlId))}));
 
   const auditOptions = useMemo(()=>{
     const unique = (allAudits||[]).filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
@@ -1251,18 +1690,17 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
             <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500"/>Statement of Applicability (SoA)</h3>
             <p className="text-xs text-gray-400 mt-0.5">ISO/IEC 27001:2022 · Clause 6.1.3d · Mis à jour depuis les NC enregistrées</p>
           </div>
-          {canExport && <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>}
+          {canExport && <Btn variant="outline" size="sm" icon={Download} onClick={()=>exportSoACsv(soaData, onToast)}>Exporter SoA</Btn>}
         </div>
         <div className="mb-4">
           <label className="text-xs font-semibold text-gray-600 mb-1 block">Filtrer par audit</label>
           <select className="text-sm px-3 py-2 border border-gray-200 rounded-xl bg-white text-gray-600" value={filterAudit} onChange={e=>setFilterAudit(e.target.value)}>
             {auditOptions.map(opt=><option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-gray-700">{TOTAL_CONTROLS}</div><div className="text-xs text-gray-500 mt-1">Total</div></div>
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-emerald-600">{conformes}</div><div className="text-xs text-gray-500 mt-1">Conformes</div></div>
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-red-500">{nonConformes}</div><div className="text-xs text-gray-500 mt-1">Non-conformes</div></div>
+          <button onClick={loadControlsSoA} disabled={loadingSoA} className="ml-2 inline-flex items-center gap-2 text-sm px-3 py-2 border border-gray-200 rounded-xl bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            {loadingSoA ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
+            Synchroniser Controles
+          </button>
         </div>
         <PBar value={conformes} max={TOTAL_CONTROLS}/>
       </Card>
@@ -1296,14 +1734,19 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
               </thead>
               <tbody>
                 {filtered.map((c,i)=>(
-                  <tr key={c.id} className={`border-b border-gray-50 ${c.status==='non_conforme'?'bg-red-50/50':i%2===0?'bg-white':'bg-gray-50/30'}`}>
+                  <tr key={c.id} className={`border-b border-gray-50 ${c.status==='non_conforme'?'bg-red-50/50':c.status==='non_applicable'?'bg-gray-100/70':i%2===0?'bg-white':'bg-gray-50/30'}`}>
                     <td className="px-3 py-2.5 font-mono font-extrabold" style={{color:c.theme.colorHex}}>{c.id}</td>
                     <td className="px-3 py-2.5"><p className="font-semibold text-gray-800">{c.name}</p><p className="text-gray-400">{c.theme.shortName}</p></td>
-                    <td className="px-3 py-2.5 text-center"><CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto"/></td>
                     <td className="px-3 py-2.5 text-center">
-                      {c.status==='conforme'
-                        ?<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 rounded-full"><Check className="w-3 h-3"/>Conforme</span>
-                        :<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 font-bold border border-red-200 rounded-full"><X className="w-3 h-3"/>NC</span>}
+                      {c.applicable === false
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 font-bold border border-gray-200 rounded-full"><X className="w-3 h-3"/>Non</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 rounded-full"><Check className="w-3 h-3"/>Oui</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      {c.status==='conforme' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 rounded-full"><Check className="w-3 h-3"/>Conforme</span>}
+                      {c.status==='non_conforme' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 font-bold border border-red-200 rounded-full"><X className="w-3 h-3"/>NC</span>}
+                      {c.status==='non_applicable' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 font-bold border border-gray-200 rounded-full">Non applicable</span>}
+                      {c.status==='non_evalue' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 font-bold border border-amber-200 rounded-full">Non evalue</span>}
                     </td>
                     <td className="px-3 py-2.5 max-w-xs">{c.nc?<p className="text-red-500 font-medium truncate">{c.nc.title}</p>:<span className="text-gray-300">—</span>}</td>
                   </tr>
@@ -1364,8 +1807,8 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 export function Audits() {
-  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
-  const moduleCode = "audits";
+  const { permissionsLoaded, canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const moduleCode = "audit";
   const hasAccess = canRead(moduleCode);
 
   const [audits,     setAudits]     = useState([]);
@@ -1399,6 +1842,23 @@ export function Audits() {
   useEffect(()=>{ load(); },[load]);
 
   const handleSaveSimulation = useCallback(async (sim) => {
+    // Cas de suppression
+    if (sim.action === 'delete') {
+      if (!canWrite(moduleCode)) {
+        showToast('Vous n\'avez pas la permission de supprimer', 'error');
+        return;
+      }
+      try {
+        await deleteSimulation(sim.id);
+        setSimHistory(prev => prev.filter(s => s.id !== sim.id));
+        showToast('Simulation supprimée', 'success');
+      } catch {
+        showToast('Erreur lors de la suppression');
+      }
+      return;
+    }
+    
+    // Cas de création/mise à jour
     if (!canWrite(moduleCode)) {
       showToast('Vous n\'avez pas la permission de créer des simulations', 'error');
       return;
@@ -1434,10 +1894,12 @@ export function Audits() {
         const u = await updateAudit(editId, data);
         setAudits(p => p.map(a => a.id === editId ? u : a));
         showToast('Audit mis à jour', 'success');
+        return u;
       } else {
         const c = await createAudit(data);
         setAudits(p => [...p, c]);
         showToast('Audit planifié', 'success');
+        return c;
       }
     } catch { showToast('Erreur lors de la sauvegarde'); }
     finally { setSaving(false); }
@@ -1497,6 +1959,30 @@ export function Audits() {
       setNcs(p => p.filter(n => n.id !== localId));
     }
   };
+
+  const handlePostAuditCompleted = async ({ audit, statuses, comments, originalSoA, postAuditSoA }) => {
+    const auditId = audit?.id;
+    if (!auditId || String(auditId).startsWith('local-')) return;
+    const payload = {
+      ...audit,
+      controlStatuses: statuses,
+      controlComments: comments,
+      originalSoA,
+      postAuditSoA,
+      status: 'completed',
+    };
+    const saved = await updateAudit(auditId, payload);
+    setAudits(p => p.map(a => a.id === auditId ? saved : a));
+  };
+
+  if (!permissionsLoaded) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-200"><Loader2 className="w-8 h-8 animate-spin text-indigo-600"/></div>
+        <p className="font-semibold text-gray-700">Chargement des permissions...</p>
+      </div>
+    </div>
+  );
 
   if (!hasAccess) {
     return (
@@ -1573,7 +2059,7 @@ export function Audits() {
 
           {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
           {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)}/>}
-          {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
+          {module==='post'     && <PostAuditModule onToast={showToast} onNCCreated={handleNCFromPostAudit} onAuditCreated={(data)=>handleSavePlan(data, null)} onAuditCompleted={handlePostAuditCompleted} allAudits={audits} canWrite={canWrite(moduleCode)}/>}
           {module==='nc'       && <NCModule ncs={ncs} saving={saving} onAdd={handleAddNC} onUpdate={handleUpdateNC} onDelete={handleDeleteNC} allAudits={audits} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
           {module==='gap'      && <GapSoAModule ncs={ncs} onToast={showToast} allAudits={audits} canExport={canExport(moduleCode)}/>}
         </div>
