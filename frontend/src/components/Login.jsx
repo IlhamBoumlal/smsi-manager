@@ -59,46 +59,58 @@ export default function Login() {
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const res = await login(form);
-      console.log('Réponse API:', res.data);
-      
-      const { token, nomComplet, email, societe } = res.data;
-      
-      // Décoder le token pour extraire le rôle
-      const decodedToken = decodeToken(token);
-      console.log('Token décodé:', decodedToken);
-      
-      // Extraire le rôle du token (claim "role")
-      const userRole = decodedToken?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken?.role;
-      console.log('Rôle extrait:', userRole);
-      
-      // Créer l'objet utilisateur avec le rôle
-      const userData = {
-        id: decodedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
-        token,
-        nomComplet,
-        email,
-        societe,
-        role: userRole,
-        roleName: userRole // Pour compatibilité
-      };
-      
-      console.log('UserData à stocker:', userData);
-      loginUser(userData);
-      
-      // La redirection se fera dans useEffect quand user sera mis à jour
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError(err.response?.data || 'Identifiants incorrects.');
-    } finally {
-      setLoading(false);
+  // Dans Login.jsx - modifier handleSubmit
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+  try {
+    const res = await login(form);
+    console.log('Réponse API:', res.data);
+    
+    const { token, nomComplet, email, societe } = res.data;
+    
+    // Décoder le token pour extraire le rôle
+    const decodedToken = decodeToken(token);
+    console.log('Token décodé:', decodedToken);
+    
+    // Extraire le rôle du token (claim "role")
+    const userRole = decodedToken?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || decodedToken?.role;
+    console.log('Rôle extrait:', userRole);
+    
+    // Créer l'objet utilisateur avec le rôle
+    const userData = {
+      id: decodedToken?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
+      token,
+      nomComplet,
+      email,
+      societe,
+      role: userRole,
+      roleName: userRole,
+      isActive: true
+    };
+    
+    console.log('UserData à stocker:', userData);
+    loginUser(userData);
+    
+  } catch (err) {
+    console.error('Erreur:', err);
+    const errorMessage = err.response?.data;
+    
+    // Vérifier si c'est une erreur de compte désactivé
+    if (typeof errorMessage === 'string') {
+      if (errorMessage.includes('désactivé') || errorMessage.includes('desactive') || errorMessage.includes('inactive')) {
+        setError('❌ Votre compte a été désactivé. Veuillez contacter un administrateur.');
+      } else {
+        setError(errorMessage || 'Identifiants incorrects.');
+      }
+    } else {
+      setError('Identifiants incorrects.');
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={styles.page}>

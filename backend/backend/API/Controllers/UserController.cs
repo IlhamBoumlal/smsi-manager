@@ -19,7 +19,7 @@ namespace backend.API.Controllers
     [Authorize]
     public class UserController : ControllerBase
     {
-        private const string UserManagementRoles = "Super Admin,Admin Societe";
+        private const string UserManagementRoles = "Super Admin,Admin Societe,Admin";
 
         private readonly IMediator _mediator;
         private readonly IUserRepository _userRepository;
@@ -54,6 +54,14 @@ namespace backend.API.Controllers
                     AppRoles.NormalizeKey(AppRoles.AdminSociete),
                     StringComparison.OrdinalIgnoreCase));
 
+        // Nouveau : rôle "Admin" simple (limité à sa société)
+        private bool IsAdmin =>
+            CurrentRoles.Any(r =>
+                string.Equals(r, "Admin", StringComparison.OrdinalIgnoreCase));
+
+        // Regroupe Admin Societe et Admin (même comportement scoped)
+        private bool IsScopedAdmin => IsAdminSociete || IsAdmin;
+
         [HttpGet]
         [Authorize(Roles = UserManagementRoles)]
         public async Task<IActionResult> GetUsers()
@@ -65,7 +73,7 @@ namespace backend.API.Controllers
                 return Ok(users);
             }
 
-            if (!IsAdminSociete || !CurrentSocieteId.HasValue)
+            if (!IsScopedAdmin || !CurrentSocieteId.HasValue)
             {
                 return Forbid();
             }
@@ -82,7 +90,7 @@ namespace backend.API.Controllers
         [Authorize(Roles = UserManagementRoles)]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
         {
-            if (IsAdminSociete)
+            if (IsScopedAdmin)
             {
                 if (!CurrentSocieteId.HasValue)
                 {
@@ -91,7 +99,7 @@ namespace backend.API.Controllers
 
                 if (dto.SocieteId != CurrentSocieteId.Value)
                 {
-                    return BadRequest("Un Admin Societe ne peut creer des utilisateurs que dans sa societe.");
+                    return BadRequest("Un Admin ne peut creer des utilisateurs que dans sa societe.");
                 }
 
                 var roleName = await ResolveRoleNameAsync(dto.RoleId);
@@ -121,7 +129,7 @@ namespace backend.API.Controllers
         [Authorize(Roles = UserManagementRoles)]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserDto dto)
         {
-            if (IsAdminSociete)
+            if (IsScopedAdmin)
             {
                 if (!CurrentSocieteId.HasValue)
                 {
@@ -147,7 +155,7 @@ namespace backend.API.Controllers
 
                 if (dto.SocieteId != CurrentSocieteId.Value)
                 {
-                    return BadRequest("Un Admin Societe ne peut affecter l'utilisateur qu'a sa societe.");
+                    return BadRequest("Un Admin ne peut affecter l'utilisateur qu'a sa societe.");
                 }
 
                 var roleName = await ResolveRoleNameAsync(dto.RoleId);
@@ -179,7 +187,7 @@ namespace backend.API.Controllers
         [Authorize(Roles = UserManagementRoles)]
         public async Task<IActionResult> DeleteUser(string id)
         {
-            if (IsAdminSociete)
+            if (IsScopedAdmin)
             {
                 if (!CurrentSocieteId.HasValue)
                 {
@@ -224,7 +232,7 @@ namespace backend.API.Controllers
                 return Ok(roles.Select(r => new { id = r.Id, nom = r.Name }));
             }
 
-            if (!IsAdminSociete)
+            if (!IsScopedAdmin)
             {
                 return Forbid();
             }

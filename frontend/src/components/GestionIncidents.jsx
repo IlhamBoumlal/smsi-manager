@@ -413,11 +413,11 @@ export default function GestionIncidents() {
     setNotifications(prev => prev.slice(1));
   };
 
-  const handleViewIncidentFromToast = (incidentId) => {
-    fetchData();
+  const handleViewIncidentFromToast = async (incidentId) => {
+    const data = await fetchData();
     setCurrentToast(null);
     setNotifications([]);
-    const found = incidents.find(i => i.id === incidentId);
+    const found = data.find(i => i.id === incidentId);
     if (found) setDetailsIncident(found);
   };
 
@@ -429,6 +429,7 @@ export default function GestionIncidents() {
       const data = res.data.map(normalizeIncident);
       setIncidents(data);
       setDetailsIncident(prev => prev ? data.find(i => i.id === prev.id) ?? prev : null);
+      return data;
     } catch (err) {
       console.error('Erreur chargement incidents:', err);
       if (err.response?.status === 401) {
@@ -436,12 +437,19 @@ export default function GestionIncidents() {
       } else {
         alert('Erreur lors du chargement des données');
       }
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (notifications.length > 0) {
+      fetchData();
+    }
+  }, [notifications, fetchData]);
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const handleCreate = async (formData) => {

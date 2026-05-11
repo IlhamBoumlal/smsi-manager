@@ -1,25 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  LogOut, ChevronDown, BarChart3, Users, Building2, Layers, Key,
-  ShieldCheck
-} from "lucide-react";
+import { LogOut, ChevronDown, Users, Key, ShieldCheck } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
-import GestionHoldings from "./Admin/GestionHoldings";
-import GestionSocietes from "./Admin/GestionSocietes";
-import GestionUtilisateursAdmins from "./Admin/GestionUtilisateursAdmins";
-import GestionRoles from "./Admin/GestionRoles";
-import DashboardAdmin from "./Admin/DashboardAdmin";
+import GestionUtilisateurs from './Admin/GestionUtilisateurs';
+import GestionRoles from './Admin/GestionRoles';
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 const FONT = "'Sora', 'Segoe UI', sans-serif";
 
 const TABS = [
-  { key: "dashboard", label: "Dashboard", icon: <BarChart3 size={16} /> },
-  { key: "holdings", label: "Holdings", icon: <Layers size={16} /> },
-  { key: "societes", label: "Sociétés", icon: <Building2 size={16} /> },
-  { key: "users", label: "Utilisateurs Admins", icon: <Users size={16} /> },
-//  { key: "roles", label: "Rôles", icon: <Key size={16} /> },
+  { key: "users", label: "Utilisateurs", icon: <Users size={16} /> },
+  { key: "roles", label: "Rôles & permissions", icon: <Key size={16} /> },
 ];
 
 function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
@@ -80,8 +71,8 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
                 {getInitials()}
               </div>
               <div className="flex flex-col items-start leading-tight text-left">
-                <span className="text-[15px] font-bold text-slate-800">{userName || 'Super Admin'}</span>
-                <span className="text-xs text-slate-400">{userEmail || 'admin@alexsys.com'}</span>
+                <span className="text-[15px] font-bold text-slate-800">{userName || 'Admin Société'}</span>
+                <span className="text-xs text-slate-400">{userEmail || 'admin@example.com'}</span>
               </div>
               <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`} />
             </button>
@@ -94,8 +85,8 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
                       {getInitials()}
                     </div>
                     <div className="flex flex-col leading-tight">
-                      <span className="text-[15px] font-bold text-white">{userName || 'Super Admin'}</span>
-                      <span className="text-xs text-blue-200">{userEmail || 'admin@alexsys.com'}</span>
+                      <span className="text-[15px] font-bold text-white">{userName || 'Admin Société'}</span>
+                      <span className="text-xs text-blue-200">{userEmail || 'admin@example.com'}</span>
                     </div>
                   </div>
                 </div>
@@ -119,13 +110,13 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
   );
 }
 
-export default function SuperAdminSpace() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+export default function AdminSocieteSpace() {
+  const [activeTab, setActiveTab] = useState("users");
   const { user, logoutUser } = useAuth();
   const navigate = useNavigate();
 
-  const userEmail = user?.email || user?.userName || 'admin@alexsys.com';
-  const userName = user?.nomComplet || user?.fullName || 'Super Admin';
+  const userEmail = user?.email || user?.userName || 'admin@example.com';
+  const userName = user?.nomComplet || user?.fullName || 'Admin Société';
 
   const handleLogout = () => {
     logoutUser();
@@ -134,12 +125,12 @@ export default function SuperAdminSpace() {
 
   const renderContent = () => {
     switch(activeTab) {
-      case "dashboard": return <DashboardAdmin onTabChange={setActiveTab} />;
-      case "holdings": return <GestionHoldings />;
-      case "societes": return <GestionSocietes />;
-      case "users": return <GestionUtilisateursAdmins />;
-      case "roles": return <GestionRoles isAdminSocieteMode={false} />;
-      default: return <DashboardAdmin />;
+      case "users":
+        return <GestionUtilisateurs isAdminSocieteMode={true} />;
+      case "roles":
+        return <GestionRoles isAdminSocieteMode={true} />;
+      default:
+        return <GestionUtilisateurs isAdminSocieteMode={true} />;
     }
   };
 

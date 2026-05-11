@@ -622,7 +622,7 @@ function KpiStrip({ roles, totalPermissions, modulesCount }) {
   );
 }
 
-// ─── Role List Page ───────────────────────────────────────────────────────────
+// ─── Role List Page (sans affichage des IDs) ─────────────────────────────────
 function RoleListPage({ roles, loading, onSelectRole, onAddRole, onEditRole, onDeleteRole, search, setSearch, viewMode, setViewMode, onRefresh, totalPermissions, modulesCount }) {
   const filtered = roles.filter(r => {
     const roleName = r.nom || r.name;
@@ -704,7 +704,7 @@ function RoleListPage({ roles, loading, onSelectRole, onAddRole, onEditRole, onD
                   {role.nom || role.name}
                 </div>
               </div>
-              <p className="text-xs text-slate-400 font-mono mb-3">{role.id}</p>
+              {/* Ligne d'ID supprimée */}
               <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                 <button onClick={() => onEditRole(role)}
                   className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition-colors">
@@ -724,7 +724,6 @@ function RoleListPage({ roles, loading, onSelectRole, onAddRole, onEditRole, onD
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <th className="px-6 py-4 text-left">Rôle</th>
-                <th className="px-6 py-4 text-left">ID</th>
                 <th className="px-6 py-4 text-center">Actions</th>
               </tr>
             </thead>
@@ -733,7 +732,6 @@ function RoleListPage({ roles, loading, onSelectRole, onAddRole, onEditRole, onD
                 <tr key={role.id} onClick={() => onSelectRole(role)}
                   className={`hover:bg-slate-50 cursor-pointer transition-colors ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
                   <td className="px-6 py-4 font-semibold text-slate-800">{role.nom || role.name}</td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-mono">{role.id}</td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
                       <button onClick={() => onEditRole(role)}
@@ -860,7 +858,7 @@ function ModuleModal({ editing, onClose, onSave, loading }) {
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export default function GestionRoles() {
+export default function GestionRoles({ isAdminSocieteMode = false }) {
   const [roles, setRoles]           = useState([]);
   const [modules, setModules]       = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -886,7 +884,6 @@ export default function GestionRoles() {
       setLoading(true);
       const data = await apiFetch('/role');
       
-      // Calculer le total des permissions pour tous les rôles
       let total = 0;
       for (const role of data) {
         try {
@@ -1054,6 +1051,7 @@ export default function GestionRoles() {
   return (
     <div className="min-h-screen bg-[#f4f6fa]" style={{ fontFamily: FONT }}>
       <div className="p-6 max-w-[1400px] mx-auto">
+        {/* Bouton "Administrer les modules" toujours visible */}
         <div className="flex justify-end mb-4">
           <button onClick={() => setCurrentView("admin")}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-purple-700 transition-colors">

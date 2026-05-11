@@ -23,13 +23,13 @@ namespace backend.API.Hubs
                 var groupName = NormalizeEmailForGroup(userEmail);
                 await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
                 _logger.LogInformation(
-                    "✅ Utilisateur {Email} connecté — groupe: {Group} — ConnectionId: {ConnectionId}",
+                    "Utilisateur {Email} connecté — groupe: {Group} — ConnectionId: {ConnectionId}",
                     userEmail, groupName, Context.ConnectionId);
             }
             else
             {
                 _logger.LogWarning(
-                    "⚠️ Connexion SignalR sans email valide — ConnectionId: {ConnectionId}",
+                    "Connexion SignalR sans email valide — ConnectionId: {ConnectionId}",
                     Context.ConnectionId);
             }
 
@@ -60,7 +60,7 @@ namespace backend.API.Hubs
         {
             var groupName = NormalizeEmailForGroup(userEmail);
             await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation("📨 Notification envoyée à {Email} (groupe: {Group})", userEmail, groupName);
+            _logger.LogInformation("Notification envoyée à {Email} (groupe: {Group})", userEmail, groupName);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace backend.API.Hubs
         public async Task SendNotificationToAll(object notification)
         {
             await Clients.All.SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation("📨 Notification broadcast à TOUS les utilisateurs");
+            _logger.LogInformation("Notification broadcast à TOUS les utilisateurs");
         }
 
         /// <summary>
