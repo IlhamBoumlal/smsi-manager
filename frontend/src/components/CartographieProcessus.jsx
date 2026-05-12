@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getAllProcessus,
   createProcessus,
@@ -7,6 +7,8 @@ import {
   addDocument,
   deleteDocument,
   downloadFichier,
+  getAllClausesForSelection,
+  getAllControlesForSelection,
 } from "../api/cartographie";
 import { useAuth } from "../context/AuthContext";
 
@@ -22,6 +24,156 @@ function useFontAwesome() {
     link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
     document.head.appendChild(link);
   }, []);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ISO 27001 REFERENCES – DONNÉES STATIQUES SIMULÉES
+═══════════════════════════════════════════════════════════ */
+const ISO_CLAUSES = [
+  "4.1 - Compréhension du contexte",
+  "4.2 - Parties intéressées",
+  "4.3 - Domaine du SMSI",
+  "5.1 - Leadership et engagement",
+  "5.2 - Politique de sécurité",
+  "5.3 - Rôles et responsabilités",
+  "6.1 - Actions face aux risques",
+  "6.2 - Objectifs de sécurité",
+  "7.1 - Ressources",
+  "7.2 - Compétence",
+  "7.3 - Sensibilisation",
+  "7.4 - Communication",
+  "7.5 - Informations documentées",
+  "8.1 - Planification opérationnelle",
+  "9.1 - Surveillance et mesure",
+  "9.2 - Audit interne",
+  "9.3 - Revue de direction",
+  "10.1 - Non-conformité",
+  "10.2 - Amélioration",
+];
+
+const ISO_CONTROLS = [
+  "A.5.1 - Politiques de sécurité",
+  "A.5.2 - Rôles et responsabilités",
+  "A.5.3 - Séparation des fonctions",
+  "A.6.1 - Revue de sécurité",
+  "A.6.2 - Conditions d'utilisation",
+  "A.6.3 - Contacts avec autorités",
+  "A.7.1 - Vérification pré-emploi",
+  "A.7.2 - Pendant l'emploi",
+  "A.7.3 - Résiliation et changement",
+  "A.8.1 - Gestion des actifs",
+  "A.8.2 - Classification des informations",
+  "A.8.3 - Gestion des supports",
+  "A.8.4 - Protection contre les malwares",
+  "A.8.5 - Sauvegarde",
+  "A.8.6 - Gestion des capacités",
+  "A.8.7 - Contrôle d'accès logique",
+  "A.8.8 - Gestion des vulnérabilités",
+  "A.9.1 - Politique de contrôle d'accès",
+  "A.9.2 - Gestion des droits",
+  "A.10.1 - Cryptographie",
+  "A.11.1 - Périmètre physique",
+  "A.12.1 - Procédures opérationnelles",
+  "A.13.1 - Gestion des incidents",
+  "A.14.1 - Sécurité des développements",
+  "A.15.1 - Relations fournisseurs",
+  "A.16.1 - Gestion des incidents sécurité",
+  "A.17.1 - Continuité des activités",
+  "A.18.1 - Conformité",
+];
+
+/* ═══════════════════════════════════════════════════════════
+   COMPOSANT DE SÉLECTION MULTI GÉNÉRIQUE
+═══════════════════════════════════════════════════════════ */
+function IsoMultiSelect({ items, selected, onChange, placeholder, color }) {
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const containerRef = useRef(null);
+
+  const filteredItems = items.filter(item =>
+    item.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleItem = (itemValue) => {
+    if (selected.includes(itemValue)) {
+      onChange(selected.filter(v => v !== itemValue));
+    } else {
+      onChange([...selected, itemValue]);
+    }
+  };
+
+  const removeItem = (itemValue) => {
+    onChange(selected.filter(v => v !== itemValue));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="cx-iso-selector" ref={containerRef}>
+      <div className="cx-iso-tags">
+        {selected.length === 0 && (
+          <span className="cx-iso-placeholder">{placeholder}</span>
+        )}
+        {selected.map(item => (
+          <span key={item} className="cx-iso-tag" style={{ background: `${color}15`, borderColor: color }}>
+            {item}
+            <button type="button" onClick={() => removeItem(item)} className="cx-iso-tag-remove">
+              <i className="fa-solid fa-xmark"/>
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          className="cx-iso-add-btn"
+          onClick={() => setExpanded(!expanded)}
+          style={{ borderColor: color, color: color }}
+        >
+          <i className="fa-solid fa-plus"/> Ajouter
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="cx-iso-dropdown">
+          <div className="cx-iso-search">
+            <i className="fa-solid fa-search"/>
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="cx-iso-list">
+            {filteredItems.length === 0 && (
+              <div className="cx-iso-empty">Aucun élément trouvé</div>
+            )}
+            {filteredItems.map(item => {
+              const isSelected = selected.includes(item);
+              return (
+                <label key={item} className={`cx-iso-item ${isSelected ? "selected" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleItem(item)}
+                  />
+                  <span className="cx-iso-item-value">{item}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -50,8 +202,32 @@ const CAT_META = {
   supp:{ label:"Processus de Support",     color:"#2471a3", gradient:"linear-gradient(90deg,#2471a3,#5dade2)" },
 };
 
-const EMPTY_PROC = { cat:"mgmt", name:"", owner:"", desc:"" };
-const EMPTY_DOC  = { name:"", type:"procédure", ref:"", status:"en vigueur", fichier: null };
+const extractIsoKeyFromLabel = (label) => {
+  if (!label) return "";
+  const value = typeof label === "string" ? label.trim() : String(label).trim();
+  const rawKey = value.split(" - ")[0].trim();
+  const match = rawKey.match(/^(?:A\.[0-9]+(?:\.[0-9]+)*|[0-9]+(?:\.[0-9]+)*)/i);
+  return match ? match[0].toUpperCase() : rawKey;
+};
+
+const splitIsoRefs = (refs) => {
+  const normalized = (refs || []).map(extractIsoKeyFromLabel).filter(Boolean);
+  return {
+    clauses: normalized.filter(code => !/^A\./i.test(code)),
+    controls: normalized.filter(code => /^A\./i.test(code)),
+  };
+};
+
+const EMPTY_PROC = {
+  cat: "mgmt",
+  name: "",
+  owner: "",
+  desc: "",
+  isoRefs: [],
+  clauses: [],
+  controls: []
+};
+const EMPTY_DOC = { name:"", type:"procédure", ref:"", status:"en vigueur", fichier: null };
 
 /* ═══════════════════════════════════════════════════════════
    HOOK — liaison backend
@@ -62,6 +238,7 @@ const fromApi = (p) => ({
   name:  p.nom,
   owner: p.responsable,
   desc:  p.description,
+  isoRefs: p.isoReferences || [],
   docs: (p.documents ?? []).map(d => ({
     id:          d.id,
     name:        d.nom,
@@ -114,8 +291,50 @@ export default function CartographieProcessus() {
   const [docModal,  setDocModal]  = useState({ open:false, form:EMPTY_DOC });
   const [mounted,   setMounted]   = useState(false);
   const [saving,    setSaving]    = useState(false);
+  const [clauseOptions, setClauseOptions] = useState([]);
+  const [controlOptions, setControlOptions] = useState([]);
+  const [isoOptionsLoaded, setIsoOptionsLoaded] = useState(false);
 
   useEffect(() => { setTimeout(() => setMounted(true), 60); }, []);
+
+  const extractIsoKey = useCallback((value) => {
+    if (!value) return "";
+    if (typeof value !== "string") value = String(value);
+    const trimmed = value.trim();
+    const parts = trimmed.split(" - ")[0].trim();
+    const match = parts.match(/^(?:A\.[0-9]+(?:\.[0-9]+)*|[0-9]+(?:\.[0-9]+)*)/i);
+    return match ? match[0].toUpperCase() : parts;
+  }, []);
+
+  const normalizeClauseOption = useCallback((clause) => {
+    const number = clause?.number ?? clause?.numero ?? clause?.code ?? clause?.ref ?? clause?.identifiant ?? "";
+    return extractIsoKey(number);
+  }, [extractIsoKey]);
+
+  const normalizeControlOption = useCallback((controle) => {
+    const code = controle?.code ?? controle?.numero ?? controle?.identifiant ?? controle?.ref ?? "";
+    return extractIsoKey(code);
+  }, [extractIsoKey]);
+
+  useEffect(() => {
+    const loadIsoOptions = async () => {
+      try {
+        const [clauses, controles] = await Promise.all([
+          getAllClausesForSelection(),
+          getAllControlesForSelection()
+        ]);
+
+        setClauseOptions(clauses.map(normalizeClauseOption).filter(Boolean));
+        setControlOptions(controles.map(normalizeControlOption).filter(Boolean));
+      } catch (e) {
+        console.error("Impossible de charger les clauses ou contrôles depuis le backend", e);
+      } finally {
+        setIsoOptionsLoaded(true);
+      }
+    };
+
+    loadIsoOptions();
+  }, [normalizeClauseOption, normalizeControlOption]);
 
   useEffect(() => {
     const fn = (e) => {
@@ -130,10 +349,33 @@ export default function CartographieProcessus() {
 
   const selectProc   = (id)  => { setActiveId(id); setPanelOpen(true); };
   const closePanel   = ()    => { setPanelOpen(false); setTimeout(() => setActiveId(null), 350); };
-  const openAddProc  = (cat) => setProcModal({ open:true, editId:null, form:{ ...EMPTY_PROC, cat } });
-  const openEditProc = (id)  => {
+
+  const openAddProc = (cat) => {
+    setProcModal({
+      open: true,
+      editId: null,
+      form: { ...EMPTY_PROC, cat, isoRefs: [], clauses: [], controls: [] }
+    });
+  };
+
+  const openEditProc = (id) => {
     const p = procs.find(x => x.id === id);
-    if (p) setProcModal({ open:true, editId:id, form:{ cat:p.cat, name:p.name, owner:p.owner, desc:p.desc } });
+    if (p) {
+      const { clauses, controls } = splitIsoRefs(p.isoRefs);
+      setProcModal({
+        open: true,
+        editId: id,
+        form: {
+          cat: p.cat,
+          name: p.name,
+          owner: p.owner,
+          desc: p.desc,
+          isoRefs: [...p.isoRefs],
+          clauses,
+          controls
+        }
+      });
+    }
   };
 
   /* ── CRUD Processus ── */
@@ -144,9 +386,18 @@ export default function CartographieProcessus() {
     }
     const { editId, form } = procModal;
     if (!form.name.trim()) return;
+
+    const combinedRefs = [...form.clauses, ...form.controls];
+
     setSaving(true);
     try {
-      const body = { categorie: form.cat, nom: form.name, responsable: form.owner, description: form.desc };
+      const body = {
+        categorie: form.cat,
+        nom: form.name,
+        responsable: form.owner,
+        description: form.desc,
+        isoReferences: combinedRefs,
+      };
       if (editId) await updateProcessus(editId, body);
       else        await createProcessus(body);
       await refresh();
@@ -212,7 +463,6 @@ export default function CartographieProcessus() {
 
   const activeProc = procs.find(p => p.id === activeId) || null;
 
-  /* ── Vérification d'accès ── */
   if (!hasAccess) {
     return (
       <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", gap:12, flexDirection:"column" }}>
@@ -223,7 +473,6 @@ export default function CartographieProcessus() {
     );
   }
 
-  /* ── États chargement / erreur ── */
   if (loading) return (
     <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#4a7a95", fontFamily:"Outfit,sans-serif", gap:12 }}>
       <i className="fa-solid fa-spinner fa-spin" style={{ fontSize:22 }}/>
@@ -243,10 +492,8 @@ export default function CartographieProcessus() {
       <style>{CSS}</style>
       <div className={`cx-root ${mounted?"cx-in":""}`}>
 
-        {/* BACKGROUND blobs */}
         <div className="cx-blob cx-b1"/><div className="cx-blob cx-b2"/><div className="cx-blob cx-b3"/>
 
-        {/* HERO */}
         <div className="cx-hero">
           <div className="cx-badge">
             <span className="cx-dot"/>ISO 27001 · Système de Management
@@ -258,17 +505,14 @@ export default function CartographieProcessus() {
           <p className="cx-lead">Visualisez et gérez l'ensemble de vos processus qualité et sécurité</p>
         </div>
 
-        {/* FLOW */}
         <div className="cx-flow">
           <div className="cx-flow-wrapper">
 
-            {/* Side gauche */}
             <div className="cx-side cx-side-l">
               <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
               <span>Exigences des clients et autres parties intéressées</span>
             </div>
 
-            {/* Layers */}
             <div className="cx-flow-center">
               {["mgmt","real","supp"].map((cat, li) => {
                 const items  = procs.filter(p => p.cat === cat);
@@ -336,7 +580,6 @@ export default function CartographieProcessus() {
               })}
             </div>
 
-            {/* Side droite */}
             <div className="cx-side cx-side-r">
               <span>Satisfaction clients et autres parties intéressées</span>
               <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
@@ -345,7 +588,6 @@ export default function CartographieProcessus() {
           </div>
         </div>
 
-        {/* Legend */}
         <div className="cx-legend">
           {[
             ["#0ea5e9","Management",   "fa-solid fa-building-columns"],
@@ -359,7 +601,7 @@ export default function CartographieProcessus() {
           ))}
           <span className="cx-leg-hint">
             <i className="fa-solid fa-hand-pointer" style={{marginRight:5}}/>
-            Cliquez sur un processus pour gérer ses documents
+            Cliquez sur un processus pour gérer ses documents et voir ses références ISO 27001
           </span>
         </div>
 
@@ -374,6 +616,7 @@ export default function CartographieProcessus() {
             real: "fa-solid fa-bolt",
             supp: "fa-solid fa-screwdriver-wrench",
           };
+          const { clauses, controls } = splitIsoRefs(activeProc.isoRefs);
           return (
             <>
               <div className="cx-ph">
@@ -396,6 +639,57 @@ export default function CartographieProcessus() {
                   <i className="fa-solid fa-circle-info cx-desc-ico"/>
                   {activeProc.desc || "Aucune description."}
                 </div>
+
+                <div className="cx-pb-sh">
+                  <span className="cx-pb-stit">
+                    <i className="fa-regular fa-file-lines cx-sh-ico"/>
+                    Clauses ISO 27001
+                  </span>
+                  <span className="cx-pb-cnt" style={{ color:meta.color }}>{clauses.length}</span>
+                </div>
+                <div className="cx-iso-refs-list">
+                  {clauses.length === 0 ? (
+                    <div className="cx-no-iso">
+                      <i className="fa-regular fa-circle-question"/>
+                      Aucune clause associée
+                    </div>
+                  ) : (
+                    <div className="cx-iso-refs-grid">
+                      {clauses.map(ref => (
+                        <div key={ref} className="cx-iso-ref-badge" style={{ borderLeftColor: meta.color }}>
+                          <i className="fa-solid fa-gavel" style={{ color: meta.color }}/>
+                          <span>{ref}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="cx-pb-sh" style={{ marginTop: 16 }}>
+                  <span className="cx-pb-stit">
+                    <i className="fa-solid fa-shield-halved cx-sh-ico"/>
+                    Contrôles ISO 27001 (Annexe A)
+                  </span>
+                  <span className="cx-pb-cnt" style={{ color:meta.color }}>{controls.length}</span>
+                </div>
+                <div className="cx-iso-refs-list">
+                  {controls.length === 0 ? (
+                    <div className="cx-no-iso">
+                      <i className="fa-regular fa-circle-question"/>
+                      Aucun contrôle associé
+                    </div>
+                  ) : (
+                    <div className="cx-iso-refs-grid">
+                      {controls.map(ref => (
+                        <div key={ref} className="cx-iso-ref-badge" style={{ borderLeftColor: meta.color }}>
+                          <i className="fa-solid fa-check-double" style={{ color: meta.color }}/>
+                          <span>{ref}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="cx-pb-sh">
                   <span className="cx-pb-stit">
                     <i className="fa-solid fa-file-invoice cx-sh-ico"/>
@@ -485,6 +779,41 @@ export default function CartographieProcessus() {
             <Fg label="Description" icon="fa-solid fa-align-left">
               <textarea placeholder="Brève description..." value={procModal.form.desc} onChange={e=>setProcModal(m=>({...m,form:{...m.form,desc:e.target.value}}))}/>
             </Fg>
+
+            <div className="cx-fg">
+              <label className="cx-flbl">
+                <i className="fa-regular fa-file-lines cx-flbl-ico"/>
+                Clauses ISO 27001
+              </label>
+              <IsoMultiSelect
+                items={isoOptionsLoaded && clauseOptions.length > 0 ? clauseOptions : ISO_CLAUSES}
+                selected={procModal.form.clauses}
+                onChange={(newClauses) => setProcModal(m => ({
+                  ...m,
+                  form: { ...m.form, clauses: newClauses }
+                }))}
+                placeholder={isoOptionsLoaded && clauseOptions.length === 0 ? "Aucune clause disponible" : "Aucune clause sélectionnée"}
+                color={CAT_META[procModal.form.cat]?.color || "#0e6073"}
+              />
+            </div>
+
+            <div className="cx-fg">
+              <label className="cx-flbl">
+                <i className="fa-solid fa-shield-halved cx-flbl-ico"/>
+                Contrôles ISO 27001 (Annexe A)
+              </label>
+              <IsoMultiSelect
+                items={isoOptionsLoaded && controlOptions.length > 0 ? controlOptions : ISO_CONTROLS}
+                selected={procModal.form.controls}
+                onChange={(newControls) => setProcModal(m => ({
+                  ...m,
+                  form: { ...m.form, controls: newControls }
+                }))}
+                placeholder={isoOptionsLoaded && controlOptions.length === 0 ? "Aucun contrôle disponible" : "Aucun contrôle sélectionné"}
+                color={CAT_META[procModal.form.cat]?.color || "#0e6073"}
+              />
+            </div>
+
             <div className="cx-modal-ft">
               <button className="cx-btn-cancel" onClick={()=>setProcModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
@@ -548,7 +877,6 @@ export default function CartographieProcessus() {
               </select>
             </Fg>
 
-            {/* ── Champ fichier ── */}
             <Fg label="Fichier (optionnel)" icon="fa-solid fa-paperclip">
               <div
                 className="cx-file-zone"
@@ -617,6 +945,8 @@ function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, canEd
     real: "fa-solid fa-bolt",
     supp: "fa-solid fa-screwdriver-wrench",
   };
+  const { clauses, controls } = splitIsoRefs(proc.isoRefs);
+  const totalIso = clauses.length + controls.length;
   return (
     <div className={`cx-card cx-card-${cat} ${isActive?"cx-card-on":""}`} onClick={onClick}>
       <div className="cx-card-acts">
@@ -640,6 +970,9 @@ function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, canEd
           <i className="fa-solid fa-user cx-own-ico"/> {proc.owner}
         </div>
         <div className={`cx-card-bdg cx-bdg-${cat}`}>
+          <i className="fa-solid fa-shield-halved cx-bdg-ico"/> {totalIso}
+        </div>
+        <div className={`cx-card-bdg cx-bdg-${cat}`}>
           <i className="fa-solid fa-file cx-bdg-ico"/> {proc.docs.length}
         </div>
       </div>
@@ -660,7 +993,7 @@ function Fg({ label, icon, children }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CSS (inchangé)
+   CSS
 ═══════════════════════════════════════════════════════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -782,7 +1115,81 @@ const CSS = `
 .cx-pb-stit { font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4a7a95;display:flex;align-items:center;gap:6px; }
 .cx-sh-ico { font-size:11px; }
 .cx-pb-cnt { font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700; }
-.cx-doc-list { display:flex;flex-direction:column;gap:8px; }
+
+/* ISO REFERENCES (panel) */
+.cx-iso-refs-list { margin-bottom:16px; }
+.cx-no-iso { text-align:center;padding:16px;color:#8fb8cc;font-size:12px;border:1.5px dashed #d6eaf8;border-radius:10px;background:#f9fbfd; }
+.cx-iso-refs-grid { display:flex;flex-wrap:wrap;gap:8px; }
+.cx-iso-ref-badge { display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#f0f7fb;border-left:3px solid;border-radius:0 6px 6px 0;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:500;color:#0d2b3e;transition:all .12s; }
+.cx-iso-ref-badge i { font-size:10px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ISO MULTI SELECT — FIX COMPLET (texte visible dans dropdown)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.cx-iso-selector { position:relative; width:100%; }
+
+.cx-iso-tags { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-height:42px; background:#eaf4fb; border:1.5px solid #d6eaf8; border-radius:10px; padding:8px 12px; transition:border-color .15s; }
+.cx-iso-tags:focus-within { border-color:#0e6073; background:#fff; }
+
+.cx-iso-placeholder { font-size:12px; color:#8fb8cc; }
+
+.cx-iso-tag { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:20px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#0d2b3e; max-width:100%; overflow-wrap:anywhere; border:1px solid transparent; }
+.cx-iso-tag-remove { background:none; border:none; cursor:pointer; font-size:10px; color:#4a7a95; display:inline-flex; align-items:center; padding:2px; border-radius:50%; transition:all .12s; flex-shrink:0; }
+.cx-iso-tag-remove:hover { color:#e74c3c; background:rgba(231,76,60,0.1); }
+
+.cx-iso-add-btn { display:inline-flex; align-items:center; gap:5px; background:transparent; border:1px solid; border-radius:20px; padding:4px 12px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; flex-shrink:0; }
+.cx-iso-add-btn:hover { transform:translateY(-1px); }
+
+.cx-iso-dropdown { position:absolute; top:calc(100% + 6px); left:0; right:0; background:#fff; border:1px solid #aed6f1; border-radius:12px; box-shadow:0 12px 28px rgba(13,43,62,0.15); z-index:200; max-height:320px; display:flex; flex-direction:column; overflow:hidden; }
+
+.cx-iso-search { padding:10px 12px; border-bottom:1px solid #d6eaf8; display:flex; align-items:center; gap:8px; background:#fafdff; flex-shrink:0; }
+.cx-iso-search i { color:#8fb8cc; font-size:12px; flex-shrink:0; }
+.cx-iso-search input { flex:1; min-width:0; border:none; outline:none; background:transparent; font-size:12px; padding:6px 0; font-family:'Outfit',sans-serif; }
+
+.cx-iso-list { overflow-y:auto; flex:1; padding:8px; }
+
+/* ── FIX PRINCIPAL : le <label> doit avoir min-width:0 pour que son enfant flex puisse afficher le texte ── */
+.cx-iso-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .1s;
+  font-size: 12px;
+  width: 100%;
+  min-width: 0;        /* ← CORRECTION CLÉE : empêche le label flex de déborder */
+  box-sizing: border-box;
+}
+.cx-iso-item:hover { background:#eaf4fb; }
+.cx-iso-item.selected { background:#e0f2fe; }
+
+.cx-iso-item input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #0e6073;
+}
+
+/* ── FIX SECONDAIRE : le span texte s'étend et tronque proprement ── */
+.cx-iso-item-value {
+  flex: 1;
+  min-width: 0;        /* ← CORRECTION CLÉE : permet le rétrécissement en flex */
+  color: #0d2b3e;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-iso-empty { padding:20px; text-align:center; color:#8fb8cc; font-size:12px; }
+
+/* DOCUMENTS */
+.cx-doc-list { display:flex; flex-direction:column; gap:8px; }
 .cx-no-doc { text-align:center;padding:22px;color:#8fb8cc;font-size:12px;border:1.5px dashed #d6eaf8;border-radius:10px;line-height:1.9; }
 .cx-no-doc-ico { font-size:26px;display:block;margin-bottom:4px;opacity:.5; }
 .cx-doc-item { display:flex;align-items:center;gap:10px;padding:10px 12px;background:#eaf4fb;border:1px solid #d6eaf8;border-radius:10px;transition:border-color .15s; }
@@ -806,7 +1213,7 @@ const CSS = `
 
 /* MODALS */
 .cx-overlay { position:fixed;inset:0;background:rgba(13,43,62,0.45);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center; }
-.cx-modal { background:#fff;border:1.5px solid #aed6f1;border-radius:20px;width:440px;max-width:92vw;padding:28px;box-shadow:0 32px 80px rgba(13,43,62,0.22);animation:cxPop .22s cubic-bezier(.34,1.56,.64,1);font-family:'Outfit',sans-serif;max-height:90vh;overflow-y:auto; }
+.cx-modal { background:#fff;border:1.5px solid #aed6f1;border-radius:20px;width:520px;max-width:92vw;padding:28px;box-shadow:0 32px 80px rgba(13,43,62,0.22);animation:cxPop .22s cubic-bezier(.34,1.56,.64,1);font-family:'Outfit',sans-serif;max-height:90vh;overflow-y:auto; }
 @keyframes cxPop { from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none} }
 .cx-modal h3 { font-size:17px;font-weight:700;color:#0e6073;margin-bottom:20px;display:flex;align-items:center; }
 .cx-fg { margin-bottom:14px; }

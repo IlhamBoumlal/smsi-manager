@@ -7,12 +7,20 @@ export const getAllProcessus  = ()          => axiosInstance.get(BASE).then(r =>
 export const getProcessusById = (id)        => axiosInstance.get(`${BASE}/${id}`).then(r => r.data);
 
 export const createProcessus  = (body)      => axiosInstance.post(BASE, body).then(r => r.data);
-// body = { categorie, nom, responsable, description }
+// body = { categorie, nom, responsable, description, isoReferences: [] }
 
 export const updateProcessus  = (id, body)  => axiosInstance.put(`${BASE}/${id}`, body).then(r => r.data);
-// body = { categorie, nom, responsable, description }
+// body = { categorie, nom, responsable, description, isoReferences: [] }
 
 export const deleteProcessus  = (id)        => axiosInstance.delete(`${BASE}/${id}`).then(r => r.data);
+
+export const getProcessusDetail = (id)      => axiosInstance.get(`${BASE}/${id}/detail`).then(r => r.data);
+export const getAllClausesForSelection   = () => axiosInstance.get('/api/cartographie/clauses').then(r => r.data);
+export const getAllControlesForSelection = () => axiosInstance.get('/api/cartographie/controles').then(r => r.data);
+export const addClauseToProcessus       = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/clauses`, body).then(r => r.data);
+export const removeClauseFromProcessus  = (processusId, clauseId) => axiosInstance.delete(`${BASE}/${processusId}/clauses/${clauseId}`).then(r => r.data);
+export const addControleToProcessus     = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/controles`, body).then(r => r.data);
+export const removeControleFromProcessus = (processusId, controleId) => axiosInstance.delete(`${BASE}/${processusId}/controles/${controleId}`).then(r => r.data);
 
 export const deleteDocument = (processusId, documentId) =>
   axiosInstance.delete(`${BASE}/${processusId}/documents/${documentId}`).then(r => r.data);

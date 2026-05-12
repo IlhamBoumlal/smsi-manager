@@ -6,5 +6,6 @@ public record ProcessusDto(
     string Nom,
     string Responsable,
     string Description,
+    List<string> IsoReferences,
     List<DocumentDto> Documents
 );

@@ -42,7 +42,7 @@ public class CartographieController : ControllerBase
     [HttpPut("processus/{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProcessusBody body, CancellationToken ct)
     {
-        await _mediator.Send(new UpdateProcessusCommand(id, body.Categorie, body.Nom, body.Responsable, body.Description, CurrentSocieteId), ct);
+        await _mediator.Send(new UpdateProcessusCommand(id, body.Categorie, body.Nom, body.Responsable, body.Description, body.IsoReferences, CurrentSocieteId), ct);
         return NoContent();
     }
 
@@ -50,6 +50,49 @@ public class CartographieController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         await _mediator.Send(new DeleteProcessusCommand(id, CurrentSocieteId), ct);
+        return NoContent();
+    }
+
+    [HttpGet("clauses")]
+    public async Task<IActionResult> GetAllClauses(CancellationToken ct) =>
+        Ok(await _mediator.Send(new GetAllClausesForSelectionQuery(CurrentSocieteId), ct));
+
+    [HttpGet("controles")]
+    public async Task<IActionResult> GetAllControles(CancellationToken ct) =>
+        Ok(await _mediator.Send(new GetAllControlesForSelectionQuery(CurrentSocieteId), ct));
+
+    [HttpGet("processus/{id:guid}/detail")]
+    public async Task<IActionResult> GetDetail(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetProcessusDetailQuery(id, CurrentSocieteId), ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("processus/{processusId:guid}/clauses")]
+    public async Task<IActionResult> AddClause(Guid processusId, [FromBody] AddClauseBody body, CancellationToken ct)
+    {
+        await _mediator.Send(new AddClauseToProcessusCommand(processusId, body.ClauseId, CurrentSocieteId, body.Justification), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("processus/{processusId:guid}/clauses/{clauseId:int}")]
+    public async Task<IActionResult> RemoveClause(Guid processusId, int clauseId, CancellationToken ct)
+    {
+        await _mediator.Send(new RemoveClauseFromProcessusCommand(processusId, clauseId, CurrentSocieteId), ct);
+        return NoContent();
+    }
+
+    [HttpPost("processus/{processusId:guid}/controles")]
+    public async Task<IActionResult> AddControle(Guid processusId, [FromBody] AddControleBody body, CancellationToken ct)
+    {
+        await _mediator.Send(new AddControleToProcessusCommand(processusId, body.ControleId, CurrentSocieteId, body.Justification), ct);
+        return NoContent();
+    }
+
+    [HttpDelete("processus/{processusId:guid}/controles/{controleId:guid}")]
+    public async Task<IActionResult> RemoveControle(Guid processusId, Guid controleId, CancellationToken ct)
+    {
+        await _mediator.Send(new RemoveControleFromProcessusCommand(processusId, controleId, CurrentSocieteId), ct);
         return NoContent();
     }
 
@@ -101,5 +144,7 @@ public class CartographieController : ControllerBase
 }
 
 // Request bodies — déclarés UNE SEULE FOIS, en dehors de la classe
-public record UpdateProcessusBody(string Categorie, string Nom, string Responsable, string Description);
+public record UpdateProcessusBody(string Categorie, string Nom, string Responsable, string Description, List<string> IsoReferences);
+public record AddClauseBody(int ClauseId, string? Justification);
+public record AddControleBody(Guid ControleId, string? Justification);
 public record AddDocumentBody(string Nom, string Type, string Reference, string Statut);

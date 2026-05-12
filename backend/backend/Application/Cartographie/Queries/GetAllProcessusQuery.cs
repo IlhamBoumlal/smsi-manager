@@ -20,7 +20,27 @@ public class GetAllProcessusQueryHandler : IRequestHandler<GetAllProcessusQuery,
     }
 
     private static ProcessusDto ToDto(Processus p) => new(
-        p.Id, p.Categorie, p.Nom, p.Responsable, p.Description,
-        p.Documents.Select(d => new DocumentDto(d.Id, d.Nom, d.Type, d.Reference, d.Statut,d.FichierNom,d.FichierType,!string.IsNullOrEmpty(d.FichierNom))).ToList()
+        p.Id,
+        p.Categorie,
+        p.Nom,
+        p.Responsable,
+        p.Description,
+        BuildIsoReferences(p),
+        p.Documents.Select(d => new DocumentDto(d.Id, d.Nom, d.Type, d.Reference, d.Statut, d.FichierNom, d.FichierType, !string.IsNullOrEmpty(d.FichierNom))).ToList()
     );
+
+    private static List<string> BuildIsoReferences(Processus p)
+    {
+        var references = new List<string>();
+
+        references.AddRange(p.ProcessusClauses
+            .Where(pc => pc.Clause != null)
+            .Select(pc => $"{pc.Clause!.Number} - {pc.Clause!.Title}"));
+
+        references.AddRange(p.ProcessusControles
+            .Where(pc => pc.Controle != null)
+            .Select(pc => $"{pc.Controle!.Code} - {pc.Controle!.Titre}"));
+
+        return references.Distinct().ToList();
+    }
 }

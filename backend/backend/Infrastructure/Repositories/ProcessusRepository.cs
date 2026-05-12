@@ -12,7 +12,13 @@ public class ProcessusRepository : IProcessusRepository
 
     public Task<List<Processus>> GetAllAsync(int? societeId = null, CancellationToken ct = default)
     {
-        var query = _ctx.Processus.Include(p => p.Documents).AsQueryable();
+        var query = _ctx.Processus
+            .Include(p => p.Documents)
+            .Include(p => p.ProcessusClauses)
+                .ThenInclude(pc => pc.Clause)
+            .Include(p => p.ProcessusControles)
+                .ThenInclude(pc => pc.Controle)
+            .AsQueryable();
         query = societeId.HasValue
             ? query.Where(p => p.SocieteId == societeId.Value)
             : query.Where(_ => false);
@@ -21,7 +27,14 @@ public class ProcessusRepository : IProcessusRepository
 
     public Task<Processus?> GetByIdAsync(Guid id, int? societeId = null, CancellationToken ct = default)
     {
-        var query = _ctx.Processus.Include(p => p.Documents).Where(p => p.Id == id).AsQueryable();
+        var query = _ctx.Processus
+            .Include(p => p.Documents)
+            .Include(p => p.ProcessusClauses)
+                .ThenInclude(pc => pc.Clause)
+            .Include(p => p.ProcessusControles)
+                .ThenInclude(pc => pc.Controle)
+            .Where(p => p.Id == id)
+            .AsQueryable();
         query = societeId.HasValue
             ? query.Where(p => p.SocieteId == societeId.Value)
             : query.Where(_ => false);
