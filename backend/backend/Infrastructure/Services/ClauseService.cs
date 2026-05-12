@@ -3,6 +3,7 @@ using System.Text.Json;
 using backend.Infrastructure.Data;
 using Application.DTOs.Clause;
 using backend.Domain.Entities;
+
 namespace backend.Infrastructure.Services
 {
     public class ClauseService : IClauseService
@@ -45,7 +46,10 @@ namespace backend.Infrastructure.Services
 
         private static ActionPlanDto MapActionPlan(ActionPlan ap) => new()
         {
+            // Id (int hashcode) conservé pour les routes :int existantes (update, delete, get).
+            // GuidId expose le vrai Guid — OBLIGATOIRE pour les routes fichiers.
             Id = ap.Id.GetHashCode(),
+            GuidId = ap.GuidId,
             IsoClauseId = ap.IsoClauseId,
             SubClauseId = ap.SubClauseId,
             Reference = ap.Reference,
@@ -263,12 +267,30 @@ namespace backend.Infrastructure.Services
             return plans.Select(MapActionPlan).ToList();
         }
 
-        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId, int? societeId)
+        // Helper interne — lookup par Guid réel (efficace, pas de scan complet)
+        private async Task<ActionPlan?> FindPlanByGuidAsync(Guid guidId, string userId, int? societeId)
         {
-            var ap = await _db.ActionPlans
-                .Where(a => a.Id.Equals(id) && a.UserId == userId)
+            return await _db.ActionPlans
+                .Where(a => a.GuidId == guidId && a.UserId == userId)
                 .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
                 .FirstOrDefaultAsync();
+        }
+
+        // Helper interne — lookup par hashcode int (pour les routes :int héritées)
+        private async Task<ActionPlan?> FindPlanByHashcodeAsync(int id, string userId, int? societeId)
+        {
+            // EF ne peut pas traduire GetHashCode() en SQL → on charge les plans en mémoire.
+            // Pour limiter l'impact, on filtre déjà par userId/societeId en base.
+            var plans = await _db.ActionPlans
+                .Where(a => a.UserId == userId)
+                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+                .ToListAsync();
+            return plans.FirstOrDefault(a => a.Id.GetHashCode() == id);
+        }
+
+        public async Task<ActionPlanDto?> GetActionPlanAsync(int id, string userId, int? societeId)
+        {
+            var ap = await FindPlanByHashcodeAsync(id, userId, societeId);
             return ap is null ? null : MapActionPlan(ap);
         }
 
@@ -283,16 +305,11 @@ namespace backend.Infrastructure.Services
 
         public async Task<ActionPlanDto?> UpdateActionPlanAsync(int id, string userId, int? societeId, UpdateActionPlanDto dto)
         {
-            var ap = await _db.ActionPlans
-                .Where(a => a.Id.Equals(id) && a.UserId == userId)
-                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
-                .FirstOrDefaultAsync();
+            var ap = await FindPlanByHashcodeAsync(id, userId, societeId);
             if (ap is null) return null;
             ApplyDto(ap, dto);
             if (!ap.SocieteId.HasValue && societeId.HasValue)
-            {
                 ap.SocieteId = societeId;
-            }
             ap.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return MapActionPlan(ap);
@@ -300,10 +317,7 @@ namespace backend.Infrastructure.Services
 
         public async Task<bool> DeleteActionPlanAsync(int id, string userId, int? societeId)
         {
-            var ap = await _db.ActionPlans
-                .Where(a => a.Id.Equals(id) && a.UserId == userId)
-                .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
-                .FirstOrDefaultAsync();
+            var ap = await FindPlanByHashcodeAsync(id, userId, societeId);
             if (ap is null) return false;
             _db.ActionPlans.Remove(ap);
             await _db.SaveChangesAsync();
@@ -344,11 +358,8 @@ namespace backend.Infrastructure.Services
 
                 var totalSubs = subClauses.Count;
                 var conformeSubs = subConformityDict.Count(x => x.Value.Status == "conforme");
-
-                // Score = sous-clauses conformes / total toutes sous-clauses (y compris non évaluées)
                 var computedScore = totalSubs > 0 ? (int)Math.Round((double)conformeSubs / totalSubs * 100) : 0;
                 var isFullyCompliant = totalSubs > 0 && conformeSubs == totalSubs;
-
                 var plans = actionPlans.Where(ap => ap.IsoClauseId == c.Id).ToList();
 
                 return new ClauseDashboardDto
@@ -378,21 +389,12 @@ namespace backend.Infrastructure.Services
                 .Where(ap => societeId.HasValue ? ap.SocieteId == societeId.Value || ap.SocieteId == null : ap.SocieteId == null)
                 .ToListAsync();
 
-            var totalClauses = await _db.IsoClauses
-                .CountAsync(c => c.ParentId == null);
-
-            // Nombre total de sous-clauses dans le référentiel (évaluées ou non)
-            var totalSubClauses = await _db.IsoClauses
-                .CountAsync(c => c.ParentId != null);
-
-            // Nombre de sous-clauses évaluées "conforme" pour cet utilisateur
+            var totalClauses = await _db.IsoClauses.CountAsync(c => c.ParentId == null);
+            var totalSubClauses = await _db.IsoClauses.CountAsync(c => c.ParentId != null);
             var conformeSubClauses = conformities.Count(c => c.Status == "conforme");
-
-            // Taux de conformité = sous-clauses conformes / toutes les sous-clauses
             var averageConformity = totalSubClauses > 0
                 ? Math.Round((double)conformeSubClauses / totalSubClauses * 100, 1)
                 : 0;
-
             var now = DateTime.UtcNow;
 
             return new GlobalStatsDto
@@ -410,6 +412,7 @@ namespace backend.Infrastructure.Services
                                         && p.DateEcheanceGlobale < now),
             };
         }
+
         // ── CONFIGURATION ─────────────────────────────────────────────────────
         private const long MaxFileBytes = 20 * 1024 * 1024; // 20 Mo
 
@@ -421,7 +424,7 @@ namespace backend.Infrastructure.Services
             ".zip", ".rar", ".7z",
         };
 
-        // ── MAPPER ────────────────────────────────────────────────────────────
+        // ── MAPPER FICHIER ────────────────────────────────────────────────────
 
         private static FileAttachmentDto MapFile(FileAttachment f) => new()
         {
@@ -431,7 +434,6 @@ namespace backend.Infrastructure.Services
             FileSize = f.FileSize,
             Description = f.Description,
             UploadedAt = f.UploadedAt.ToString("yyyy-MM-dd HH:mm"),
-            // URL de téléchargement — le contenu est servi par le contrôleur
             DownloadUrl = $"/api/clauses/files/{f.Id}/download",
         };
 
@@ -451,14 +453,11 @@ namespace backend.Infrastructure.Services
         {
             if (file is null || file.Length == 0)
                 throw new InvalidOperationException("Fichier vide ou manquant.");
-
             if (file.Length > MaxFileBytes)
                 throw new InvalidOperationException("Fichier trop volumineux (max 20 Mo).");
-
             var ext = Path.GetExtension(file.FileName);
             if (!AllowedExtensions.Contains(ext))
                 throw new InvalidOperationException($"Extension non autorisée : {ext}");
-
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
             return ms.ToArray();
@@ -474,7 +473,6 @@ namespace backend.Infrastructure.Services
                 .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
-
             return proofs.Select(MapProof).ToList();
         }
 
@@ -506,7 +504,6 @@ namespace backend.Infrastructure.Services
         public async Task<FileAttachmentDto> UploadConformityProofFileAsync(
             int proofId, string userId, int? societeId, IFormFile file, string? description)
         {
-            // Vérifier que la preuve appartient à cet utilisateur
             var proof = await _db.ConformityProofs
                 .Where(p => p.Id == proofId && p.UserId == userId)
                 .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
@@ -524,7 +521,7 @@ namespace backend.Infrastructure.Services
                 ContentType = file.ContentType,
                 FileSize = file.Length,
                 Description = description,
-                Content = content,        // ← stocké en base
+                Content = content,
                 UploadedAt = DateTime.UtcNow,
             };
 
@@ -540,21 +537,24 @@ namespace backend.Infrastructure.Services
                 .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
                 .FirstOrDefaultAsync();
             if (f is null) return false;
-
             _db.FileAttachments.Remove(f);
             await _db.SaveChangesAsync();
             return true;
         }
 
         // ── ACTION PLAN DOCUMENTS ─────────────────────────────────────────────
+        // Ces méthodes reçoivent le vrai Guid du plan (ActionPlanDto.GuidId),
+        // ce qui garantit la correspondance avec ActionPlan.Id en base.
 
-        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId, int? societeId)
+        public async Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(Guid planGuidId, string userId, int? societeId)
         {
+            var plan = await FindPlanByGuidAsync(planGuidId, userId, societeId);
+            if (plan is null) return new();
+
             var files = await _db.FileAttachments
-                .Where(f => f.ActionPlanId == planId && f.UserId == userId)
+                .Where(f => f.ActionPlanId == plan.Id && f.UserId == userId)
                 .Where(f => societeId.HasValue ? f.SocieteId == societeId.Value || f.SocieteId == null : f.SocieteId == null)
                 .OrderByDescending(f => f.UploadedAt)
-                // On ne charge PAS Content ici pour éviter de ramener des Mo inutilement
                 .Select(f => new FileAttachment
                 {
                     Id = f.Id,
@@ -565,7 +565,7 @@ namespace backend.Infrastructure.Services
                     FileSize = f.FileSize,
                     Description = f.Description,
                     UploadedAt = f.UploadedAt,
-                    Content = Array.Empty<byte>(), // non chargé
+                    Content = Array.Empty<byte>(),
                 })
                 .ToListAsync();
 
@@ -573,12 +573,9 @@ namespace backend.Infrastructure.Services
         }
 
         public async Task<FileAttachmentDto> UploadActionPlanFileAsync(
-            int planId, string userId, int? societeId, IFormFile file, string? description)
+            Guid planGuidId, string userId, int? societeId, IFormFile file, string? description)
         {
-            var plan = await _db.ActionPlans
-                .Where(p => p.Id.Equals(planId) && p.UserId == userId)
-                .Where(p => societeId.HasValue ? p.SocieteId == societeId.Value || p.SocieteId == null : p.SocieteId == null)
-                .FirstOrDefaultAsync()
+            var plan = await FindPlanByGuidAsync(planGuidId, userId, societeId)
                 ?? throw new KeyNotFoundException("Plan d'action introuvable.");
 
             var content = await ReadAndValidateAsync(file);
@@ -587,12 +584,12 @@ namespace backend.Infrastructure.Services
             {
                 UserId = userId,
                 SocieteId = plan.SocieteId,
-                ActionPlanId = planId,
+                ActionPlanId = plan.Id,
                 OriginalName = Path.GetFileName(file.FileName),
                 ContentType = file.ContentType,
                 FileSize = file.Length,
                 Description = description,
-                Content = content,             // ← stocké en base
+                Content = content,
                 UploadedAt = DateTime.UtcNow,
             };
 
@@ -608,14 +605,12 @@ namespace backend.Infrastructure.Services
                 .Where(x => societeId.HasValue ? x.SocieteId == societeId.Value || x.SocieteId == null : x.SocieteId == null)
                 .FirstOrDefaultAsync();
             if (f is null) return false;
-
             _db.FileAttachments.Remove(f);
             await _db.SaveChangesAsync();
             return true;
         }
 
         // ── DOWNLOAD ─────────────────────────────────────────────────────────
-        // Charge uniquement la ligne demandée, avec le contenu binaire.
 
         public async Task<(byte[] content, string contentType, string fileName)?> DownloadFileAsync(
             int fileId, string userId, int? societeId)
@@ -626,9 +621,7 @@ namespace backend.Infrastructure.Services
                 .FirstOrDefaultAsync();
 
             if (f is null || f.Content.Length == 0) return null;
-
             return (f.Content, f.ContentType, f.OriginalName);
         }
-
     }
 }

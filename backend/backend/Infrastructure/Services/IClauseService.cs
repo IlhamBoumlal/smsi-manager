@@ -28,12 +28,12 @@ namespace backend.Infrastructure.Services
         Task<bool> DeleteActionPlanAsync(int id, string userId, int? societeId);
 
         // ── ACTION PLAN DOCUMENTS ─────────────────────────────────────────────
-        Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(int planId, string userId, int? societeId);
-        Task<FileAttachmentDto> UploadActionPlanFileAsync(int planId, string userId, int? societeId, IFormFile file, string? description);
+        // IMPORTANT : planGuidId = ActionPlanDto.GuidId (le vrai Guid, pas le hashcode int)
+        Task<List<FileAttachmentDto>> GetActionPlanFilesAsync(Guid planGuidId, string userId, int? societeId);
+        Task<FileAttachmentDto> UploadActionPlanFileAsync(Guid planGuidId, string userId, int? societeId, IFormFile file, string? description);
         Task<bool> DeleteActionPlanFileAsync(int fileId, string userId, int? societeId);
 
         // ── DOWNLOAD ─────────────────────────────────────────────────────────
-        // Contenu binaire lu depuis la base — pas de système de fichiers.
         Task<(byte[] content, string contentType, string fileName)?> DownloadFileAsync(int fileId, string userId, int? societeId);
 
         // ── DASHBOARD ─────────────────────────────────────────────────────────

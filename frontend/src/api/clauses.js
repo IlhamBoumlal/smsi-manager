@@ -27,7 +27,6 @@ export const uploadConformityProofFile = (proofId, file, description, onProgress
   fd.append('file', file);
   if (description) fd.append('description', description);
   return axiosInstance.post(`${API}/proofs/${proofId}/files`, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: e => onProgress?.(Math.round((e.loaded * 100) / e.total)),
   }).then(r => r.data);
 };
@@ -51,7 +50,6 @@ export const uploadActionPlanFile = (planId, file, description, onProgress) => {
   fd.append('file', file);
   if (description) fd.append('description', description);
   return axiosInstance.post(`${API}/plans/${planId}/files`, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: e => onProgress?.(Math.round((e.loaded * 100) / e.total)),
   }).then(r => r.data);
 };
@@ -85,4 +83,22 @@ export const downloadFile = async (fileId, fileName) => {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+};
+
+// Ouvrir un fichier dans un nouvel onglet (pour les PDF, images, etc.)
+export const openFile = async (fileId, fileName) => {
+  const response = await axiosInstance.get(
+    `${API}/files/${fileId}/download`,
+    { responseType: 'blob' }
+  );
+
+  const contentType = response.headers['content-type'] || 'application/octet-stream';
+  const blob = new Blob([response.data], { type: contentType });
+  const url = window.URL.createObjectURL(blob);
+  
+  // Ouvrir dans un nouvel onglet
+  const newTab = window.open();
+  newTab.document.body.innerHTML = `<iframe src="${url}" style="width:100%;height:100%;border:none;" />`;
+  // Optionnel : défaire après fermeture
+  setTimeout(() => window.URL.revokeObjectURL(url), 100);
 };

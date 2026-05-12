@@ -72,6 +72,7 @@ namespace Application.DTOs.Clause
     public class ActionPlanDto
     {
         public int Id { get; set; }
+        public Guid GuidId { get; set; }
         public int IsoClauseId { get; set; }
 
         // ── NOUVEAU : référence à la sous-clause concernée ────────────────────

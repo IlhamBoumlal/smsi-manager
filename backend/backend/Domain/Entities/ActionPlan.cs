@@ -5,6 +5,7 @@ namespace backend.Domain.Entities
     public class ActionPlan
     {
         public int Id { get; set; }
+        public Guid GuidId { get; set; } = Guid.NewGuid();
         public int IsoClauseId { get; set; }
         public int? SocieteId { get; set; }
 

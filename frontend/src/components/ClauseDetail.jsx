@@ -13,14 +13,15 @@ import {
   faRotateRight, faFlag, faChevronUp, faExclamationTriangle,
   faLock, faShield, faFire,
   faUpload, faFileAlt, faDownload, faFilePdf, faFileWord,
-  faFileExcel, faFileImage, faFileArchive, faXmark,
+  faFileExcel, faFileImage, faFileArchive, faXmark, faFolderOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   getClause, getConformity, upsertConformity,
   getActionPlans, createActionPlan, updateActionPlan, deleteActionPlan,
+  getActionPlanFiles,
   getConformityProofs, upsertConformityProof,
   uploadConformityProofFile, deleteConformityProofFile,
-  uploadActionPlanFile, deleteActionPlanFile, downloadFile,
+  uploadActionPlanFile, deleteActionPlanFile, downloadFile, openFile,
 } from "../api/clauses";
 
 /* ════════════════════════════════════════════════════════════
@@ -137,7 +138,18 @@ function toHybridItems(arr) {
 function fromHybridItems(items=[]) {
   return items
     .filter(i => !i.uploading)
-    .map(i => i.value);
+    .map(i => i?.value)
+    .filter(Boolean);
+}
+function fromHybridPieces(items=[]) {
+  return items
+    .filter(i => !i.uploading)
+    .map(i => ({
+      nom: i?.value || "",
+      type: i?.type === "file" ? (i.contentType || "fichier") : "reference",
+      dateAjout: new Date().toISOString().split("T")[0],
+    }))
+    .filter(p => p.nom);
 }
 function emptyPlan(clauseId, clauseNumber, subClauseId=null) {
   return {
@@ -177,47 +189,55 @@ function formToApiDto(form) {
   return {
     ...form,
     preuvesImmediates:    fromHybridItems(form.preuvesImmediates),
-    methodesVerification: fromHybridItems(form.methodesVerification),
-    piecesJointes:        fromHybridItems(form.piecesJointes),
+    methodesVerification: [],
+    piecesJointes:        fromHybridPieces(form.piecesJointes),
     documentAProduire:    form.documentAProduire?.ref || "",
   };
 }
-async function flushPendingFiles(planId, form, setForm) {
+async function flushPendingFiles(planGuidId, form) {
   const listKeys = [
     { key:"preuvesImmediates",    label:"Preuve action immédiate" },
-    { key:"methodesVerification", label:"Méthode de vérification" },
     { key:"piecesJointes",        label:"Pièce jointe" },
   ];
-  const patch = {};
+  let hadPending = false;
+  
   for (const {key, label} of listKeys) {
-    const items = [...(form[key]||[])];
-    for (let i=0; i<items.length; i++) {
-      if (items[i].pendingFile) {
+    const items = form[key] || [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item && typeof item === "object" && item.pendingFile) {
+        hadPending = true;
         try {
-          const saved = await uploadActionPlanFile(planId, items[i].pendingFile, label);
-          items[i] = { type:"file", value:saved.originalName, fileId:saved.id, downloadUrl:saved.downloadUrl, contentType:saved.contentType, fileSize:saved.fileSize };
-        } catch { /* keep as text */ }
+          const saved = await uploadActionPlanFile(planGuidId, item.pendingFile, label);
+          item.fileId = saved?.id;
+          item.value = saved?.originalName;
+          delete item.pendingFile;
+          item.uploading = false;
+        } catch(e) { console.error(`❌ flush ${key} error:`, e); }
       }
     }
-    patch[key] = items;
   }
   if (form.documentAProduire?.file?.pendingFile) {
+    hadPending = true;
     try {
-      const saved = await uploadActionPlanFile(planId, form.documentAProduire.file.pendingFile, "Document à produire");
-      patch.documentAProduire = { ...form.documentAProduire, file:{ fileId:saved.id, downloadUrl:saved.downloadUrl, originalName:saved.originalName, contentType:saved.contentType, fileSize:saved.fileSize } };
-    } catch { /* keep ref only */ }
+      const saved = await uploadActionPlanFile(planGuidId, form.documentAProduire.file.pendingFile, "Document à produire");
+      form.documentAProduire.file.fileId = saved?.id;
+      form.documentAProduire.file.originalName = saved?.originalName;
+      delete form.documentAProduire.file.pendingFile;
+    } catch(e) { console.error("❌ flush doc error:", e); }
   }
-  return patch;
+  return hadPending;
 }
+
 
 /* ════════════════════════════════════════════════════════════
    HYBRID LIST FIELD
 ════════════════════════════════════════════════════════════ */
-function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, accentColor, label, labelStyle }) {
+function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, accentColor, label, labelStyle, uploadOnly = false }) {
   const items = Array.isArray(itemsProp) ? itemsProp : [];
 
-  const itemsRef = useRef(items);
-  useEffect(() => { itemsRef.current = items; }, [items]);
+  const latestItems = useRef(items);
+  latestItems.current = items;
 
   const [text, setText]         = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -225,53 +245,64 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
 
   const addText = () => {
     if (!text.trim()) return;
-    onChange([...itemsRef.current, { type:"text", value:text.trim() }]);
+    onChange([...latestItems.current, { type:"text", value:text.trim() }]);
     setText("");
   };
 
   const handleFile = async (file) => {
-    const tempId = `tmp-${Date.now()}`;
-
-    const withPlaceholder = [...itemsRef.current, {
+    const tempId = `tmp-${Date.now()}-${Math.random()}`;
+    const listAtClick = latestItems.current;
+    const withPlaceholder = [...listAtClick, {
       type:"file", value:file.name, tempId,
       uploading:true, progress:0,
       contentType:file.type, fileSize:file.size,
     }];
     onChange(withPlaceholder);
 
+    const replaceTempWith = (replacement) => {
+      const newItems = latestItems.current.map(i => i.tempId === tempId ? replacement : i);
+      onChange(newItems);
+    };
+    const removeTemp = () => {
+      onChange(latestItems.current.filter(i => i.tempId !== tempId));
+    };
+
     try {
       if (onFileAdd) {
         const saved = await onFileAdd(file, (pct) => {
-          const updated = itemsRef.current.map(i =>
+          onChange(latestItems.current.map(i =>
             i.tempId === tempId ? { ...i, progress: pct } : i
-          );
-          onChange(updated);
+          ));
         });
-        const withSaved = itemsRef.current.map(i =>
-          i.tempId === tempId
-            ? { type:"file", value:saved.originalName, fileId:saved.id,
-                downloadUrl:saved.downloadUrl, contentType:saved.contentType,
-                fileSize:saved.fileSize }
-            : i
-        );
-        onChange(withSaved);
+
+        if (saved === null) {
+          const newItem = {
+            type:"file", value:file.name, pendingFile:file,
+            contentType:file.type, fileSize:file.size, uploading:false,
+          };
+          replaceTempWith(newItem);
+        } else {
+          replaceTempWith({
+            type:"file", value:saved.originalName, fileId:saved.id,
+            downloadUrl:saved.downloadUrl, contentType:saved.contentType,
+            fileSize:saved.fileSize, uploading:false,
+          });
+        }
       } else {
-        const withPending = itemsRef.current.map(i =>
-          i.tempId === tempId
-            ? { type:"file", value:file.name, pendingFile:file,
-                contentType:file.type, fileSize:file.size, uploading:false }
-            : i
-        );
-        onChange(withPending);
+        replaceTempWith({
+          type:"file", value:file.name, pendingFile:file,
+          contentType:file.type, fileSize:file.size, uploading:false,
+        });
       }
-    } catch {
-      onChange(itemsRef.current.filter(i => i.tempId !== tempId));
+    } catch(err) {
+      console.error("Erreur upload fichier:", err);
+      removeTemp();
     }
   };
 
   const remove = (idx) => {
-    const item = items[idx];
-    onChange(items.filter((_,i) => i!==idx), item);
+    const item = latestItems.current[idx];
+    onChange(latestItems.current.filter((_,i) => i!==idx), item);
   };
 
   return (
@@ -283,7 +314,7 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
           {items.map((item,idx) => {
             const fi = item.type==="file" ? fileIconInfo(item.contentType||"", item.value) : null;
             return (
-              <div key={idx} style={{
+              <div key={item.tempId || item.fileId || idx} style={{
                 display:"flex", alignItems:"center", gap:8,
                 padding:"8px 12px", borderRadius:8,
                 background: item.type==="file" ? "#F8FAFC" : "#FAFBFC",
@@ -308,13 +339,22 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
                       }
                     </div>
                     {!item.uploading && item.fileId && (
-                      <button onClick={()=>downloadFile(item.fileId, item.value)}
-                        style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,transition:"all .15s",outline:"none"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
-                      >
-                        <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/> DL
-                      </button>
+                      <>
+                        <button onClick={()=>downloadFile(item.fileId, item.value)}
+                          style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,transition:"all .15s",outline:"none"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
+                        >
+                          <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/> DL
+                        </button>
+                        <button onClick={()=>openFile(item.fileId, item.value)}
+                          style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,transition:"all .15s",outline:"none"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
+                        >
+                          <FontAwesomeIcon icon={faFolderOpen} style={{fontSize:8}}/> Voir
+                        </button>
+                      </>
                     )}
                   </>
                 ) : (
@@ -323,7 +363,7 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
                     <span style={{flex:1,fontSize:11,color:"#374151"}}>{item.value}</span>
                   </>
                 )}
-                <button onClick={()=>remove(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#CBD5E1",fontSize:13,padding:0,flexShrink:0,transition:"color .15s"}}
+                <button type="button" onClick={()=>remove(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#CBD5E1",fontSize:13,padding:0,flexShrink:0,transition:"color .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.color="#F87171"}
                   onMouseLeave={e=>e.currentTarget.style.color="#CBD5E1"}
                 ><FontAwesomeIcon icon={faXmark}/></button>
@@ -336,40 +376,54 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
       <div style={{
         display:"flex", gap:6, alignItems:"center",
         padding:"5px 8px", borderRadius:9,
-        border:`1.5px dashed ${dragOver ? accentColor : "#CBD5E1"}`,
+        border: uploadOnly ? `1px solid ${accentColor}33` : `1.5px dashed ${dragOver ? accentColor : "#CBD5E1"}`,
         background: dragOver ? `${accentColor}06` : "#FAFBFC",
+        cursor: uploadOnly ? "pointer" : "default",
         transition:"all .2s",
       }}
-        onDragOver={e=>{e.preventDefault();setDragOver(true);}}
-        onDragLeave={()=>setDragOver(false)}
-        onDrop={e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f)handleFile(f);}}
+        {...(uploadOnly ? {
+          onClick: () => fileRef.current?.click(),
+          onDragOver: e=>{e.preventDefault();setDragOver(true);},
+          onDragLeave: ()=>setDragOver(false),
+          onDrop: e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f)handleFile(f);},
+        } : {
+          onDragOver: e=>{e.preventDefault();setDragOver(true);},
+          onDragLeave: ()=>setDragOver(false),
+          onDrop: e=>{e.preventDefault();setDragOver(false);const f=e.dataTransfer.files[0];if(f)handleFile(f);},
+        })}
       >
-        <input
-          value={text}
-          onChange={e=>setText(e.target.value)}
-          onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addText();}}}
-          placeholder={dragOver ? "Déposez le fichier ici…" : placeholder}
-          style={{flex:1,border:"none",background:"transparent",fontSize:11,outline:"none",color:"#374151",fontFamily:"inherit",minWidth:0,padding:"4px 2px"}}
-        />
-        <button onClick={addText} title="Ajouter référence texte (Entrée)"
-          style={{padding:"4px 10px",borderRadius:7,border:"none",background:text.trim()?accentColor:"#E4E8F0",color:text.trim()?"#fff":"#94A3B8",fontWeight:700,fontSize:11,cursor:text.trim()?"pointer":"default",display:"flex",alignItems:"center",gap:3,flexShrink:0,transition:"all .15s"}}>
-          <FontAwesomeIcon icon={faPlus} style={{fontSize:9}}/>
-        </button>
-        <button onClick={()=>fileRef.current?.click()} title="Importer un fichier"
-          style={{padding:"4px 10px",borderRadius:7,border:`1px solid ${accentColor}44`,background:`${accentColor}0d`,color:accentColor,fontWeight:600,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,transition:"all .15s",whiteSpace:"nowrap"}}
+        {!uploadOnly && (
+          <>
+            <input
+              value={text}
+              onChange={e=>setText(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addText();}}}
+              placeholder={dragOver ? "Déposez le fichier ici…" : placeholder}
+              style={{flex:1,border:"none",background:"transparent",fontSize:11,outline:"none",color:"#374151",fontFamily:"inherit",minWidth:0,padding:"4px 2px"}}
+            />
+            <button type="button" onClick={addText} title="Ajouter référence texte (Entrée)"
+              style={{padding:"4px 10px",borderRadius:7,border:"none",background:text.trim()?accentColor:"#E4E8F0",color:text.trim()?"#fff":"#94A3B8",fontWeight:700,fontSize:11,cursor:text.trim()?"pointer":"default",display:"flex",alignItems:"center",gap:3,flexShrink:0,transition:"all .15s"}}>
+              <FontAwesomeIcon icon={faPlus} style={{fontSize:9}}/>
+            </button>
+          </>
+        )}
+        <button type="button" onClick={(e)=>{e.preventDefault();e.stopPropagation();fileRef.current?.click();}} title="Importer un fichier"
+          style={{padding:uploadOnly ? "8px 12px" : "4px 10px",borderRadius:7,border:`1px solid ${accentColor}44`,background:`${accentColor}0d`,color:accentColor,fontWeight:700,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,flexShrink:0,transition:"all .15s",whiteSpace:"nowrap",width:uploadOnly ? "100%" : "auto"}}
           onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
           onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
         >
-          <FontAwesomeIcon icon={faUpload} style={{fontSize:9}}/> Fichier
+          <FontAwesomeIcon icon={faUpload} style={{fontSize:9}}/> Importer un fichier
         </button>
         <input ref={fileRef} type="file" style={{display:"none"}}
           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.zip"
           onChange={e=>{const f=e.target.files?.[0];if(f){handleFile(f);e.target.value="";}}}
         />
       </div>
-      <p style={{fontSize:9,color:"#94A3B8",margin:"4px 0 0 2px"}}>
-        Tapez puis Entrée pour ajouter une référence, ou cliquez sur <strong>Fichier</strong> / glissez un document.
-      </p>
+      {!uploadOnly && (
+        <p style={{fontSize:9,color:"#94A3B8",margin:"4px 0 0 2px"}}>
+          Tapez puis Entrée pour ajouter une référence, ou cliquez sur <strong>Fichier</strong> / glissez un document.
+        </p>
+      )}
     </div>
   );
 }
@@ -387,11 +441,15 @@ function DocumentField({ value={}, onChange, onFileAdd, onFileRemove, accentColo
     try {
       if (onFileAdd) {
         const saved = await onFileAdd(file, setProgress);
-        onChange({ ...value, file:{ fileId:saved.id, downloadUrl:saved.downloadUrl, originalName:saved.originalName, contentType:saved.contentType, fileSize:saved.fileSize } });
+        if (saved === null) {
+          onChange({ ...value, file:{ pendingFile:file, originalName:file.name, contentType:file.type, fileSize:file.size } });
+        } else {
+          onChange({ ...value, file:{ fileId:saved.id, downloadUrl:saved.downloadUrl, originalName:saved.originalName, contentType:saved.contentType, fileSize:saved.fileSize } });
+        }
       } else {
         onChange({ ...value, file:{ pendingFile:file, originalName:file.name, contentType:file.type, fileSize:file.size } });
       }
-    } catch { /* noop */ }
+    } catch(err) { console.error("Erreur upload document:", err); }
     finally { setUploading(false); setProgress(0); }
   };
 
@@ -450,13 +508,22 @@ function DocumentField({ value={}, onChange, onFileAdd, onFileRemove, accentColo
             </div>
           </div>
           {value.file.fileId && (
-            <button onClick={()=>downloadFile(value.file.fileId, value.file.originalName)}
-              style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,outline:"none"}}
-              onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
-              onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
-            >
-              <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/> DL
-            </button>
+            <>
+              <button onClick={()=>downloadFile(value.file.fileId, value.file.originalName)}
+                style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,outline:"none"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
+                onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
+              >
+                <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/> DL
+              </button>
+              <button onClick={()=>openFile(value.file.fileId, value.file.originalName)}
+                style={{padding:"3px 8px",borderRadius:5,border:`1px solid ${accentColor}33`,background:`${accentColor}0d`,color:accentColor,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,outline:"none"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=accentColor;e.currentTarget.style.color="#fff";}}
+                onMouseLeave={e=>{e.currentTarget.style.background=`${accentColor}0d`;e.currentTarget.style.color=accentColor;}}
+              >
+                <FontAwesomeIcon icon={faFolderOpen} style={{fontSize:8}}/> Voir
+              </button>
+            </>
           )}
           <button onClick={removeFile} style={{background:"none",border:"none",cursor:"pointer",color:"#CBD5E1",fontSize:13,padding:0,flexShrink:0,transition:"color .15s"}}
             onMouseEnter={e=>e.currentTarget.style.color="#F87171"}
@@ -525,6 +592,14 @@ function ConformityProofPanel({ sub, meta, proofs, onProofUploaded, onProofFileD
                   onMouseLeave={e=>{e.currentTarget.style.background="#DCFCE7";e.currentTarget.style.color="#16A34A";}}
                 >
                   <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/> DL
+                </button>
+                <button onClick={()=>openFile(f.id, f.originalName)}
+                  style={{padding:"3px 8px",borderRadius:5,border:"1px solid #BBF7D0",background:"#F0FDF4",color:"#15803D",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0,transition:"all .15s",outline:"none"}}
+                  onMouseEnter={e=>{e.currentTarget.style.background="#15803D";e.currentTarget.style.color="#fff";}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="#F0FDF4";e.currentTarget.style.color="#15803D";}}
+                  title="Ouvrir dans un nouvel onglet"
+                >
+                  <FontAwesomeIcon icon={faMagnifyingGlass} style={{fontSize:8}}/> Voir
                 </button>
                 <button onClick={()=>handleDelete(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#CBD5E1",fontSize:13,padding:0,transition:"color .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.color="#F87171"}
@@ -670,7 +745,7 @@ function StepRow({ step, index, meta, onStatusChange, onDelete }) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   ENJEUX TABLE (CORRIGÉE)
+   ENJEUX TABLE
 ════════════════════════════════════════════════════════════ */
 function EnjeuxTable({ title, data, onChange, meta }) {
   const [nr, setNr]=useState({domaine:"",enjeu:"",niveauImpact:"moyen",mesureAssociee:""});
@@ -763,14 +838,30 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
   const [newCause, setNewCause]= useState("");
 
   const isExisting   = !!plan?.id;
-  const makeFileAdder = isExisting
-    ? (fieldLabel) => async (file, onProgress) => {
-        const saved = await uploadActionPlanFile(plan.id, file, fieldLabel, onProgress);
+  
+  const makeFileAdder = (fieldLabel) => async (file, onProgress) => {
+    if (isExisting && plan?.guidId) {
+      try {
+        const saved = await uploadActionPlanFile(plan.guidId, file, fieldLabel, onProgress);
         return saved;
+      } catch (error) {
+        console.error(`Erreur upload pour ${fieldLabel}:`, error);
+        throw error;
       }
-    : null;
+    } else {
+      if (onProgress) {
+        onProgress(40);
+        await new Promise(r => setTimeout(r, 80));
+        onProgress(100);
+      }
+      return null;
+    }
+  };
+
   const handleRemoveFile = async (fileId) => {
-    if (fileId) { try { await deleteActionPlanFile(fileId); } catch {} }
+    if (fileId) { 
+      try { await deleteActionPlanFile(fileId); } catch(e) { console.error("Erreur suppression fichier:", e); }
+    }
   };
 
   const clauseNum = parseInt(clauseNumber);
@@ -809,7 +900,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
       onClick={e=>{if(e.target===e.currentTarget)onCancel();}}>
       <div style={{marginLeft:"auto",width:"min(820px,96vw)",background:"#F8FAFC",display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",boxShadow:"-32px 0 80px rgba(0,0,0,.25)",animation:"panelSlideIn .35s cubic-bezier(.34,1.05,.64,1)"}}>
 
-        {/* HEADER */}
         <div style={{padding:"22px 28px 0",background:`linear-gradient(135deg,${meta.grad[0]},${meta.grad[1]})`,flexShrink:0,position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",inset:0,opacity:.06,backgroundImage:`url("data:image/svg+xml,%3Csvg width='40' height='46' viewBox='0 0 40 46' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 1L38.66 11.5V32.5L20 43L1.34 32.5V11.5L20 1Z' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,backgroundSize:"40px 46px"}}/>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18,position:"relative"}}>
@@ -843,10 +933,8 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
           </div>
         )}
 
-        {/* BODY */}
         <div style={{flex:1,overflowY:"auto",padding:"22px 28px",scrollbarWidth:"thin",scrollbarColor:"#D1D5DB transparent"}}>
 
-          {/* ── TAB 1 : IDENTIFICATION ── */}
           {tab===0&&(
             <div style={{display:"flex",flexDirection:"column",gap:18,animation:"tabFadeIn .2s ease"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
@@ -914,7 +1002,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
             </div>
           )}
 
-          {/* ── TAB 2 : ACTION IMMÉDIATE ── */}
           {tab===1&&(
             <div style={{display:"flex",flexDirection:"column",gap:16,animation:"tabFadeIn .2s ease"}}>
               <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:12,padding:"14px 18px",display:"flex",gap:10,alignItems:"flex-start"}}>
@@ -937,7 +1024,8 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
                 items={form.preuvesImmediates}
                 placeholder="Référence texte (ex: Email 15/02/2026) ou importez un fichier…"
                 accentColor={meta.color}
-                onFileAdd={makeFileAdder?.("Preuve action immédiate")}
+                uploadOnly
+                onFileAdd={makeFileAdder("Preuve action immédiate")}
                 onChange={(newItems, removed) => {
                   if (removed?.type==="file" && removed.fileId) handleRemoveFile(removed.fileId);
                   upd("preuvesImmediates", newItems);
@@ -946,7 +1034,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
             </div>
           )}
 
-          {/* ── TAB 3 : CAUSES ── */}
           {tab===2&&(
             <div style={{display:"flex",flexDirection:"column",gap:16,animation:"tabFadeIn .2s ease"}}>
               {[{k:"analyseCausesRacines",l:"Analyse des causes racines",ph:"Méthode utilisée (5 Pourquoi, Ishikawa...), date et participants...",rows:3},{k:"causePrincipale",l:"Cause principale identifiée *",ph:"La cause fondamentale qui a engendré la non-conformité...",rows:3}].map(f=>(
@@ -974,7 +1061,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
             </div>
           )}
 
-          {/* ── TAB 4 : PLAN CORRECTIF ── */}
           {tab===3&&(
             <div style={{display:"flex",flexDirection:"column",gap:18,animation:"tabFadeIn .2s ease"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -985,7 +1071,7 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
                     placeholder="Référence (ex: SMSI-CTX-001 v2.0)"
                     accentColor={meta.color}
                     inputStyle={IS}
-                    onFileAdd={makeFileAdder?.("Document à produire")}
+                    onFileAdd={makeFileAdder("Document à produire")}
                     onFileRemove={handleRemoveFile}
                     onChange={v=>upd("documentAProduire",v)}
                   />
@@ -1046,22 +1132,8 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
             </div>
           )}
 
-          {/* ── TAB 5 : VÉRIFICATION ── */}
           {tab===4&&(
             <div style={{display:"flex",flexDirection:"column",gap:16,animation:"tabFadeIn .2s ease"}}>
-              <HybridListField
-                label="Critères de vérification de l'efficacité *"
-                labelStyle={LS}
-                items={form.methodesVerification}
-                placeholder="Référence (ex: Rapport d'audit) ou importez un fichier…"
-                accentColor="#10B981"
-                onFileAdd={makeFileAdder?.("Méthode de vérification")}
-                onChange={(newItems, removed) => {
-                  if (removed?.type==="file" && removed.fileId) handleRemoveFile(removed.fileId);
-                  upd("methodesVerification", newItems);
-                }}
-              />
-
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div><label style={LS}>Date de vérification prévue</label>
                   <input type="date" value={form.dateVerification||""} onChange={e=>upd("dateVerification",e.target.value)} style={IS} onFocus={focusStyle} onBlur={blurStyle}/>
@@ -1078,7 +1150,8 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
                 items={form.piecesJointes}
                 placeholder="Référence (ex: Attestation RSSI) ou importez un fichier…"
                 accentColor={meta.color}
-                onFileAdd={makeFileAdder?.("Pièce jointe")}
+                uploadOnly
+                onFileAdd={makeFileAdder("Pièce jointe")}
                 onChange={(newItems, removed) => {
                   if (removed?.type==="file" && removed.fileId) handleRemoveFile(removed.fileId);
                   upd("piecesJointes", newItems);
@@ -1087,7 +1160,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
             </div>
           )}
 
-          {/* ── TAB 6 : CLÔTURE ── */}
           {tab===5&&(
             <div style={{display:"flex",flexDirection:"column",gap:16,animation:"tabFadeIn .2s ease"}}>
               <div>
@@ -1120,7 +1192,6 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
           )}
         </div>
 
-        {/* FOOTER */}
         <div style={{padding:"16px 28px",borderTop:"1px solid #E4E8F0",background:"#fff",display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
           <button onClick={onCancel} style={{padding:"10px 20px",borderRadius:10,border:"1px solid #E4E8F0",background:"#fff",color:"#64748B",fontSize:12,fontWeight:600,cursor:"pointer",transition:"background .15s"}}
             onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}
@@ -1152,9 +1223,35 @@ function ActionPlanForm({ plan, clauseId, clauseNumber, subClauses, subConformit
 ════════════════════════════════════════════════════════════ */
 function PlanCard({ plan, meta, subClauses, onEdit, onDelete, canEdit, canDelete }) {
   const pct=calcProgress(plan);
+  const [showFiles, setShowFiles] = useState(false);
+  const [planFiles, setPlanFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [filesLoaded, setFilesLoaded] = useState(false);
+
   const sc={"ouverte":{l:"Ouverte",c:"#64748B",bg:"#F1F5F9"},"en-cours":{l:"En cours",c:"#0369A1",bg:"#E0F2FE"},"en-attente":{l:"En attente",c:"#D97706",bg:"#FEF9C3"},"terminee":{l:"Terminée",c:"#16A34A",bg:"#DCFCE7"}}[plan.statut]||{l:plan.statut,c:"#64748B",bg:"#F1F5F9"};
   const gc={"mineure":{l:"Mineure",c:"#CA8A04",bg:"#FEF9C3"},"majeure":{l:"Majeure",c:"#DC2626",bg:"#FEE2E2"}}[plan.gravite];
   const subClause=subClauses?.find(s=>s.id===plan.subClauseId);
+
+  const toggleFiles = async () => {
+    // Si déjà affiché → masquer
+    if (showFiles) { setShowFiles(false); return; }
+    // Si déjà chargé → afficher directement
+    if (filesLoaded) { setShowFiles(true); return; }
+    // Sinon charger
+    if (!plan.guidId) return;
+    setLoadingFiles(true);
+    try {
+      const files = await getActionPlanFiles(plan.guidId);
+      setPlanFiles(files || []);
+      setFilesLoaded(true);
+      setShowFiles(true);
+    } catch (error) {
+      console.error("Erreur chargement fichiers:", error);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
   return (
     <div style={{background:"#fff",border:"1px solid #E8ECF4",borderRadius:14,padding:"16px 18px",transition:"all .25s",position:"relative",overflow:"hidden"}}
       onMouseEnter={e=>{e.currentTarget.style.boxShadow=`0 8px 28px ${meta.color}1A`;e.currentTarget.style.borderColor=meta.border;e.currentTarget.style.transform="translateY(-2px)";}}
@@ -1184,6 +1281,59 @@ function PlanCard({ plan, meta, subClauses, onEdit, onDelete, canEdit, canDelete
         {plan.responsablePlan&&<span style={{display:"flex",alignItems:"center",gap:4}}><FontAwesomeIcon icon={faUser} style={{fontSize:9,color:meta.color}}/>{plan.responsablePlan}</span>}
         {plan.dateEcheanceGlobale&&<span style={{display:"flex",alignItems:"center",gap:4}}><FontAwesomeIcon icon={faCalendar} style={{fontSize:9,color:meta.color}}/>{plan.dateEcheanceGlobale}</span>}
       </div>
+      
+      <button
+        onClick={toggleFiles}
+        style={{marginBottom:12,width:"100%",padding:"6px",borderRadius:8,border:`1px dashed ${meta.border}`,background:"#F8FAFC",color:meta.color,fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all .15s"}}
+        onMouseEnter={e=>{e.currentTarget.style.background=meta.bg;e.currentTarget.style.borderColor=meta.color;}}
+        onMouseLeave={e=>{e.currentTarget.style.background="#F8FAFC";e.currentTarget.style.borderColor=meta.border;}}
+      >
+        <FontAwesomeIcon icon={showFiles ? faChevronUp : faPaperclip} style={{fontSize:10}}/>
+        {loadingFiles ? "Chargement..." : showFiles ? "Masquer les documents" : (filesLoaded ? `Documents du plan (${planFiles.length})` : "Voir les documents du plan")}
+      </button>
+
+      {showFiles && planFiles.length > 0 && (
+        <div style={{marginBottom:12,padding:"10px",borderRadius:8,background:"#F8FAFC",border:"1px solid #E4E8F0"}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#374151",marginBottom:8,display:"flex",alignItems:"center",gap:5}}>
+            <FontAwesomeIcon icon={faFolderOpen} style={{fontSize:10,color:meta.color}}/>
+            Documents du plan d'action
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {planFiles.map(file => {
+              const fi = fileIconInfo(file.contentType || "", file.originalName || file.fileName || "");
+              return (
+                <div key={file.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,background:"#fff",border:"1px solid #E4E8F0"}}>
+                  <FontAwesomeIcon icon={fi.icon} style={{fontSize:12,color:fi.color,flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:10,fontWeight:600,color:"#0D1117",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file.originalName || file.fileName}</div>
+                    <div style={{fontSize:9,color:"#94A3B8"}}>{file.description && `${file.description} · `}{formatBytes(file.fileSize || 0)}</div>
+                  </div>
+                  <button onClick={() => downloadFile(file.id, file.originalName || file.fileName)}
+                    style={{padding:"2px 6px",borderRadius:4,border:"1px solid #E4E8F0",background:"#fff",color:meta.color,fontSize:9,cursor:"pointer"}}
+                    title="Télécharger"
+                  >
+                    <FontAwesomeIcon icon={faDownload} style={{fontSize:8}}/>
+                  </button>
+                  <button onClick={() => openFile(file.id, file.originalName || file.fileName)}
+                    style={{padding:"2px 6px",borderRadius:4,border:"1px solid #E4E8F0",background:"#fff",color:meta.color,fontSize:9,cursor:"pointer"}}
+                    title="Ouvrir"
+                  >
+                    <FontAwesomeIcon icon={faFolderOpen} style={{fontSize:8}}/>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showFiles && !loadingFiles && planFiles.length === 0 && (
+        <div style={{marginBottom:12,padding:"10px",borderRadius:8,background:"#F8FAFC",border:"1px solid #E4E8F0",fontSize:10,color:"#94A3B8",display:"flex",alignItems:"center",gap:6}}>
+          <FontAwesomeIcon icon={faPaperclip} style={{fontSize:10,color:meta.color}}/>
+          Aucun fichier joint a ce plan pour le moment.
+        </div>
+      )}
+
       <div style={{display:"flex",gap:8,paddingTop:10,borderTop:"1px solid #F1F5F9"}}>
         {canEdit && (
           <button onClick={()=>onEdit(plan)} style={{flex:1,padding:"7px",borderRadius:8,border:`1px solid ${meta.border}`,background:meta.bg,color:meta.color,fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}
@@ -1215,6 +1365,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
   const proofFileRef = useRef(null);
 
   useEffect(()=>{ if(conformity) setForm({status:conformity.status,score:conformity.score||0,lastAudit:conformity.lastAudit||"",nextAudit:conformity.nextAudit||"",comments:conformity.comments||""}); },[conformity]);
+
   useEffect(()=>{
     if(expanded && conformity?.status==="conforme" && !proofsLoaded){
       setPL(true);
@@ -1222,7 +1373,7 @@ function SubClauseCard({ sub, meta, plans, conformity, onConformitySaved, onCrea
     }
   },[expanded, conformity?.status, sub.id, proofsLoaded]);
 
-  const subPlans=plans.filter(p=>p.subClauseId===sub.id);
+  const subPlans = plans.filter(p => p.subClauseId === sub.id);
   const isConforme=conformity?.status==="conforme";
   const isNC=conformity?.status==="non-conforme";
   const evaluated=!!conformity;
@@ -1526,17 +1677,28 @@ export default function ClauseDetail() {
     try {
       const dto = formToApiDto(formData);
       if(editingPlan){
-        const r=await updateActionPlan(editingPlan.id,{...dto,isoClauseId:+id});
-        setPlans(p=>p.map(x=>x.id===r.id?r:x));
+        const r = await updateActionPlan(editingPlan.id, {...dto, isoClauseId:+id});
+        const hadPending = await flushPendingFiles(r.guidId, formData);
+        if (hadPending) {
+          const fresh = await getActionPlans(+id);
+          setPlans(fresh || []);
+        } else {
+          setPlans(p => p.map(x => x.id === r.id ? r : x));
+        }
         showToast("Plan mis à jour avec succès");
       } else {
-        const r=await createActionPlan({...dto,isoClauseId:+id});
-        await flushPendingFiles(r.id, formData);
-        setPlans(p=>[r,...p]);
+        const r = await createActionPlan({...dto, isoClauseId:+id});
+        const hadPending = await flushPendingFiles(r.guidId, formData);
+        if (hadPending) {
+          const fresh = await getActionPlans(+id);
+          setPlans(fresh || []);
+        } else {
+          setPlans(p => [r, ...p]);
+        }
         showToast("Plan d'action créé avec succès");
       }
       setShowForm(false); setEditingPlan(null); setDefaultSubClauseId(null);
-    } catch(e){ showToast(e.message,"error"); }
+    } catch(e){ showToast(e.message, "error"); }
   };
 
   const handleDelete = async(planId)=>{

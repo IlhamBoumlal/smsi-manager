@@ -27,7 +27,7 @@ public class ClauseFileController : ControllerBase
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // CONFORMITY PROOFS
+    // CONFORMITY PROOFS  (inchangé — proofId est bien un int en base)
     // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("proofs/{subClauseId:int}")]
@@ -58,21 +58,24 @@ public class ClauseFileController : ControllerBase
 
     // ══════════════════════════════════════════════════════════════════════════
     // ACTION PLAN DOCUMENTS
+    // CORRECTION : les routes utilisent le GUID réel du plan (ActionPlanDto.GuidId),
+    // pas le hashcode int. Cela garantit que la recherche en base réussit.
+    // Côté frontend, utiliser plan.guidId (pas plan.id) pour ces appels.
     // ══════════════════════════════════════════════════════════════════════════
 
-    [HttpGet("plans/{planId:int}/files")]
-    public async Task<IActionResult> GetPlanFiles(int planId)
-        => Ok(await _svc.GetActionPlanFilesAsync(planId, UserId, CurrentSocieteId));
+    [HttpGet("plans/{planGuidId:guid}/files")]
+    public async Task<IActionResult> GetPlanFiles(Guid planGuidId)
+        => Ok(await _svc.GetActionPlanFilesAsync(planGuidId, UserId, CurrentSocieteId));
 
-    [HttpPost("plans/{planId:int}/files")]
+    [HttpPost("plans/{planGuidId:guid}/files")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> UploadPlanFile(
-        int planId, IFormFile file, [FromForm] string? description = null)
+        Guid planGuidId, IFormFile file, [FromForm] string? description = null)
     {
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadActionPlanFileAsync(planId, UserId, CurrentSocieteId, file, description));
+            return Ok(await _svc.UploadActionPlanFileAsync(planGuidId, UserId, CurrentSocieteId, file, description));
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
@@ -83,7 +86,7 @@ public class ClauseFileController : ControllerBase
         => await _svc.DeleteActionPlanFileAsync(fileId, UserId, CurrentSocieteId) ? NoContent() : NotFound();
 
     // ══════════════════════════════════════════════════════════════════════════
-    // DOWNLOAD — lit le contenu depuis la base, aucun fichier disque
+    // DOWNLOAD — fileId est un int en base (FileAttachment.Id), inchangé
     // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("files/{fileId:int}/download")]
@@ -94,7 +97,6 @@ public class ClauseFileController : ControllerBase
 
         var (content, contentType, fileName) = result.Value;
 
-        // Content-Disposition: attachment → force le téléchargement côté navigateur
         Response.Headers.Append(
             "Content-Disposition",
             $"attachment; filename=\"{Uri.EscapeDataString(fileName)}\"");
