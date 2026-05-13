@@ -10,8 +10,12 @@ public class Processus
     public int? SocieteId { get; private set; }
     public Societe? Societe { get; private set; }
     public IReadOnlyCollection<Document> Documents => _documents.AsReadOnly();
+    public IReadOnlyCollection<ProcessusClause> ProcessusClauses => _processusClauses.AsReadOnly();
+    public IReadOnlyCollection<ProcessusControle> ProcessusControles => _processusControles.AsReadOnly();
 
     private readonly List<Document> _documents = new();
+    private readonly List<ProcessusClause> _processusClauses = new();
+    private readonly List<ProcessusControle> _processusControles = new();
 
     private Processus() { }  // EF Core
 

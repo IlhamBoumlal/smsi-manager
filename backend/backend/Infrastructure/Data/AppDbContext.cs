@@ -29,6 +29,8 @@ namespace backend.Infrastructure.Data
         public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
         public DbSet<Processus> Processus => Set<Processus>();
         public DbSet<Document> Documents => Set<Document>();
+        public DbSet<ProcessusClause> ProcessusClauses => Set<ProcessusClause>();
+        public DbSet<ProcessusControle> ProcessusControles => Set<ProcessusControle>();
         public DbSet<Audit> Audits { get; set; }
         public DbSet<AuditControlStatus> AuditControlStatuses { get; set; }
         public DbSet<NonConformite> NonConformites { get; set; }
@@ -97,6 +99,50 @@ namespace backend.Infrastructure.Data
                  .WithMany()
                  .HasForeignKey(f => f.SocieteId)
                  .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<ProcessusClause>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.HasIndex(p => new { p.ProcessusId, p.ClauseId }).IsUnique();
+                entity.HasIndex(p => p.SocieteId);
+
+                entity.HasOne(p => p.Processus)
+                      .WithMany(p => p.ProcessusClauses)
+                      .HasForeignKey(p => p.ProcessusId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Clause)
+                      .WithMany()
+                      .HasForeignKey(p => p.ClauseId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Societe)
+                      .WithMany()
+                      .HasForeignKey(p => p.SocieteId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<ProcessusControle>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.HasIndex(p => new { p.ProcessusId, p.ControleId }).IsUnique();
+                entity.HasIndex(p => p.SocieteId);
+
+                entity.HasOne(p => p.Processus)
+                      .WithMany(p => p.ProcessusControles)
+                      .HasForeignKey(p => p.ProcessusId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Controle)
+                      .WithMany()
+                      .HasForeignKey(p => p.ControleId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.Societe)
+                      .WithMany()
+                      .HasForeignKey(p => p.SocieteId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // â”€â”€ ApplicationUser â†’ SociÃ©tÃ© â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

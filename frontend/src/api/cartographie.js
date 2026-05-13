@@ -7,12 +7,33 @@ export const getAllProcessus  = ()          => axiosInstance.get(BASE).then(r =>
 export const getProcessusById = (id)        => axiosInstance.get(`${BASE}/${id}`).then(r => r.data);
 
 export const createProcessus  = (body)      => axiosInstance.post(BASE, body).then(r => r.data);
-// body = { categorie, nom, responsable, description }
+// body = { categorie, nom, responsable, description, isoReferences: [] }
 
 export const updateProcessus  = (id, body)  => axiosInstance.put(`${BASE}/${id}`, body).then(r => r.data);
-// body = { categorie, nom, responsable, description }
+// body = { categorie, nom, responsable, description, isoReferences: [] }
 
 export const deleteProcessus  = (id)        => axiosInstance.delete(`${BASE}/${id}`).then(r => r.data);
+
+export const getProcessusDetail = (id)      => axiosInstance.get(`${BASE}/${id}/detail`).then(r => r.data);
+const trySelectionEndpoint = async (primaryUrl, fallbackUrl) => {
+  try {
+    const response = await axiosInstance.get(primaryUrl);
+    return response.data;
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      const response = await axiosInstance.get(fallbackUrl);
+      return response.data;
+    }
+    throw error;
+  }
+};
+
+export const getAllClausesForSelection   = () => trySelectionEndpoint('/api/cartographie/clauses-selection', '/api/cartographie/clauses');
+export const getAllControlesForSelection = () => trySelectionEndpoint('/api/cartographie/controles-selection', '/api/cartographie/controles');
+export const addClauseToProcessus       = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/clauses`, body).then(r => r.data);
+export const removeClauseFromProcessus  = (processusId, clauseId) => axiosInstance.delete(`${BASE}/${processusId}/clauses/${clauseId}`).then(r => r.data);
+export const addControleToProcessus     = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/controles`, body).then(r => r.data);
+export const removeControleFromProcessus = (processusId, controleId) => axiosInstance.delete(`${BASE}/${processusId}/controles/${controleId}`).then(r => r.data);
 
 export const deleteDocument = (processusId, documentId) =>
   axiosInstance.delete(`${BASE}/${processusId}/documents/${documentId}`).then(r => r.data);
