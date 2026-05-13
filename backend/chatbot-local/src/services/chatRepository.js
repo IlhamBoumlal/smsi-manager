@@ -13,9 +13,12 @@ function normalizeTitle(rawTitle) {
 
 function conversationRowToModel(row) {
   if (!row) return null;
+  const societeId =
+    row.societeId === null || row.societeId === undefined ? null : Number(row.societeId);
   return {
     id: row.id,
     userId: row.userId,
+    societeId: Number.isFinite(societeId) ? societeId : null,
     title: row.title,
     lastMethod: row.lastMethod || null,
     createdAt: row.createdAt,
@@ -24,6 +27,32 @@ function conversationRowToModel(row) {
     lastMessageAt: row.lastMessageAt || null,
     lastMessagePreview: row.lastMessagePreview || null,
     messageCount: Number(row.messageCount || 0),
+  };
+}
+
+function normalizeSocieteId(value) {
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized <= 0) return null;
+  return normalized;
+}
+
+function buildSocieteScope(alias, societeId) {
+  const scopedAlias = String(alias || "").trim();
+  const column = scopedAlias ? `${scopedAlias}.societeId` : "societeId";
+  const normalizedSocieteId = normalizeSocieteId(societeId);
+
+  if (normalizedSocieteId === null) {
+    return {
+      clause: "1 = 0",
+      params: [],
+      normalizedSocieteId: null,
+    };
+  }
+
+  return {
+    clause: `${column} = ?`,
+    params: [normalizedSocieteId],
+    normalizedSocieteId,
   };
 }
 
@@ -38,22 +67,28 @@ function messageRowToModel(row) {
   };
 }
 
-export async function createConversationForUser(userId, title = "") {
+export async function createConversationForUser(userId, societeId, title = "") {
   const id = randomUUID();
   const createdAt = nowIso();
   const normalizedTitle = normalizeTitle(title);
+  const normalizedSocieteId = normalizeSocieteId(societeId);
+
+  if (normalizedSocieteId === null) {
+    throw new Error("Conversation chatbot invalide: societeId obligatoire.");
+  }
 
   await runQuery(
     `
-      INSERT INTO ChatConversation (id, userId, title, lastMethod, createdAt, updatedAt, deletedAt)
-      VALUES (?, ?, ?, NULL, ?, ?, NULL)
+      INSERT INTO ChatConversation (id, userId, societeId, title, lastMethod, createdAt, updatedAt, deletedAt)
+      VALUES (?, ?, ?, ?, NULL, ?, ?, NULL)
     `,
-    [id, userId, normalizedTitle, createdAt, createdAt]
+    [id, userId, normalizedSocieteId, normalizedTitle, createdAt, createdAt]
   );
 
   return {
     id,
     userId,
+    societeId: normalizedSocieteId,
     title: normalizedTitle,
     lastMethod: null,
     createdAt,
@@ -65,12 +100,14 @@ export async function createConversationForUser(userId, title = "") {
   };
 }
 
-export async function listConversationsByUser(userId) {
+export async function listConversationsByUser(userId, societeId) {
+  const scope = buildSocieteScope("c", societeId);
   const rows = await allQuery(
     `
       SELECT
         c.id,
         c.userId,
+        c.societeId,
         c.title,
         c.lastMethod,
         c.createdAt,
@@ -96,21 +133,23 @@ export async function listConversationsByUser(userId) {
           WHERE m.conversationId = c.id
         ) AS messageCount
       FROM ChatConversation c
-      WHERE c.userId = ? AND c.deletedAt IS NULL
+      WHERE c.userId = ? AND ${scope.clause} AND c.deletedAt IS NULL
       ORDER BY c.updatedAt DESC
     `,
-    [userId]
+    [userId, ...scope.params]
   );
 
   return rows.map(conversationRowToModel);
 }
 
-export async function getConversationById(conversationId) {
+export async function getConversationById(conversationId, societeId) {
+  const scope = buildSocieteScope("c", societeId);
   const row = await getQuery(
     `
       SELECT
         c.id,
         c.userId,
+        c.societeId,
         c.title,
         c.lastMethod,
         c.createdAt,
@@ -136,18 +175,18 @@ export async function getConversationById(conversationId) {
           WHERE m.conversationId = c.id
         ) AS messageCount
       FROM ChatConversation c
-      WHERE c.id = ?
+      WHERE c.id = ? AND ${scope.clause}
       LIMIT 1
     `,
-    [conversationId]
+    [conversationId, ...scope.params]
   );
 
   return conversationRowToModel(row);
 }
 
-export async function assertConversationOwnership(conversationId, userId, options = {}) {
+export async function assertConversationOwnership(conversationId, userId, societeId, options = {}) {
   const includeDeleted = Boolean(options.includeDeleted);
-  const conversation = await getConversationById(conversationId);
+  const conversation = await getConversationById(conversationId, societeId);
 
   if (!conversation) {
     return {
@@ -179,44 +218,55 @@ export async function assertConversationOwnership(conversationId, userId, option
   return { ok: true, conversation };
 }
 
-export async function listMessagesByConversation(conversationId) {
+export async function listMessagesByConversation(conversationId, userId, societeId) {
+  const normalizedSocieteId = normalizeSocieteId(societeId);
+  if (normalizedSocieteId === null) return [];
+
   const rows = await allQuery(
     `
       SELECT id, conversationId, role, content, createdAt
       FROM ChatMessage
-      WHERE conversationId = ?
+      WHERE conversationId = ? AND userId = ? AND societeId = ?
       ORDER BY createdAt ASC
     `,
-    [conversationId]
+    [conversationId, userId, normalizedSocieteId]
   );
 
   return rows.map(messageRowToModel);
 }
 
-export async function listRecentDialogMessages(conversationId, limit = 16) {
+export async function listRecentDialogMessages(conversationId, userId, societeId, limit = 16) {
+  const normalizedSocieteId = normalizeSocieteId(societeId);
+  if (normalizedSocieteId === null) return [];
+
   const rows = await allQuery(
     `
       SELECT id, conversationId, role, content, createdAt
       FROM ChatMessage
-      WHERE conversationId = ? AND role IN ('user', 'assistant')
+      WHERE conversationId = ? AND userId = ? AND societeId = ? AND role IN ('user', 'assistant')
       ORDER BY createdAt DESC
       LIMIT ?
     `,
-    [conversationId, limit]
+    [conversationId, userId, normalizedSocieteId, limit]
   );
 
   return rows.map(messageRowToModel).reverse();
 }
 
-export async function insertMessage(conversationId, role, content) {
+export async function insertMessage(conversationId, userId, societeId, role, content) {
+  const normalizedSocieteId = normalizeSocieteId(societeId);
+  if (normalizedSocieteId === null) {
+    throw new Error("Message chatbot invalide: societeId obligatoire.");
+  }
+
   const id = randomUUID();
   const createdAt = nowIso();
   await runQuery(
     `
-      INSERT INTO ChatMessage (id, conversationId, role, content, createdAt)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO ChatMessage (id, conversationId, userId, societeId, role, content, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    [id, conversationId, role, content, createdAt]
+    [id, conversationId, userId, normalizedSocieteId, role, content, createdAt]
   );
 
   await runQuery(
@@ -237,15 +287,16 @@ export async function insertMessage(conversationId, role, content) {
   };
 }
 
-export async function softDeleteConversation(conversationId) {
+export async function softDeleteConversation(conversationId, societeId) {
   const deletedAt = nowIso();
+  const scope = buildSocieteScope("", societeId);
   await runQuery(
     `
       UPDATE ChatConversation
       SET deletedAt = ?, updatedAt = ?
-      WHERE id = ? AND deletedAt IS NULL
+      WHERE id = ? AND ${scope.clause} AND deletedAt IS NULL
     `,
-    [deletedAt, deletedAt, conversationId]
+    [deletedAt, deletedAt, conversationId, ...scope.params]
   );
 
   return {
@@ -254,30 +305,32 @@ export async function softDeleteConversation(conversationId) {
   };
 }
 
-export async function updateConversationTitle(conversationId, title) {
+export async function updateConversationTitle(conversationId, societeId, title) {
   const normalizedTitle = normalizeTitle(title);
   const updatedAt = nowIso();
+  const scope = buildSocieteScope("", societeId);
 
   await runQuery(
     `
       UPDATE ChatConversation
       SET title = ?, updatedAt = ?
-      WHERE id = ? AND deletedAt IS NULL
+      WHERE id = ? AND ${scope.clause} AND deletedAt IS NULL
     `,
-    [normalizedTitle, updatedAt, conversationId]
+    [normalizedTitle, updatedAt, conversationId, ...scope.params]
   );
 
   return normalizedTitle;
 }
 
-export async function updateConversationLastMethod(conversationId, lastMethod) {
+export async function updateConversationLastMethod(conversationId, societeId, lastMethod) {
+  const scope = buildSocieteScope("", societeId);
   await runQuery(
     `
       UPDATE ChatConversation
       SET lastMethod = ?
-      WHERE id = ? AND deletedAt IS NULL
+      WHERE id = ? AND ${scope.clause} AND deletedAt IS NULL
     `,
-    [lastMethod || null, conversationId]
+    [lastMethod || null, conversationId, ...scope.params]
   );
 
   return lastMethod || null;

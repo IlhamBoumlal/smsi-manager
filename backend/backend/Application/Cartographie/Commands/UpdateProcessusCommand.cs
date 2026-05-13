@@ -14,28 +14,42 @@ public record UpdateProcessusCommand(
     string Responsable,
     string Description,
     List<string> IsoReferences,
-    int? SocieteId
+    int? SocieteId,
+    string CurrentUserId
 ) : IRequest;
 
 public class UpdateProcessusCommandHandler : IRequestHandler<UpdateProcessusCommand>
 {
     private readonly IProcessusRepository _repo;
     private readonly AppDbContext _context;
+    private readonly ICartographieDocumentationSyncService _documentationSync;
 
-    public UpdateProcessusCommandHandler(IProcessusRepository repo, AppDbContext context)
+    public UpdateProcessusCommandHandler(
+        IProcessusRepository repo,
+        AppDbContext context,
+        ICartographieDocumentationSyncService documentationSync)
     {
         _repo = repo;
         _context = context;
+        _documentationSync = documentationSync;
     }
 
     public async Task Handle(UpdateProcessusCommand cmd, CancellationToken ct)
     {
         var p = await _repo.GetByIdAsync(cmd.Id, cmd.SocieteId, ct)
                 ?? throw new KeyNotFoundException($"Processus {cmd.Id} introuvable.");
+        var previousName = p.Nom;
 
         p.Update(cmd.Categorie, cmd.Nom, cmd.Responsable, cmd.Description);
         await SyncIsoReferencesAsync(p.Id, cmd.IsoReferences, cmd.SocieteId, ct);
         await _repo.SaveChangesAsync(ct);
+
+        await _documentationSync.SyncOnProcessusRenamedAsync(
+            previousName,
+            cmd.Nom,
+            cmd.SocieteId,
+            cmd.CurrentUserId,
+            ct);
     }
 
     private async Task SyncIsoReferencesAsync(Guid processusId, List<string> references, int? societeId, CancellationToken ct)

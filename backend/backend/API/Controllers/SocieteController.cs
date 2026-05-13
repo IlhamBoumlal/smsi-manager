@@ -3,6 +3,7 @@ using backend.Application.Societes.Commands.CreateSociete;
 using backend.Application.Societes.Commands.DeleteSociete;
 using backend.Application.Societes.Commands.UpdateSociete;
 using backend.Application.Societes.Queries.GetAllSocietes;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,8 @@ namespace backend.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "PlatformScope")]
+    [RequirePermission("societes")]
     public class SocieteController : ControllerBase
     {
         private readonly IMediator _mediator;

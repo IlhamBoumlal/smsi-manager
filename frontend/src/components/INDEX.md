@@ -1,10 +1,10 @@
-# ðŸ“‘ Index de Documentation
+# 📑 Index de Documentation
 
 > Guide de navigation pour les fichiers de composants réstructurés
 
 ---
 
-## ðŸ“‚ Fichiers du Projet
+## 📂 Fichiers du Projet
 
 ### 1. **Controles.jsx** 
    Tableau de bord d'évaluation de conformité ISO 27001
@@ -100,7 +100,7 @@
 
 ---
 
-## ðŸ—ºï¸ Carte de Navigation
+## Carte de Navigation
 
 ```
 Pour faire une tache specifique
@@ -130,19 +130,19 @@ Pour faire une tache specifique
 
 **Temps total** : ~40 min pour être opérationnel
 
-### ðŸ” Mainteneur/Code Reviewer
+### Mainteneur/Code Reviewer
 
 1. **Consulter** : CONVENTIONS.md → Checklist de Révision
 2. **Au besoin** : README_STRUCTURE.md pour architecture
 3. **Utiliser** : GUIDE_PRATIQUE.md → Dépannage
 
-### ðŸŽ“ Formateur/Responsable
+### 🎓 Formateur/Responsable
 
 1. **Comprendre** : README_STRUCTURE.md complet
 2. **Connaître** : CONVENTIONS.md pour expliquer les standards
 3. **Guider** : Utiliser GUIDE_PRATIQUE.md pour exemples
 
-### ðŸš€ DevOps/Infra
+### 🚀 DevOps/Infra
 
 1. **Points importants** : 
    - API utilisée : http://localhost:5006/api/controles
@@ -178,7 +178,7 @@ Exemple tache "Ajouter un plan d'action" :
 
 ---
 
-## ðŸ“Š Quick Stats
+## 📊 Quick Stats
 
 | Composant | Lignes | Commentaires | États | Fonctions |
 |-----------|--------|------------|--------|-----------|
@@ -224,7 +224,7 @@ Tous les fichiers utilisent :
 
 ---
 
-## ðŸ” Secrets et Configuration
+## Secrets et Configuration
 
 Aucun secret en dur dans le code ✓
 
@@ -234,7 +234,7 @@ Aucun secret en dur dans le code ✓
 
 ---
 
-## ðŸ“ž Support Rapide
+## 📞 Support Rapide
 
 | Q | A | Doc |
 |---|---|-----|

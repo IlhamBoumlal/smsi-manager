@@ -12,6 +12,7 @@ namespace backend.Application.DTOs.Documentation
         string? Approver,
         string? Clause,
         string? Controle,
+        string? Processus,
         string? Description,
         string? FilePath,
         string? OriginalFileName,

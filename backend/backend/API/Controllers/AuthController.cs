@@ -2,6 +2,8 @@ using backend.Application.Auth.Commands.Login;
 using backend.Application.Auth.Commands.Register;
 using backend.Application.Auth.Queries;
 using backend.Application.DTOs.Authentification;
+using backend.Application.Roles.Queries.GetAllRoles;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,10 +18,23 @@ namespace backend.API.Controllers
         private readonly IMediator _mediator;
         public AuthController(IMediator mediator) => _mediator = mediator;
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = "PlatformScope")]
+        [RequirePermission("users", "create")]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
+            var roles = await _mediator.Send(new GetAllRolesQuery());
+            var targetRole = roles.FirstOrDefault(r => string.Equals(r.Id, dto.RoleId, StringComparison.Ordinal));
+            if (targetRole is null)
+            {
+                return BadRequest("Role introuvable.");
+            }
+
+            if (!string.Equals(targetRole.Name, AppRoles.AdminSociete, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest("Le Super Admin peut uniquement creer un Admin Societe via cet endpoint.");
+            }
+
             var command = new RegisterCommand(
                 dto.NomComplet, dto.Email, dto.Password,
                 dto.ConfirmPassword, dto.SocieteId, dto.RoleId);

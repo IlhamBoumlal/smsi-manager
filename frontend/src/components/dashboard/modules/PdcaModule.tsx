@@ -25,7 +25,7 @@ export function PdcaModule({ data }: { data?: any }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard label="Conformite PDCA" value={`${Number(pdca.conformitePdca ?? 0)}%`} icon={RefreshCw} tone="primary" index={0} />
+        <StatCard label="Taux d'avancement PDCA" value={`${Number(pdca.conformitePdca ?? 0)}%`} icon={RefreshCw} tone="primary" index={0} />
         <StatCard label="Actions terminees" value={Number(pdca.actionsTerminees ?? 0)} icon={CheckCircle2} tone="success" index={1} />
         <StatCard
           label="Plan (Phase P)"

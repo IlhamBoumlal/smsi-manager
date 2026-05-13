@@ -21,14 +21,9 @@ namespace backend.Application.Incidents.Queries.GetAllIncidents
         {
             _logger.LogInformation("GetAllIncidentsHandler: SocieteId={SocieteId}", request.SocieteId);
 
-            // ── Isolation stricte par société ──────────────────────────────────
-            // Si SocieteId est fourni → incidents de cette société uniquement
-            // Si SocieteId est null   → incidents sans société (super-admin)
             var query = _context.Incidents.AsQueryable();
 
-            query = request.SocieteId.HasValue
-                ? query.Where(i => i.SocieteId == request.SocieteId.Value)
-                : query.Where(i => i.SocieteId == null);
+            query = query.Where(i => request.SocieteId.HasValue && i.SocieteId == request.SocieteId.Value);
 
             var incidents = await query
                 .OrderByDescending(i => i.Date)
@@ -38,6 +33,9 @@ namespace backend.Application.Incidents.Queries.GetAllIncidents
                     Titre = i.Titre,
                     Description = i.Description,
                     Date = i.Date,
+                    CreatedAt = i.CreatedAt,
+                    UpdatedAt = i.UpdatedAt,
+                    ClosedAt = i.ClosedAt,
                     Priorite = i.Priorite,
                     Statut = i.Statut,
                     Resolution = i.Resolution

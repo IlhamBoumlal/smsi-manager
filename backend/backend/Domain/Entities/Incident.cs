@@ -11,6 +11,9 @@ namespace backend.Domain.Entities
         public PrioriteIncident? Priorite { get; set; }
         public StatutIncident? Statut { get; set; }
         public string? Resolution { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? ClosedAt { get; set; }
 
         public int? SocieteId { get; set; }
         public Societe? Societe { get; set; }

@@ -3,15 +3,17 @@ using backend.Application.Profils.Commands.DeleteProfil;
 using backend.Application.Profils.Commands.UpdateProfil;
 using backend.Application.Profils.Queries.GetAllProfils;
 using backend.Application.Profils.Queries.GetProfilById;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "SmsiTenantScope")]
     [ApiController]
     [Route("api/[controller]")]
+    [RequirePermission("roles")]
     public class ProfilsController : ControllerBase
     {
         private readonly IMediator _mediator;

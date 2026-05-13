@@ -5,13 +5,17 @@ using backend.Application.Actions.Commands.CreateAction;
 using backend.Application.Actions.Commands.DeleteAction;
 using backend.Application.Actions.Commands.UpdateAction;
 using backend.Application.Actions.Queries.GetActionById.GetAllActions;
+using backend.Application.Security;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
     [ApiController]
     [Route("api/actions")]
+    [Authorize(Policy = "PlatformScope")]
+    [RequirePermission("roles")]
     public class ActionController : ControllerBase
     {
         private readonly IMediator _mediator;

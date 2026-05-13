@@ -62,10 +62,82 @@ async function ensureChatConversationSchema(db) {
   const hasLastMethod = columns.some(
     (column) => String(column?.name || "").toLowerCase() === "lastmethod"
   );
+  const hasSocieteId = columns.some(
+    (column) => String(column?.name || "").toLowerCase() === "societeid"
+  );
 
   if (!hasLastMethod) {
     await runSql(db, `ALTER TABLE ChatConversation ADD COLUMN lastMethod TEXT NULL`);
   }
+
+  if (!hasSocieteId) {
+    await runSql(db, `ALTER TABLE ChatConversation ADD COLUMN societeId INTEGER NULL`);
+  }
+}
+
+async function ensureChatMessageSchema(db) {
+  const columns = await allSql(db, `PRAGMA table_info(ChatMessage)`);
+  const hasUserId = columns.some(
+    (column) => String(column?.name || "").toLowerCase() === "userid"
+  );
+  const hasSocieteId = columns.some(
+    (column) => String(column?.name || "").toLowerCase() === "societeid"
+  );
+
+  if (!hasUserId) {
+    await runSql(db, `ALTER TABLE ChatMessage ADD COLUMN userId TEXT NULL`);
+  }
+
+  if (!hasSocieteId) {
+    await runSql(db, `ALTER TABLE ChatMessage ADD COLUMN societeId INTEGER NULL`);
+  }
+}
+
+async function sanitizeLegacyChatData(db) {
+  await runSql(
+    db,
+    `
+      UPDATE ChatMessage
+      SET userId = COALESCE(
+            userId,
+            (SELECT c.userId FROM ChatConversation c WHERE c.id = ChatMessage.conversationId)
+          ),
+          societeId = COALESCE(
+            societeId,
+            (SELECT c.societeId FROM ChatConversation c WHERE c.id = ChatMessage.conversationId)
+          )
+      WHERE userId IS NULL OR societeId IS NULL
+    `
+  );
+
+  await runSql(
+    db,
+    `
+      DELETE FROM ChatMessage
+      WHERE conversationId IS NULL
+         OR userId IS NULL
+         OR TRIM(userId) = ''
+         OR societeId IS NULL
+    `
+  );
+
+  await runSql(
+    db,
+    `
+      DELETE FROM ChatConversation
+      WHERE userId IS NULL
+         OR TRIM(userId) = ''
+         OR societeId IS NULL
+    `
+  );
+
+  await runSql(
+    db,
+    `
+      DELETE FROM ChatMessage
+      WHERE conversationId NOT IN (SELECT id FROM ChatConversation)
+    `
+  );
 }
 
 export async function initDatabase() {
@@ -74,6 +146,7 @@ export async function initDatabase() {
   mkdirSync(dirname(CHATBOT_DB_PATH), { recursive: true });
   const db = await openDatabase(CHATBOT_DB_PATH);
   db.serialize();
+  await runSql(db, `PRAGMA foreign_keys = ON`);
 
   await runSql(
     db,
@@ -81,6 +154,7 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS ChatConversation (
         id TEXT PRIMARY KEY,
         userId TEXT NOT NULL,
+        societeId INTEGER NULL,
         title TEXT NOT NULL,
         lastMethod TEXT NULL,
         createdAt TEXT NOT NULL,
@@ -98,6 +172,8 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS ChatMessage (
         id TEXT PRIMARY KEY,
         conversationId TEXT NOT NULL,
+        userId TEXT NULL,
+        societeId INTEGER NULL,
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
         createdAt TEXT NOT NULL,
@@ -106,9 +182,12 @@ export async function initDatabase() {
     `
   );
 
+  await ensureChatMessageSchema(db);
+  await sanitizeLegacyChatData(db);
+
   await runSql(
     db,
-    `CREATE INDEX IF NOT EXISTS IX_ChatConversation_UserId_UpdatedAt ON ChatConversation(userId, updatedAt DESC)`
+    `CREATE INDEX IF NOT EXISTS IX_ChatConversation_UserSociete_UpdatedAt ON ChatConversation(userId, societeId, updatedAt DESC)`
   );
   await runSql(
     db,
@@ -117,6 +196,10 @@ export async function initDatabase() {
   await runSql(
     db,
     `CREATE INDEX IF NOT EXISTS IX_ChatMessage_ConversationId_CreatedAt ON ChatMessage(conversationId, createdAt ASC)`
+  );
+  await runSql(
+    db,
+    `CREATE INDEX IF NOT EXISTS IX_ChatMessage_UserSociete_Conversation_CreatedAt ON ChatMessage(userId, societeId, conversationId, createdAt ASC)`
   );
 
   dbInstance = db;

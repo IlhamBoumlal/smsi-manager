@@ -55,6 +55,7 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
                 Approver = request.Approver?.Trim(),
                 Clause = request.Clause?.Trim(),
                 Controle = request.Controle?.Trim(),
+                Processus = request.Processus?.Trim(),
                 Description = request.Description?.Trim(),
                 FilePath = storedPath,
                 OriginalFileName = request.File?.FileName,

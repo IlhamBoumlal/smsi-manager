@@ -10,6 +10,7 @@ using backend.Application.Sensibilisation.Queries.GetDashboard;
 using backend.Application.Sensibilisation.Queries.GetFormationDetail;
 using backend.Application.Sensibilisation.Queries.GetFormationDocument;
 using backend.Application.Sensibilisation.Queries.GetFormations;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,9 +18,10 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers;
 
-[Authorize]
+[Authorize(Policy = "SmsiTenantScope")]
 [ApiController]
 [Route("api/sensibilisation")]
+[RequirePermission("sensibilisation")]
 public class SensibilisationController(IMediator mediator) : ControllerBase
 {
     private string CurrentUserId =>
@@ -106,6 +108,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
     // ── DOCUMENTS ──────────────────────────────────────────────────────────────
     // POST api/sensibilisation/{id}/documents
     [HttpPost("{id:guid}/documents")]
+    [RequirePermission("sensibilisation", "import")]
     public async Task<IActionResult> UploadDocument(
         Guid id, IFormFile file, CancellationToken ct)
     {
@@ -132,6 +135,7 @@ public class SensibilisationController(IMediator mediator) : ControllerBase
         return ok ? NoContent() : NotFound();
     }
     [HttpGet("{id:guid}/documents/{docId:guid}/download")]
+    [RequirePermission("sensibilisation", "export")]
     public async Task<IActionResult> DownloadDocument(
     Guid id, Guid docId, CancellationToken ct)
     {

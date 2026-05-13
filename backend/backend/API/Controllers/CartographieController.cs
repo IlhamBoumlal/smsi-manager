@@ -1,5 +1,6 @@
 using Application.Cartographie.Commands;
 using Application.Cartographie.Queries;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,13 +10,18 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/cartographie")]
-[Authorize(Policy = "SmSiSocieteScope")]
+[Authorize(Policy = "SmsiTenantScope")]
+[RequirePermission("cartographie")]
 public class CartographieController : ControllerBase
 {
     private readonly IMediator _mediator;
     public CartographieController(IMediator mediator) => _mediator = mediator;
 
     private int? CurrentSocieteId => int.TryParse(User.FindFirstValue("SocieteId"), out var id) ? id : null;
+    private string CurrentUserId =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue("sub")
+        ?? string.Empty;
 
 
     // -- Processus ----------------------------------------------
@@ -42,14 +48,22 @@ public class CartographieController : ControllerBase
     [HttpPut("processus/{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProcessusBody body, CancellationToken ct)
     {
-        await _mediator.Send(new UpdateProcessusCommand(id, body.Categorie, body.Nom, body.Responsable, body.Description, body.IsoReferences, CurrentSocieteId), ct);
+        await _mediator.Send(new UpdateProcessusCommand(
+            id,
+            body.Categorie,
+            body.Nom,
+            body.Responsable,
+            body.Description,
+            body.IsoReferences,
+            CurrentSocieteId,
+            CurrentUserId), ct);
         return NoContent();
     }
 
     [HttpDelete("processus/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-        await _mediator.Send(new DeleteProcessusCommand(id, CurrentSocieteId), ct);
+        await _mediator.Send(new DeleteProcessusCommand(id, CurrentSocieteId, CurrentUserId), ct);
         return NoContent();
     }
 
@@ -99,6 +113,7 @@ public class CartographieController : ControllerBase
     // -- Documents ----------------------------------------------
 
     [HttpPost("processus/{processusId:guid}/documents")]
+    [RequirePermission("cartographie", "import")]
     public async Task<IActionResult> AddDocument(
         Guid processusId,
         [FromForm] AddDocumentBody body,
@@ -122,12 +137,13 @@ public class CartographieController : ControllerBase
         var result = await _mediator.Send(
             new AddDocumentCommand(processusId, body.Nom, body.Type,
                                    body.Reference, body.Statut,
-                                   fichierNom, fichierType, fichierData, CurrentSocieteId), ct);
+                                   fichierNom, fichierType, fichierData, CurrentSocieteId, CurrentUserId), ct);
 
         return Ok(result);
     }
 
     [HttpGet("documents/{documentId:guid}/fichier")]
+    [RequirePermission("cartographie", "export")]
     public async Task<IActionResult> DownloadFichier(Guid documentId, CancellationToken ct)
     {
         var doc = await _mediator.Send(new GetDocumentFichierQuery(documentId, CurrentSocieteId), ct);
@@ -138,7 +154,7 @@ public class CartographieController : ControllerBase
     [HttpDelete("processus/{processusId:guid}/documents/{documentId:guid}")]
     public async Task<IActionResult> DeleteDocument(Guid processusId, Guid documentId, CancellationToken ct)
     {
-        await _mediator.Send(new DeleteDocumentCommand(processusId, documentId, CurrentSocieteId), ct);
+        await _mediator.Send(new DeleteDocumentCommand(processusId, documentId, CurrentSocieteId, CurrentUserId), ct);
         return NoContent();
     }
 }

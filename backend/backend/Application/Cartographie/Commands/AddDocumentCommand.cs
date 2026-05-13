@@ -14,13 +14,22 @@ public record AddDocumentCommand(
     string? FichierNom,
     string? FichierType,
     byte[]? FichierData,
-    int? SocieteId
+    int? SocieteId,
+    string CurrentUserId
 ) : IRequest<DocumentDto>;
 
 public class AddDocumentCommandHandler : IRequestHandler<AddDocumentCommand, DocumentDto>
 {
     private readonly IProcessusRepository _repo;
-    public AddDocumentCommandHandler(IProcessusRepository repo) => _repo = repo;
+    private readonly ICartographieDocumentationSyncService _documentationSync;
+
+    public AddDocumentCommandHandler(
+        IProcessusRepository repo,
+        ICartographieDocumentationSyncService documentationSync)
+    {
+        _repo = repo;
+        _documentationSync = documentationSync;
+    }
 
     public async Task<DocumentDto> Handle(AddDocumentCommand cmd, CancellationToken ct)
     {
@@ -32,6 +41,7 @@ public class AddDocumentCommandHandler : IRequestHandler<AddDocumentCommand, Doc
 
         await _repo.AddDocumentAsync(doc, ct);
         await _repo.SaveChangesAsync(ct);
+        await _documentationSync.SyncOnDocumentAddedAsync(p, doc, cmd.CurrentUserId, ct);
 
         return new DocumentDto(doc.Id, doc.Nom, doc.Type, doc.Reference,
                                doc.Statut, doc.FichierNom, doc.FichierType,

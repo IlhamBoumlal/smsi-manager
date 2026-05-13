@@ -4,6 +4,7 @@ public class PlanStep
 {
     public int     Id           { get; set; }
     public int     ActionPlanId { get; set; }
+    public int?    SocieteId    { get; set; }
     public string   Title        { get; set; } = default!;
     public string?  Description  { get; set; }
     public string   Status       { get; set; } = "todo";
@@ -12,4 +13,5 @@ public class PlanStep
     public DateTime UpdatedAt    { get; set; } = DateTime.UtcNow;
 
     public ActionPlan ActionPlan { get; set; } = default!;
+    public Societe?   Societe    { get; set; }
 }

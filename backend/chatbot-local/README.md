@@ -56,7 +56,7 @@ npm run dev
 
 Le service sera disponible sur:
 
-- `http://localhost:5055/api/chatbot/message`
+- `http://localhost:5055/api/chatbot/conversations`
 - `http://localhost:5055/health`
 
 Base locale des conversations:
@@ -75,10 +75,6 @@ Ne pas envoyer de `userId` depuis le frontend.
 - `POST /api/chatbot/conversations/:id/messages`
 - `DELETE /api/chatbot/conversations/:id`
 
-Route legacy conservee:
-
-- `POST /api/chatbot/message`
-
 ## 6) Frontend React
 
 Dans le frontend, configurez si besoin:
@@ -87,23 +83,7 @@ Dans le frontend, configurez si besoin:
 REACT_APP_CHATBOT_API_URL=http://localhost:5055
 ```
 
-## 7) Exemple de requete
-
-```http
-POST /api/chatbot/message
-Authorization: Bearer <JWT>
-Content-Type: application/json
-
-{
-  "message": "Quel est le niveau de conformite global ?",
-  "history": [
-    { "role": "user", "content": "Bonjour" },
-    { "role": "assistant", "content": "Bonjour, comment puis-je vous aider ?" }
-  ]
-}
-```
-
-En mode conversation:
+## 7) Exemple de requete (mode conversation)
 
 ```http
 POST /api/chatbot/conversations/:id/messages

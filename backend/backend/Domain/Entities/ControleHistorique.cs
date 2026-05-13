@@ -9,9 +9,11 @@ namespace backend.Domain.Entities
 
         [Required]
         public Guid ControleId { get; set; }
+        public int? SocieteId { get; set; }
 
         [ForeignKey(nameof(ControleId))]
         public Controle Controle { get; set; } = null!;
+        public Societe? Societe { get; set; }
 
         public DateTime DateModification { get; set; } = DateTime.UtcNow;
         public string? ModificateurId { get; set; }

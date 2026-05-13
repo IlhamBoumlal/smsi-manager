@@ -30,7 +30,7 @@ public class NotifyParticipantsCommandHandler(
 
         // Historique
         f.Notifications.Add(
-            FormationNotification.Create(f.Id, cmd.NotifTitle, f.Participants.Count));
+            FormationNotification.Create(f.Id, f.SocieteId, cmd.NotifTitle, f.Participants.Count));
 
         await repo.SaveChangesAsync(ct);
         return true;

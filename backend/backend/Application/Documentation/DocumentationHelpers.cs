@@ -53,6 +53,7 @@ namespace backend.Application.Documentation
                 d.Approver,
                 d.Clause,
                 d.Controle,
+                d.Processus,
                 d.Description,
                 d.FilePath,
                 d.OriginalFileName,

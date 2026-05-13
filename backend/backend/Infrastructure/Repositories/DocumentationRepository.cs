@@ -50,6 +50,7 @@ namespace backend.Infrastructure.Repositories
             existing.Approver = document.Approver;
             existing.Clause = document.Clause;
             existing.Controle = document.Controle;
+            existing.Processus = document.Processus;
             existing.Description = document.Description;
             existing.FilePath = document.FilePath;
             existing.OriginalFileName = document.OriginalFileName;

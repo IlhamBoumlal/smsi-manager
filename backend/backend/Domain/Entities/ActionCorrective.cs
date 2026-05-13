@@ -4,6 +4,7 @@ public class ActionCorrective
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid NonConformiteId { get; set; }
+    public int? SocieteId { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Responsible { get; set; }
     public DateTime? Deadline { get; set; }
@@ -11,4 +12,5 @@ public class ActionCorrective
 
     // Navigation
     public NonConformite NonConformite { get; set; } = null!;
+    public Societe? Societe { get; set; }
 }

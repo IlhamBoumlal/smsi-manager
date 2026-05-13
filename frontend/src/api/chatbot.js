@@ -186,16 +186,3 @@ export async function deleteConversation(conversationId) {
   if (!response.ok) throw normalizeError(response, payload);
   return true;
 }
-
-// Route legacy.
-export async function sendChatbotMessage({ message, history = [] }) {
-  const response = await fetch(buildUrl("/api/chatbot/message"), {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ message, history }),
-  });
-
-  const payload = await parsePayload(response);
-  if (!response.ok) throw normalizeError(response, payload);
-  return payload;
-}

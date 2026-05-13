@@ -19,6 +19,7 @@ import {
 } from "./riskModel";
 import { printWorkshopLivrable } from "./riskExport";
 import { RiskCallout, RiskCard, RiskCrudTable, RiskKpiTile, RiskPageHeader, RiskSectionHeader, RiskStatusBadge } from "./RiskUi";
+import { useAuth } from "../../context/AuthContext";
 
 const SCALE_1_4_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: `${value}/4` }));
 const GRAVITY_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: `G${value} - ${G_LABELS[value]}` }));
@@ -1132,6 +1133,10 @@ function workshopStepRenderer({ study, workshopId, stepId, upsert, remove, updat
 
 export default function RiskWorkshopPage() {
   const navigate = useNavigate();
+  const { canWrite, canEdit, canDelete } = useAuth();
+  const moduleCode = "risques";
+  const canMutateRisk =
+    canWrite(moduleCode) || canEdit(moduleCode) || canDelete(moduleCode);
   const { id, atelierId } = useParams();
   const workshopId = Number(atelierId);
 
@@ -1331,7 +1336,7 @@ export default function RiskWorkshopPage() {
               upsert: (wid, key, item) => upsertWorkshopItem(study.id, wid, key, item),
               remove: (wid, key, itemId) => deleteWorkshopItem(study.id, wid, key, itemId),
               updateContext: (wid, payload) => updateWorkshopContext(study.id, wid, payload),
-              readOnly: blocked,
+              readOnly: blocked || !canMutateRisk,
               riskOwners: owners,
             })}
         </main>

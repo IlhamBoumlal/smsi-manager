@@ -1,6 +1,7 @@
 import { useLocation, Outlet } from "react-router-dom";
 import Header from "./Header";
 import ChatbotWidget from "./ChatbotWidget";
+import { useAuth } from "../context/AuthContext";
 
 // Données statiques pour les pathes
 const PATH_TO_AXE = {
@@ -16,13 +17,29 @@ const PATH_TO_AXE = {
   "/audits":        "audits",
   "/admin/stats":   "admin-stats",
   "/admin/utilisateurs": "admin-users",
+  "/admin/roles": "admin-roles",
+  "/admin/tracabilite": "admin-tracabilite",
   "/admin/societes": "admin-societes",
   "/admin/holdings": "admin-holdings"
 };
 
+function resolveActiveAxe(pathname) {
+  const keys = Object.keys(PATH_TO_AXE).sort((a, b) => b.length - a.length);
+
+  for (const key of keys) {
+    if (pathname === key || pathname.startsWith(`${key}/`)) {
+      return PATH_TO_AXE[key];
+    }
+  }
+
+  return "tableau-bord";
+}
+
 export default function Layout() {
   const location = useLocation();
-  const activeAxe = PATH_TO_AXE[location.pathname] ?? "tableau-bord";
+  const { permissionsLoaded, canRead, isSuperAdmin } = useAuth();
+  const activeAxe = resolveActiveAxe(location.pathname);
+  const canAccessChatbot = permissionsLoaded && !isSuperAdmin && canRead("chatbot");
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -30,7 +47,7 @@ export default function Layout() {
       <main style={{ flex: 1 }}>
         <Outlet />
       </main>
-      <ChatbotWidget />
+      {canAccessChatbot ? <ChatbotWidget /> : null}
     </div>
   );
 }

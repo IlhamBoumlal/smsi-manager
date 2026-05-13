@@ -70,7 +70,7 @@ export function AssetsModule({ data }: { data?: any }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Score conformite actifs" delay={0.1}>
+        <SectionCard title="Taux de conformite des actifs" delay={0.1}>
           <div className="flex justify-center py-2">
             <DonutScore value={conformiteGlobale} />
           </div>

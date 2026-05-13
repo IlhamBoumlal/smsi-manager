@@ -16,9 +16,7 @@ namespace backend.Application.Incidents.Commands.DeleteIncident
             // Une société ne peut supprimer que ses propres incidents
             var incident = await _context.Incidents
                 .Where(i => i.Id == request.Id)
-                .Where(i => request.SocieteId.HasValue
-                    ? i.SocieteId == request.SocieteId.Value
-                    : i.SocieteId == null)
+                .Where(i => request.SocieteId.HasValue && i.SocieteId == request.SocieteId.Value)
                 .SingleOrDefaultAsync(cancellationToken);
 
             if (incident == null) return false;

@@ -6,6 +6,7 @@ using backend.Application.Risques.Commands.DuplicateRiskStudy;
 using backend.Application.Risques.Commands.UpdateRiskStudy;
 using backend.Application.Risques.Queries.GetAllRiskStudies;
 using backend.Application.Risques.Queries.GetRiskStudyById;
+using backend.Application.Security;
 using backend.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -13,9 +14,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Policy = "SmSiSocieteScope")]
+    [Authorize(Policy = "SmsiTenantScope")]
     [ApiController]
     [Route("api/risques/studies")]
+    [RequirePermission("risques")]
     public class RisquesController : ControllerBase
     {
         private readonly IMediator _mediator;

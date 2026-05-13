@@ -15,19 +15,24 @@ import { CHAT_MODE, getIntentExecutionProfile, routeIntent } from "./intentRoute
 const SMSI_SYSTEM_PROMPT = `Tu es un assistant expert SMSI, ISO 27001:2022, Annexe A, EBIOS RM, audit, gestion des actifs, incidents, documentation et amelioration continue.`;
 
 const SOURCES = [
-  { key: "clausesDashboard", path: "/api/clauses/dashboard" },
-  { key: "clausesStats", path: "/api/clauses/stats" },
-  { key: "controles", path: "/api/controles" },
-  { key: "risques", path: "/api/risques/studies" },
-  { key: "actifs", path: "/api/actifs" },
-  { key: "audits", path: "/api/audits", optional: true },
-  { key: "auditsNc", path: "/api/audits/ncs", optional: true },
-  { key: "formations", path: "/api/sensibilisation", optional: true },
-  { key: "formationsDashboard", path: "/api/sensibilisation/dashboard", optional: true },
-  { key: "pdcaCycles", path: "/api/pdca/cycles" },
-  { key: "documentation", path: "/api/documentation" },
-  { key: "incidents", path: "/api/incidents" },
-  { key: "dashboard", path: "/api/dashboard/global" },
+  { key: "clausesDashboard", path: "/api/clauses/dashboard", module: "clauses" },
+  { key: "clausesStats", path: "/api/clauses/stats", module: "clauses" },
+  { key: "controles", path: "/api/controles", module: "controles" },
+  { key: "risques", path: "/api/risques/studies", module: "risques" },
+  { key: "actifs", path: "/api/actifs", module: "actifs" },
+  { key: "audits", path: "/api/audits", module: "audit", optional: true },
+  { key: "auditsNc", path: "/api/audits/ncs", module: "audit", optional: true },
+  { key: "formations", path: "/api/sensibilisation", module: "sensibilisation", optional: true },
+  {
+    key: "formationsDashboard",
+    path: "/api/sensibilisation/dashboard",
+    module: "sensibilisation",
+    optional: true,
+  },
+  { key: "pdcaCycles", path: "/api/pdca/cycles", module: "pdca" },
+  { key: "documentation", path: "/api/documentation", module: "documentation" },
+  { key: "incidents", path: "/api/incidents", module: "incidents" },
+  { key: "dashboard", path: "/api/dashboard/global", module: "dashboard" },
 ];
 
 export class ChatbotServiceError extends Error {
@@ -63,6 +68,30 @@ function normalizeToken(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+function canonicalModuleCode(value) {
+  const token = normalizeToken(value);
+  if (token === "audits") return "audit";
+  if (token === "tableaudebord" || token === "tableaubord") return "dashboard";
+  return token;
+}
+
+function canReadSmsiModule(permissionScope, moduleCode) {
+  if (!permissionScope || typeof permissionScope !== "object") return false;
+  const canonicalModule = canonicalModuleCode(moduleCode);
+  if (!canonicalModule) return false;
+
+  const byMethod = permissionScope.can;
+  if (typeof byMethod === "function") {
+    return Boolean(byMethod(canonicalModule, "read"));
+  }
+
+  const rawModules = permissionScope.modules;
+  if (!(rawModules instanceof Map)) return false;
+  const actions = rawModules.get(canonicalModule);
+  if (!(actions instanceof Set)) return false;
+  return actions.has("read") || actions.has("administer");
 }
 
 function normalizeSearchText(value) {
@@ -307,12 +336,22 @@ function pickDocumentCandidates(message, documents) {
     .slice(0, MAX_CONTEXT_ITEMS);
 }
 
-async function loadDocumentContext(token, message) {
+async function loadDocumentContext(token, message, permissionScope) {
+  if (!canReadSmsiModule(permissionScope, "documentation")) {
+    return {
+      available: false,
+      blockedByPermission: true,
+      documents: [],
+      error: "Acces refuse au module Documentation.",
+    };
+  }
+
   try {
     const raw = await fetchSmsiSource("/api/documentation", token);
     const documents = pickDocumentCandidates(message, raw);
     return {
       available: true,
+      blockedByPermission: false,
       documents: documents.map((doc) => ({
         id: readValue(doc, "id", "Id"),
         nom: readValue(doc, "name", "Name"),
@@ -324,6 +363,7 @@ async function loadDocumentContext(token, message) {
   } catch (error) {
     return {
       available: false,
+      blockedByPermission: false,
       documents: [],
       error: String(error?.message || "Contexte documentaire indisponible"),
     };
@@ -347,11 +387,21 @@ async function fetchSmsiSource(path, token) {
     },
   });
 
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     throw new ChatbotServiceError(
       "Le token utilisateur ne permet pas de lire les donnees SMSI.",
       401,
-      "CHATBOT_SMSI_AUTH_ERROR"
+      "CHATBOT_SMSI_AUTH_ERROR",
+      { path, status: response.status }
+    );
+  }
+
+  if (response.status === 403) {
+    throw new ChatbotServiceError(
+      "Acces refuse a une source SMSI pour ce profil utilisateur.",
+      403,
+      "CHATBOT_SMSI_SOURCE_FORBIDDEN",
+      { path, status: response.status }
     );
   }
 
@@ -363,29 +413,63 @@ async function fetchSmsiSource(path, token) {
   return response.json();
 }
 
-async function loadSources(token) {
+async function loadSources(token, permissionScope) {
+  const allowedSources = SOURCES.filter((source) =>
+    canReadSmsiModule(permissionScope, source.module)
+  );
+
+  if (allowedSources.length === 0) {
+    throw new ChatbotServiceError(
+      "Aucune source SMSI autorisee pour ce profil. Verifiez les permissions module/action.",
+      403,
+      "CHATBOT_RBAC_NO_SOURCE_ACCESS"
+    );
+  }
+
   const settled = await Promise.allSettled(
-    SOURCES.map((source) => fetchSmsiSource(source.path, token))
+    allowedSources.map((source) => fetchSmsiSource(source.path, token))
   );
 
   const data = {};
   const sourceStatus = [];
+  const blockedSources = SOURCES.filter((source) => !allowedSources.includes(source)).map(
+    (source) => source.key
+  );
 
   settled.forEach((result, index) => {
-    const source = SOURCES[index];
+    const source = allowedSources[index];
     if (result.status === "fulfilled") {
       data[source.key] = result.value;
-      sourceStatus.push({ source: source.key, ok: true, optional: Boolean(source.optional) });
+      sourceStatus.push({
+        source: source.key,
+        module: source.module,
+        ok: true,
+        optional: Boolean(source.optional),
+      });
       return;
     }
 
     const reason = result.reason;
-    if (reason instanceof ChatbotServiceError && reason.code === "CHATBOT_SMSI_AUTH_ERROR") {
-      throw reason;
+    if (reason instanceof ChatbotServiceError) {
+      if (reason.code === "CHATBOT_SMSI_AUTH_ERROR") {
+        throw reason;
+      }
+
+      sourceStatus.push({
+        source: source.key,
+        module: source.module,
+        ok: false,
+        optional: Boolean(source.optional),
+        forbidden: reason.code === "CHATBOT_SMSI_SOURCE_FORBIDDEN",
+        status: Number(reason.status || 0) || null,
+        error: String(reason.message || "Source indisponible"),
+      });
+      return;
     }
 
     sourceStatus.push({
       source: source.key,
+      module: source.module,
       ok: false,
       optional: Boolean(source.optional),
       error: String(reason?.message || "Source indisponible"),
@@ -401,11 +485,23 @@ async function loadSources(token) {
     if (cycleId) {
       try {
         data.pdcaCycleDetail = await fetchSmsiSource(`/api/pdca/cycles/${cycleId}`, token);
-        sourceStatus.push({ source: "pdcaCycleDetail", ok: true });
+        sourceStatus.push({ source: "pdcaCycleDetail", module: "pdca", ok: true });
       } catch (error) {
+        if (error instanceof ChatbotServiceError && error.code === "CHATBOT_SMSI_AUTH_ERROR") {
+          throw error;
+        }
+
         sourceStatus.push({
           source: "pdcaCycleDetail",
+          module: "pdca",
           ok: false,
+          forbidden:
+            error instanceof ChatbotServiceError &&
+            error.code === "CHATBOT_SMSI_SOURCE_FORBIDDEN",
+          status:
+            error instanceof ChatbotServiceError
+              ? Number(error.status || 0) || null
+              : null,
           error: String(error?.message || "Detail PDCA indisponible"),
         });
       }
@@ -414,6 +510,19 @@ async function loadSources(token) {
 
   const availableSourceCount = sourceStatus.filter((status) => status.ok).length;
   if (availableSourceCount === 0) {
+    const hasForbiddenSource = sourceStatus.some(
+      (status) => status.forbidden === true || Number(status.status) === 403
+    );
+
+    if (hasForbiddenSource) {
+      throw new ChatbotServiceError(
+        "Aucune source SMSI accessible pour ce profil utilisateur. Verifiez ses permissions.",
+        403,
+        "CHATBOT_SMSI_NO_SOURCE_ACCESS",
+        sourceStatus
+      );
+    }
+
     throw new ChatbotServiceError(
       "Impossible de recuperer les donnees SMSI. Verifiez que l'API principale est demarree.",
       502,
@@ -422,7 +531,7 @@ async function loadSources(token) {
     );
   }
 
-  return { data, sourceStatus };
+  return { data, sourceStatus, blockedSources };
 }
 
 function normalizeControlStatus(raw) {
@@ -924,7 +1033,7 @@ function summarizeDashboard(dashboard) {
   };
 }
 
-function summarizeContext(sourceData, sourceStatus) {
+function summarizeContext(sourceData, sourceStatus, blockedSources = []) {
   const clauses = summarizeClauses(sourceData.clausesStats, sourceData.clausesDashboard);
   const controls = summarizeControles(sourceData.controles);
   const risks = summarizeRisques(sourceData.risques);
@@ -962,11 +1071,13 @@ function summarizeContext(sourceData, sourceStatus) {
     hasData,
     missingSources,
     missingOptionalSources,
+    permissionFilteredSources: blockedSources,
     summary: {
       meta: {
         generatedAt: new Date().toISOString(),
         apiBaseUrl: SMSI_API_BASE_URL,
         sourceHealth: sourceStatus,
+        blockedSources,
       },
       dashboardKpi: dashboard,
       clauses,
@@ -1092,6 +1203,8 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
     "- Reponds uniquement en francais.",
     "- N'utilise pas de markdown (pas de **, pas de listes markdown).",
     "- N'invente jamais de donnees.",
+    "- Le chatbot est strictement en lecture seule: aucune action d'ecriture n'est executee dans l'application.",
+    "- Interdiction de creer, modifier, supprimer, importer, exporter ou approuver des donnees via le chatbot.",
     ...(isEbiosConversation
       ? [
           "Contexte methodologique conversationnel: EBIOS_RM.",
@@ -1143,8 +1256,9 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
     return [
       ...commonRules,
       ...followUpRules,
-      "Mode AGENT_ACTION: propose un plan d'action concret et demande confirmation avant toute action.",
+      "Mode AGENT_ACTION: propose un plan d'action concret sans execution technique.",
       "- Ne pretends jamais avoir execute une action reelle.",
+      "- Toute mise en oeuvre doit passer par un workflow externe explicite hors chatbot.",
     ].join("\n");
   }
 
@@ -1227,7 +1341,7 @@ function buildUserPrompt(chatMode, message, appContext, documentContext, followU
           ]),
       "Instruction de reponse:",
       "- Repondre avec un plan d'action et les preconditions.",
-      "- Demander confirmation explicite avant toute execution.",
+      "- Demander une validation explicite du workflow externe, sans execution dans le chatbot.",
     ].join("\n");
   }
 
@@ -1326,7 +1440,7 @@ function buildOllamaMessages({
   ];
 }
 
-async function prepareConversationExecution({ message, history, token, lastMethod }) {
+async function prepareConversationExecution({ message, history, token, permissionScope, lastMethod }) {
   const intent = routeIntent(message, history);
   const profile = getIntentExecutionProfile(intent.mode);
   const followUpContext = buildFollowUpContext(intent, history);
@@ -1340,7 +1454,7 @@ async function prepareConversationExecution({ message, history, token, lastMetho
   let documentContext = null;
 
   if (profile.appDataUsed) {
-    appContext = await getSmsiContext(token);
+    appContext = await getSmsiContext(token, permissionScope);
   }
 
   if (profile.documentUsed) {
@@ -1348,7 +1462,7 @@ async function prepareConversationExecution({ message, history, token, lastMetho
       followUpContext?.isFollowUp && followUpContext.anchorUserMessage
         ? followUpContext.anchorUserMessage
         : message;
-    documentContext = await loadDocumentContext(token, documentQueryMessage);
+    documentContext = await loadDocumentContext(token, documentQueryMessage, permissionScope);
   }
 
   const effectiveRagUsed = Boolean(profile.ragUsed && documentContext?.available && toArray(documentContext?.documents).length > 0);
@@ -1375,6 +1489,7 @@ async function prepareConversationExecution({ message, history, token, lastMetho
     hasData: Boolean(appContext?.hasData),
     missingSources: toArray(appContext?.missingSources),
     missingOptionalSources: toArray(appContext?.missingOptionalSources),
+    permissionFilteredSources: toArray(appContext?.permissionFilteredSources),
     chatMode: intent.mode,
     appDataUsed: Boolean(profile.appDataUsed),
     documentUsed: Boolean(profile.documentUsed),
@@ -1686,13 +1801,25 @@ async function callOllama(messages, options = {}) {
   return streamed.content;
 }
 
-export async function getSmsiContext(token) {
-  const { data, sourceStatus } = await loadSources(token);
-  return summarizeContext(data, sourceStatus);
+export async function getSmsiContext(token, permissionScope) {
+  const { data, sourceStatus, blockedSources } = await loadSources(token, permissionScope);
+  return summarizeContext(data, sourceStatus, blockedSources);
 }
 
-export async function generateAssistantReply({ message, history, token, lastMethod = null }) {
-  const execution = await prepareConversationExecution({ message, history, token, lastMethod });
+export async function generateAssistantReply({
+  message,
+  history,
+  token,
+  permissionScope = null,
+  lastMethod = null,
+}) {
+  const execution = await prepareConversationExecution({
+    message,
+    history,
+    token,
+    permissionScope,
+    lastMethod,
+  });
   logChatTrace(execution.trace);
 
   let answer = "";
@@ -1719,12 +1846,19 @@ export async function streamAssistantReply({
   message,
   history,
   token,
+  permissionScope = null,
   onToken,
   onFirstToken,
   signal,
   lastMethod = null,
 }) {
-  const execution = await prepareConversationExecution({ message, history, token, lastMethod });
+  const execution = await prepareConversationExecution({
+    message,
+    history,
+    token,
+    permissionScope,
+    lastMethod,
+  });
   logChatTrace(execution.trace);
 
   let streamed = null;
@@ -1754,8 +1888,20 @@ export async function streamAssistantReply({
   };
 }
 
-export async function buildChatbotResponse({ message, history, token, lastMethod = null }) {
-  const { answer, context } = await generateAssistantReply({ message, history, token, lastMethod });
+export async function buildChatbotResponse({
+  message,
+  history,
+  token,
+  permissionScope = null,
+  lastMethod = null,
+}) {
+  const { answer, context } = await generateAssistantReply({
+    message,
+    history,
+    token,
+    permissionScope,
+    lastMethod,
+  });
 
   return {
     answer,
@@ -1765,6 +1911,7 @@ export async function buildChatbotResponse({ message, history, token, lastMethod
     model: OLLAMA_MODEL,
     missingSources: context.missingSources,
     missingOptionalSources: context.missingOptionalSources,
+    permissionFilteredSources: context.permissionFilteredSources,
     appDataUsed: context.appDataUsed,
     documentUsed: context.documentUsed,
     ragUsed: context.ragUsed,

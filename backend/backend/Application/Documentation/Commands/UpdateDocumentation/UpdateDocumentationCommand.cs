@@ -15,6 +15,7 @@ namespace backend.Application.Documentation.Commands.UpdateDocumentation
         string? Approver,
         string? Clause,
         string? Controle,
+        string? Processus,
         string? Description,
         bool RemoveFile,
         IFormFile? File,

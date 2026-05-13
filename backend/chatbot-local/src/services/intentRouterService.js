@@ -17,9 +17,11 @@ function normalizeText(value) {
 const DOCUMENT_PATTERN = /\b(pdf|document|fichier|piece jointe|annexe|rapport|resume ce)\b/i;
 const ACTION_PATTERN = /\b(cree|creer|ajoute|ajouter|supprime|supprimer|met a jour|modifier|planifie|planifier|notifie|notifier|envoie|envoyer|lance|executer)\b/i;
 const DIRECT_ACTION_PATTERN = /^(?:stp|svp|veuillez|merci de)?\s*(cree|creer|ajoute|ajouter|supprime|supprimer|met|mettre|modifier|planifie|planifier|notifie|notifier|envoie|envoyer|lance|executer)\b/i;
-const APP_ENTITY_PATTERN = /\b(audit|audits|non conformite|non conformites|controle|controles|incident|incidents|actif|actifs|dashboard|tableau de bord|kpi|formation|formations|documentation|pdca|risque|risques)\b/i;
+const APP_ENTITY_PATTERN = /\b(audit|audits|non conformite|non conformites|conformite|controle|controles|incident|incidents|actif|actifs|dashboard|tableau de bord|kpi|score|formation|formations|documentation|pdca|risque|risques)\b/i;
 const APP_CONTEXT_PATTERN = /\b(mon|ma|mes|notre|nos|dans l'application|dans lapp|appli|application|chez nous)\b/i;
 const ANALYSIS_PATTERN = /\b(analyse|analyser|etat|statut|synthese|bilan|montre|quels sont|combien|liste)\b/i;
+const APP_INSIGHT_PATTERN = /\b(quel|quels|quelle|quelles|combien|niveau|taux|statut|etat|situation|ouvert|ouverts|en retard|priorite|top|resume|synthese|bilan|liste|montre|affiche)\b/i;
+const APP_CONCEPTUAL_PATTERN = /\b(c'?est quoi|qu['’]?est ce que|definition|difference entre|explique(?:r)?|pourquoi)\b/i;
 const SMSI_KNOWLEDGE_PATTERN = /\b(iso ?27001|smsi|annexe a|ebios|pdca|clauses?|controle(s)? annexe a|etude de risque|analyse de risque)\b/i;
 const EBIOS_PATTERN = /\bebios\b/i;
 const HOW_TO_PATTERN = /\b(comment|comment faire|exemple|guide|methode|demarche|etapes?)\b/i;
@@ -150,6 +152,8 @@ export function routeIntent(message, history = []) {
   const hasAppEntity = APP_ENTITY_PATTERN.test(text);
   const hasAppContext = APP_CONTEXT_PATTERN.test(text);
   const hasAnalysisSignal = ANALYSIS_PATTERN.test(text);
+  const hasAppInsightSignal = APP_INSIGHT_PATTERN.test(text);
+  const hasAppConceptualSignal = APP_CONCEPTUAL_PATTERN.test(text);
   const hasSmsiKnowledgeSignal = SMSI_KNOWLEDGE_PATTERN.test(text);
   const hasEbiosSignal = EBIOS_PATTERN.test(text);
   const hasHowToSignal = HOW_TO_PATTERN.test(text);
@@ -194,10 +198,14 @@ export function routeIntent(message, history = []) {
     };
   }
 
-  if (hasAppEntity && (hasAppContext || hasAnalysisSignal)) {
+  if (
+    hasAppEntity &&
+    !hasAppConceptualSignal &&
+    (hasAppContext || hasAnalysisSignal || hasAppInsightSignal || isQuestion)
+  ) {
     return {
       mode: CHAT_MODE.APP_DATA_ANALYSIS,
-      reason: "app_analysis_signal_detected",
+      reason: "app_entity_question_or_context_detected",
       followUp: false,
       followUpType: "none",
       anchorMessage: "",

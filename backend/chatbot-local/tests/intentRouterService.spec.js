@@ -39,6 +39,24 @@ const scenarios = [
     },
   },
   {
+    name: "quels incidents sont ouverts ? -> utilise les donnees application",
+    message: "quels incidents sont ouverts ?",
+    expectedMode: CHAT_MODE.APP_DATA_ANALYSIS,
+    assertProfile(profile) {
+      assert.equal(profile.appDataUsed, true);
+      assert.equal(profile.structuredAnalysis, true);
+    },
+  },
+  {
+    name: "quel est le niveau de conformite global ? -> utilise les donnees application",
+    message: "quel est le niveau de conformite global ?",
+    expectedMode: CHAT_MODE.APP_DATA_ANALYSIS,
+    assertProfile(profile) {
+      assert.equal(profile.appDataUsed, true);
+      assert.equal(profile.structuredAnalysis, true);
+    },
+  },
+  {
     name: "resume ce PDF -> utilise document/RAG",
     message: "resume ce PDF",
     expectedMode: CHAT_MODE.DOCUMENT_CHAT,

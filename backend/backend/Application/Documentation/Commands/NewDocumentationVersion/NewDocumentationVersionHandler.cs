@@ -63,6 +63,7 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
                 Approver = request.Approver?.Trim(),
                 Clause = request.Clause?.Trim(),
                 Controle = request.Controle?.Trim(),
+                Processus = request.Processus?.Trim(),
                 Description = request.Description?.Trim(),
                 SocieteId = existing.SocieteId,
                 CreatedByUserId = existing.CreatedByUserId,
@@ -129,5 +130,4 @@ namespace backend.Application.Documentation.Commands.NewDocumentationVersion
         }
     }
 }
-
 

@@ -9,7 +9,7 @@ public class DeleteAuditCommand
     public async Task<bool> ExecuteAsync(Guid id, int? societeId)
     {
         var audit = await _db.Audits
-            .Where(a => societeId.HasValue ? a.SocieteId == societeId.Value || a.SocieteId == null : a.SocieteId == null)
+            .Where(a => societeId.HasValue && a.SocieteId == societeId.Value)
             .FirstOrDefaultAsync(a => a.Id == id);
         if (audit is null) return false;
         _db.Audits.Remove(audit);

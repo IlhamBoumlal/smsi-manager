@@ -53,6 +53,27 @@ function buildErrorMessage(error) {
   if (error?.code === "CHATBOT_AUTH_REQUIRED") {
     return "Session invalide. Reconnectez-vous.";
   }
+  if (error?.code === "CHATBOT_SUPERADMIN_FORBIDDEN") {
+    return "Le Super Admin n'a pas acces au chatbot SMSI.";
+  }
+  if (error?.code === "CHATBOT_PERMISSION_DENIED") {
+    return "Acces refuse: votre role ne dispose pas de la permission chatbot.";
+  }
+  if (error?.code === "CHATBOT_COMPANY_SCOPE_REQUIRED") {
+    return "Acces refuse: ce compte doit etre rattache a une societe pour utiliser le chatbot.";
+  }
+  if (error?.code === "CHATBOT_SMSI_AUTH_ERROR") {
+    return "Session invalide pour lire les donnees SMSI. Reconnectez-vous puis reessayez.";
+  }
+  if (error?.code === "CHATBOT_RBAC_NO_SOURCE_ACCESS") {
+    return "Aucune source SMSI autorisee pour votre profil. Contactez votre Admin societe.";
+  }
+  if (error?.code === "CHATBOT_SMSI_NO_SOURCE_ACCESS") {
+    return "Votre profil n'a pas acces aux sources SMSI necessaires. Verifiez les permissions de modules.";
+  }
+  if (error?.code === "CHATBOT_SMSI_CONTEXT_UNAVAILABLE") {
+    return "Le chatbot ne peut pas joindre l'API SMSI pour lire les donnees applicatives.";
+  }
   if (error?.code === "CHATBOT_FORBIDDEN") {
     return "Acces refuse: cette conversation n'appartient pas a votre compte.";
   }

@@ -2,7 +2,9 @@
 using Application.DTOs;
 using backend.Application.Audits.Commands;
 using backend.Application.Audits.Queries;
+using backend.Application.Security;
 using backend.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -10,7 +12,8 @@ namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/audits")]
-
+[Authorize(Policy = "SmsiTenantScope")]
+[RequirePermission("audit")]
 public class AuditsController : ControllerBase
 {
     private readonly AppDbContext _db;

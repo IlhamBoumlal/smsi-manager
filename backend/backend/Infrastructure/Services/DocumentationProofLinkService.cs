@@ -49,6 +49,7 @@ namespace backend.Infrastructure.Services
             string currentUserId,
             string? clauseReference,
             string? controleReference,
+            string? processusReference,
             string? description,
             string? requestedType = null,
             string? sourceModule = null,
@@ -70,6 +71,7 @@ namespace backend.Infrastructure.Services
                 currentUserId,
                 clauseReference,
                 controleReference,
+                processusReference,
                 description,
                 requestedType,
                 sourceModule,
@@ -84,6 +86,7 @@ namespace backend.Infrastructure.Services
             string currentUserId,
             string? clauseReference,
             string? controleReference,
+            string? processusReference,
             string? description,
             string? requestedType = null,
             string? sourceModule = null,
@@ -112,6 +115,7 @@ namespace backend.Infrastructure.Services
                     actor.UserId,
                     clauseReference,
                     controleReference,
+                    processusReference,
                     description,
                     requestedType,
                     sourceModule,
@@ -154,6 +158,7 @@ namespace backend.Infrastructure.Services
                 Author = actor.DisplayName,
                 Clause = MergeCsvLinks(null, clauseReference),
                 Controle = MergeCsvLinks(null, controleReference),
+                Processus = MergeCsvLinks(null, processusReference),
                 Description = string.IsNullOrWhiteSpace(description)
                     ? "Preuve documentaire ajoutee automatiquement depuis un module de conformite."
                     : description.Trim(),
@@ -177,6 +182,7 @@ namespace backend.Infrastructure.Services
             string currentUserId,
             string? clauseReference,
             string? controleReference,
+            string? processusReference,
             string? description,
             string? requestedType = null,
             string? sourceModule = null,
@@ -194,6 +200,7 @@ namespace backend.Infrastructure.Services
                 actor.UserId,
                 clauseReference,
                 controleReference,
+                processusReference,
                 description,
                 requestedType,
                 sourceModule,
@@ -209,6 +216,7 @@ namespace backend.Infrastructure.Services
             string currentUserId,
             string? clauseReference,
             string? controleReference,
+            string? processusReference,
             string? description,
             string? requestedType,
             string? sourceModule,
@@ -218,6 +226,7 @@ namespace backend.Infrastructure.Services
         {
             var mergedClause = MergeCsvLinks(document.Clause, clauseReference);
             var mergedControle = MergeCsvLinks(document.Controle, controleReference);
+            var mergedProcessus = MergeCsvLinks(document.Processus, processusReference);
 
             var mustUpdateDescription = string.IsNullOrWhiteSpace(document.Description) && !string.IsNullOrWhiteSpace(description);
             var mustUpdateType = string.IsNullOrWhiteSpace(document.Type);
@@ -238,6 +247,7 @@ namespace backend.Infrastructure.Services
             var changed =
                 !string.Equals(document.Clause ?? string.Empty, mergedClause ?? string.Empty, StringComparison.Ordinal) ||
                 !string.Equals(document.Controle ?? string.Empty, mergedControle ?? string.Empty, StringComparison.Ordinal) ||
+                !string.Equals(document.Processus ?? string.Empty, mergedProcessus ?? string.Empty, StringComparison.Ordinal) ||
                 !string.Equals(document.Type ?? string.Empty, resolvedType ?? string.Empty, StringComparison.Ordinal) ||
                 !string.Equals(document.Category ?? string.Empty, resolvedCategory ?? string.Empty, StringComparison.Ordinal) ||
                 mustUpdateDescription;
@@ -246,6 +256,7 @@ namespace backend.Infrastructure.Services
 
             document.Clause = mergedClause;
             document.Controle = mergedControle;
+            document.Processus = mergedProcessus;
             document.Type = resolvedType ?? ResolveDocumentType(referenceFileName, description, requestedType);
             document.Category = resolvedCategory ?? "Audit";
             if (mustUpdateDescription) document.Description = description?.Trim();

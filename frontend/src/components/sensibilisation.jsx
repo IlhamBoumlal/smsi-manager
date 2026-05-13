@@ -170,7 +170,7 @@ function ActionBar({ active, onChange }) {
 }
 
 // ─── Vue Liste ────────────────────────────────────────────────────────────────
-function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canWrite, canDelete }) {
+function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canWrite, canDelete, canExport }) {
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType,   setFilterType]   = useState('');
@@ -260,10 +260,12 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
             className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-700 focus:outline-none focus:border-gray-400 min-w-[200px]" />
         </div>
         <div className="flex-1" />
-        <button onClick={() => onToast('Export généré')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-xs text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-          <Download className="w-3.5 h-3.5" /> Exporter pour audit
-        </button>
+        {canExport && (
+          <button onClick={() => onToast('Export généré')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-xs text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+            <Download className="w-3.5 h-3.5" /> Exporter pour audit
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -557,7 +559,7 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
 }
 
 // ─── Vue Détail ───────────────────────────────────────────────────────────────
-function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete }) {
+function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete, canImport, canExport }) {
   const [formation,  setFormation]  = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [uploading,  setUploading]  = useState(false);
@@ -604,8 +606,8 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
   };
 
   const handleFileUpload = async (e) => {
-    if (!canEdit) {
-      onToast('Vous n\'avez pas la permission d\'ajouter des documents', 'error');
+    if (!canImport) {
+      onToast('Vous n\'avez pas la permission d\'importer des documents', 'error');
       return;
     }
     const file = e.target.files?.[0];
@@ -637,9 +639,15 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
     }
   };
 
-  const handleDownload = (doc) =>
+  const handleDownload = (doc) => {
+    if (!canExport) {
+      onToast('Vous n\'avez pas la permission d\'exporter des documents', 'error');
+      return;
+    }
+
     downloadFormationDocument(formation.id, doc.id, doc.name)
       .catch(() => onToast('Erreur de téléchargement', 'error'));
+  };
 
   if (loading) return <Spinner />;
   if (!formation) return <div className="text-gray-400 text-center py-10">Formation introuvable.</div>;
@@ -761,7 +769,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
               <div className="flex items-center gap-2">
                 {uploading && <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
                 <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.pptx" onChange={handleFileUpload} />
-                {canEdit && (
+                {canImport && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
@@ -784,10 +792,12 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                     <div className="text-[11px] text-gray-400">{doc.meta}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => handleDownload(doc)}
-                      className="px-2 py-1 border border-gray-200 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">
-                      ↓
-                    </button>
+                    {canExport && (
+                      <button onClick={() => handleDownload(doc)}
+                        className="px-2 py-1 border border-gray-200 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">
+                        ↓
+                      </button>
+                    )}
                     {canDelete && (
                       <button onClick={() => handleDeleteDoc(doc.id)}
                         className="px-2 py-1 border border-red-100 text-[11px] text-red-400 rounded-lg hover:bg-red-50 transition-colors">
@@ -816,7 +826,7 @@ function SendIcon({ className }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 export default function Sensibilisation() {
-  const { canRead, canWrite, canEdit, canDelete } = useAuth();
+  const { canRead, canWrite, canEdit, canDelete, canImport, canExport } = useAuth();
   const moduleCode = "sensibilisation";
   const hasAccess = canRead(moduleCode);
   
@@ -959,6 +969,7 @@ export default function Sensibilisation() {
             onRefresh={handleRefresh}
             canWrite={canWrite(moduleCode)}
             canDelete={canDelete(moduleCode)}
+            canExport={canExport(moduleCode)}
           />
         )}
         {module === 'create' && (
@@ -972,6 +983,8 @@ export default function Sensibilisation() {
             canWrite={canWrite(moduleCode)}
             canEdit={canEdit(moduleCode)}
             canDelete={canDelete(moduleCode)}
+            canImport={canImport(moduleCode)}
+            canExport={canExport(moduleCode)}
           />
         )}
         </div>

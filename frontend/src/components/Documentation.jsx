@@ -33,7 +33,7 @@ import {
 const API = "/api/documentation";
 
 const defaultPermissions = {
-  role: "EMPLOYE",
+  role: "CONSULTANT",
   canConsult: false,
   canCreate: false,
   canEditOwn: false,
@@ -137,6 +137,12 @@ const allAnnexControls = annexControlGroups.flatMap((group) => group.items);
 const parseSelectedValues = (value) => (value && value !== "-"
   ? Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)))
   : []);
+const extractProcessName = (processItem) => {
+  const rawValue = processItem?.nom ?? processItem?.Nom ?? processItem?.name ?? processItem?.Name;
+  if (!rawValue) return null;
+  const text = String(rawValue).trim();
+  return text ? text : null;
+};
 const buildPreviewSections = (doc) => ([
   {
     title: "Objet",
@@ -205,6 +211,7 @@ const normalizeDoc = (doc = {}) => {
     approver: toSafeText(doc.approver ?? doc.Approver),
     clause: toSafeText(doc.clause ?? doc.Clause),
     controle: toSafeText(doc.controle ?? doc.Controle),
+    processus: toSafeText(doc.processus ?? doc.Processus),
     description: toSafeText(doc.description ?? doc.Description, "Aucune description."),
     size: formatSize(doc.fileSizeBytes ?? doc.FileSizeBytes ?? doc.fileSize ?? doc.FileSize),
     updatedAtLabel: formatDate(doc.updatedAt ?? doc.UpdatedAt),
@@ -272,7 +279,7 @@ function Modal({ open, children, onClose, panelClassName = "" }) {
 }
 
 export default function Documentation() {
-  const { user, canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const { user, canRead, canWrite, canEdit, canDelete, canExport, canApprove } = useAuth();
   const moduleCode = "documentation";
   const hasAccess = canRead(moduleCode);
   const navigate = useNavigate();
@@ -312,12 +319,15 @@ export default function Documentation() {
     approver: "",
     clause: "",
     controle: "",
+    processus: "",
     description: "",
     file: null,
     removeFile: false,
   });
   const [selectedClauses, setSelectedClauses] = useState([]);
   const [selectedControls, setSelectedControls] = useState([]);
+  const [selectedProcessus, setSelectedProcessus] = useState([]);
+  const [processusOptions, setProcessusOptions] = useState([]);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadState, setDownloadState] = useState("idle");
   const [downloadFormat, setDownloadFormat] = useState("");
@@ -341,9 +351,10 @@ export default function Documentation() {
     setLoading(true);
     setError("");
     try {
-      const [docsResult, permissionsResult] = await Promise.allSettled([
+      const [docsResult, permissionsResult, processusResult] = await Promise.allSettled([
         axiosInstance.get(API),
         axiosInstance.get(`${API}/permissions`),
+        axiosInstance.get("/api/cartographie/processus"),
       ]);
 
       if (permissionsResult.status === "fulfilled") {
@@ -363,6 +374,15 @@ export default function Documentation() {
       } else {
         setDocs([]);
         setError(extractApiError(docsResult.reason, "Impossible de charger les documents."));
+      }
+
+      if (processusResult.status === "fulfilled") {
+        const names = (processusResult.value.data || [])
+          .map(extractProcessName)
+          .filter(Boolean);
+        setProcessusOptions(Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" })));
+      } else {
+        setProcessusOptions([]);
       }
     } catch (err) {
       if (err?.response?.status === 401) return navigate("/login");
@@ -386,6 +406,7 @@ export default function Documentation() {
     fd.append("approver", payload.approver || "");
     fd.append("clause", payload.clause || "");
     fd.append("controle", payload.controle || "");
+    fd.append("processus", payload.processus || "");
     fd.append("description", payload.description || "");
     fd.append("removeFile", payload.removeFile ? "true" : "false");
     if (payload.file) fd.append("file", payload.file);
@@ -493,35 +514,27 @@ export default function Documentation() {
   };
 
   const approveDoc = async (doc) => {
-    if (!doc?.canApprove) {
+    if (!doc?.canApprove || !canApprove(moduleCode)) {
       setError("Vous n'avez pas la permission d'approuver ce document.");
       return;
     }
 
-    await updateDoc(doc.id, {
-      name: doc.name,
-      type: doc.type,
-      category: doc.category,
-      status: "approuve",
-      version: doc.version,
-      classification: doc.classification,
-      author: doc.author,
-      approver:
-        (user?.nomComplet || user?.NomComplet || user?.email || user?.Email || "").trim()
-        || doc.approver,
-      clause: doc.clause === "-" ? "" : doc.clause,
-      controle: doc.controle === "-" ? "" : doc.controle,
-      description: doc.description,
-      removeFile: false,
-      file: null,
-    });
+    const approver =
+      (user?.nomComplet || user?.NomComplet || user?.email || user?.Email || "").trim()
+      || doc.approver;
+
+    const res = await axiosInstance.post(`${API}/${doc.id}/approve`, { approver });
+    if (!res?.data) throw new Error("Reponse vide lors de l'approbation.");
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? normalizeDoc(res.data) : d)));
+    showSuccess("Document approuve.");
   };
 
   const filtered = useMemo(() => docs.filter((d) => {
     const q = search.trim().toLowerCase();
     const safeName = String(d?.name || "").toLowerCase();
     const safeAuthor = String(d?.author || "").toLowerCase();
-    const qMatch = !q || safeName.includes(q) || safeAuthor.includes(q);
+    const safeProcessus = String(d?.processus || "").toLowerCase();
+    const qMatch = !q || safeName.includes(q) || safeAuthor.includes(q) || safeProcessus.includes(q);
     const typeMatch = !typeFilter || d.type === typeFilter;
     const statusMatch = !statusFilter || d.status === statusFilter;
     const categoryMatch = !categoryFilter || d.category === categoryFilter;
@@ -633,12 +646,14 @@ export default function Documentation() {
       approver: seed.approver === "-" ? "" : seed.approver || "",
       clause: seed.clause === "-" ? "" : seed.clause || "",
       controle: seed.controle === "-" ? "" : seed.controle || "",
+      processus: seed.processus === "-" ? "" : seed.processus || "",
       description: seed.description || "",
       file: null,
       removeFile: false,
     });
     setSelectedClauses(parseSelectedValues(seed.clause));
     setSelectedControls(parseSelectedValues(seed.controle));
+    setSelectedProcessus(parseSelectedValues(seed.processus));
   };
 
   const togglePickerValue = (value, setter) => {
@@ -675,7 +690,7 @@ export default function Documentation() {
     setVersioningDoc(doc);
   };
   const closeCreate = () => { setShowNew(false); setNewStep(0); };
-  const createSteps = ["Informations", "Liens ISO", "Fichier", "Confirmation"];
+  const createSteps = ["Informations", "Liens ISO & Processus", "Fichier", "Confirmation"];
 
   const buildDocActions = (doc) => {
     const actions = [
@@ -683,7 +698,7 @@ export default function Documentation() {
       [<Download size={16} />, () => openDownloadModal(doc), "Telecharger", "text-emerald-600 hover:bg-emerald-50"],
     ];
 
-    if (doc.canApprove && doc.status !== "approuve" && canEdit(moduleCode)) {
+    if (doc.canApprove && doc.status !== "approuve" && canApprove(moduleCode)) {
       actions.push([
         <Check size={16} />,
         async () => {
@@ -921,9 +936,6 @@ export default function Documentation() {
             </div>
           </div>
 
-          <div className="mt-3 text-sm font-semibold text-slate-600">
-            {filtered.length} / {docs.length} documents affiches
-          </div>
         </div>
 
         {loading ? (
@@ -978,6 +990,7 @@ export default function Documentation() {
                     <div>Taille : <b className="text-slate-700">{doc.size}</b></div>
                     <div>Clause : <b className="text-slate-700">{doc.clause}</b></div>
                     <div>Controle : <b className="text-slate-700">{doc.controle}</b></div>
+                    <div>Processus : <b className="text-slate-700">{doc.processus}</b></div>
                     <div>Auteur : <b className="text-slate-700">{doc.author}</b></div>
                     <div>Approbateur : <b className="text-slate-700">{doc.approver}</b></div>
                   </div>
@@ -1000,7 +1013,7 @@ export default function Documentation() {
             <table className="w-full min-w-[980px] text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr>
-                  {["Document", "Type", "Version", "Statut", "Auteur", "Clause", "Taille", "Actions"].map((h) => (
+                  {["Document", "Type", "Version", "Statut", "Auteur", "Clause", "Processus", "Taille", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -1022,6 +1035,7 @@ export default function Documentation() {
                     </td>
                     <td className="px-4 py-3 text-slate-700">{doc.author}</td>
                     <td className="px-4 py-3 text-slate-700">{doc.clause}</td>
+                    <td className="px-4 py-3 text-slate-700">{doc.processus}</td>
                     <td className="px-4 py-3 text-slate-700">{doc.size}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
@@ -1078,6 +1092,10 @@ export default function Documentation() {
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.controle}</p>
                 </div>
                 <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Processus</p>
+                  <p className="text-[15px] text-slate-800 font-medium">{viewDoc.processus}</p>
+                </div>
+                <div>
                   <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Derniere maj.</p>
                   <p className="text-[15px] text-slate-800 font-medium">{viewDoc.updatedAtLabel}</p>
                 </div>
@@ -1092,6 +1110,9 @@ export default function Documentation() {
                 ))}
                 {parseSelectedValues(viewDoc.controle).slice(0, 6).map((control) => (
                   <span key={control} className="h-7 px-3 rounded-lg bg-blue-100 text-blue-700 text-[12px] font-semibold inline-flex items-center">{control}</span>
+                ))}
+                {parseSelectedValues(viewDoc.processus).slice(0, 6).map((processus) => (
+                  <span key={processus} className="h-7 px-3 rounded-lg bg-emerald-100 text-emerald-700 text-[12px] font-semibold inline-flex items-center">{processus}</span>
                 ))}
               </div>
               <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-3">Apercu du contenu</p>
@@ -1341,7 +1362,7 @@ export default function Documentation() {
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                   <span className="w-4 h-px bg-slate-200 inline-block" />
-                  References ISO 27001
+                  References ISO & Processus
                   <span className="flex-1 h-px bg-slate-100 inline-block" />
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -1364,13 +1385,51 @@ export default function Documentation() {
                     />
                   </div>
                 </div>
-                {(form.clause || form.controle) && (
+                <div className="mt-3">
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Processus</label>
+                  <input
+                    className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all placeholder:text-slate-300"
+                    placeholder="ex : Gestion des risques, Gestion des acces"
+                    value={form.processus}
+                    onChange={(e) => setForm({ ...form, processus: e.target.value })}
+                  />
+                  {processusOptions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {processusOptions.slice(0, 12).map((processus) => {
+                        const selected = parseSelectedValues(form.processus).includes(processus);
+                        return (
+                          <button
+                            key={processus}
+                            type="button"
+                            onClick={() => {
+                              const next = selected
+                                ? parseSelectedValues(form.processus).filter((p) => p !== processus)
+                                : [...parseSelectedValues(form.processus), processus];
+                              setForm({ ...form, processus: next.join(", ") });
+                            }}
+                            className={`h-6 px-2.5 rounded-md text-[11px] font-semibold inline-flex items-center border ${
+                              selected
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            }`}
+                          >
+                            {processus}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {(form.clause || form.controle || form.processus) && (
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {parseSelectedValues(form.clause).map((c) => (
                       <span key={c} className="h-6 px-2.5 rounded-md bg-blue-50 text-blue-600 text-[11px] font-semibold inline-flex items-center border border-blue-100">Clause {c}</span>
                     ))}
                     {parseSelectedValues(form.controle).map((c) => (
                       <span key={c} className="h-6 px-2.5 rounded-md bg-violet-50 text-violet-600 text-[11px] font-semibold inline-flex items-center border border-violet-100">{c}</span>
+                    ))}
+                    {parseSelectedValues(form.processus).map((p) => (
+                      <span key={p} className="h-6 px-2.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-semibold inline-flex items-center border border-emerald-100">{p}</span>
                     ))}
                   </div>
                 )}
@@ -1519,6 +1578,14 @@ export default function Documentation() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Processus</label>
+                <input
+                  className="w-full h-10 border border-slate-200 rounded-lg px-3.5 text-[14px] text-slate-800 bg-slate-50 focus:outline-none focus:border-blue-400 focus:bg-white"
+                  value={form.processus}
+                  onChange={(e) => setForm({ ...form, processus: e.target.value })}
+                />
+              </div>
 
               <div>
                 <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Description</label>
@@ -1618,7 +1685,7 @@ export default function Documentation() {
                 {[
                   "Le document sera definitivement supprime du depot SMSI.",
                   "Toutes les versions et l'historique seront perdus.",
-                  "Les liens ISO (clauses et controles Annexe A) seront rompus.",
+                  "Les liens ISO et Processus seront rompus.",
                 ].map((msg) => (
                   <div key={msg} className="flex items-start gap-2.5 text-[14px] text-slate-600">
                     <X size={15} className="text-red-500 mt-0.5 flex-shrink-0" />
@@ -1664,11 +1731,11 @@ export default function Documentation() {
             </button>
           </div>
 
-          <div className="mb-4">
-            <div className="flex items-center justify-between px-2">
+          <div className="mb-4 px-2">
+            <div className="flex items-center justify-between">
               {createSteps.map((step, i) => (
                 <div key={step} className="flex items-center flex-1 last:flex-none">
-                  <div className="flex flex-col items-center min-w-[74px]">
+                  <div className="w-[98px] flex-shrink-0 flex justify-center">
                     <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
                       i < newStep
                         ? "bg-blue-600 border-blue-600 text-white"
@@ -1678,12 +1745,21 @@ export default function Documentation() {
                     }`}>
                       {i < newStep ? <Check size={12} /> : i + 1}
                     </div>
-                    <span className={`mt-1.5 text-[13px] font-semibold ${i <= newStep ? "text-blue-600" : "text-slate-400"}`}>{step}</span>
                   </div>
                   {i < createSteps.length - 1 && (
-                    <div className={`h-[2px] flex-1 mx-1.5 ${i <= newStep ? "bg-blue-600" : "bg-slate-200"}`} />
+                    <div className={`h-[2px] flex-1 mx-1.5 ${i < newStep ? "bg-blue-600" : "bg-slate-200"}`} />
                   )}
                 </div>
+              ))}
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-2">
+              {createSteps.map((step, i) => (
+                <span
+                  key={`${step}-label`}
+                  className={`text-center text-[13px] font-semibold leading-4 min-h-[32px] ${i <= newStep ? "text-blue-600" : "text-slate-400"}`}
+                >
+                  {step}
+                </span>
               ))}
             </div>
           </div>
@@ -1788,6 +1864,47 @@ export default function Documentation() {
                   ))}
                 </div>
                 <div>
+                  <p className="text-[12px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Processus selectionnes</p>
+                  <div className="min-h-[44px] border border-emerald-500 rounded-xl px-2 py-1.5 bg-emerald-50/40 flex flex-wrap gap-1.5">
+                    {selectedProcessus.length === 0 ? (
+                      <span className="text-xs text-slate-400 px-1.5 py-1">Aucun processus selectionne</span>
+                    ) : selectedProcessus.map((processus) => (
+                      <button key={processus} onClick={() => togglePickerValue(processus, setSelectedProcessus)} className="h-7 px-2.5 rounded-full border border-emerald-200 text-emerald-700 bg-emerald-100 text-xs font-semibold" title="Retirer">{processus} x</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="border border-slate-200 rounded-xl p-3 max-h-[160px] overflow-auto">
+                  {processusOptions.length === 0 ? (
+                    <p className="text-xs text-slate-400">Aucun processus disponible depuis la cartographie.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {processusOptions.map((processus) => {
+                        const active = selectedProcessus.includes(processus);
+                        return (
+                          <button
+                            key={processus}
+                            onClick={() => togglePickerValue(processus, setSelectedProcessus)}
+                            className={`h-7 px-2.5 rounded-full border text-xs font-semibold transition-colors ${
+                              active ? "bg-emerald-600 text-white border-emerald-600" : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {processus}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Saisie libre des processus (CSV)</label>
+                  <input
+                    className="w-full h-10 border border-slate-300 rounded-xl px-4 text-[14px] focus:outline-none focus:border-emerald-500"
+                    placeholder="ex : Gestion des risques, Gestion des actifs"
+                    value={selectedProcessus.join(", ")}
+                    onChange={(e) => setSelectedProcessus(parseSelectedValues(e.target.value))}
+                  />
+                </div>
+                <div>
                   <label className="block text-[15px] font-semibold text-slate-700 mb-1.5">Approbateur</label>
                   <input className="w-full h-11 border border-slate-300 rounded-xl px-4 text-[15px] focus:outline-none focus:border-blue-500" placeholder="Nom de l'approbateur" value={form.approver} onChange={(e) => setForm({ ...form, approver: e.target.value })} />
                 </div>
@@ -1824,6 +1941,7 @@ export default function Documentation() {
                   <div><span className="font-semibold text-slate-900">Type :</span> {form.type || "-"} - {form.category || "-"}</div>
                   <div><span className="font-semibold text-slate-900">Classification :</span> {form.classification || "-"}</div>
                   <div><span className="font-semibold text-slate-900">Auteur :</span> {form.author || "-"}</div>
+                  <div><span className="font-semibold text-slate-900">Processus :</span> {selectedProcessus.length > 0 ? selectedProcessus.join(", ") : "-"}</div>
                 </div>
               </div>
             )}
@@ -1847,6 +1965,7 @@ export default function Documentation() {
                     ...form,
                     clause: allIsoClauses.filter((item) => selectedClauses.includes(item)).join(", "),
                     controle: allAnnexControls.filter((item) => selectedControls.includes(item)).join(", "),
+                    processus: selectedProcessus.join(", "),
                   });
                   closeCreate();
                 } catch (err) {

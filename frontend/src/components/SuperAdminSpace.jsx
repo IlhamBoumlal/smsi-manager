@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  LogOut, ChevronDown, BarChart3, Users, Building2, Layers, Key,
-  ShieldCheck
+  LogOut, ChevronDown, BarChart3, Users, Building2, Layers,
 } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
 import GestionHoldings from "./Admin/GestionHoldings";
 import GestionSocietes from "./Admin/GestionSocietes";
 import GestionUtilisateursAdmins from "./Admin/GestionUtilisateursAdmins";
-import GestionRoles from "./Admin/GestionRoles";
 import DashboardAdmin from "./Admin/DashboardAdmin";
+import isoLogo from "../assets/ISO.png";
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 const FONT = "'Sora', 'Segoe UI', sans-serif";
@@ -19,7 +18,6 @@ const TABS = [
   { key: "holdings", label: "Holdings", icon: <Layers size={16} /> },
   { key: "societes", label: "Sociétés", icon: <Building2 size={16} /> },
   { key: "users", label: "Utilisateurs Admins", icon: <Users size={16} /> },
-//  { key: "roles", label: "Rôles", icon: <Key size={16} /> },
 ];
 
 function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
@@ -36,6 +34,7 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Initiales pour l'avatar
   const getInitials = () => {
     if (userName) {
       return userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -47,9 +46,7 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md" style={{ fontFamily: FONT }}>
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{ background: GRAD_BLUE }}>
-            <ShieldCheck size={24} color="#fff" />
-          </div>
+          <img src={isoLogo} alt="ISO 27001" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
             <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
               SMSI <span className="text-blue-600">Manager</span>
@@ -81,7 +78,7 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
               </div>
               <div className="flex flex-col items-start leading-tight text-left">
                 <span className="text-[15px] font-bold text-slate-800">{userName || 'Super Admin'}</span>
-                <span className="text-xs text-slate-400">{userEmail || 'admin@alexsys.com'}</span>
+                <span className="text-xs text-slate-400">{userEmail || 'superadmin@smsi.local'}</span>
               </div>
               <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`} />
             </button>
@@ -95,7 +92,7 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
                     </div>
                     <div className="flex flex-col leading-tight">
                       <span className="text-[15px] font-bold text-white">{userName || 'Super Admin'}</span>
-                      <span className="text-xs text-blue-200">{userEmail || 'admin@alexsys.com'}</span>
+                      <span className="text-xs text-blue-200">{userEmail || 'superadmin@smsi.local'}</span>
                     </div>
                   </div>
                 </div>
@@ -121,14 +118,15 @@ function Header({ activeTab, onTabChange, onLogout, userEmail, userName }) {
 
 export default function SuperAdminSpace() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { user, logoutUser } = useAuth();
+  const { user, logoutUser } = useAuth();  // ⚠️ Utilisez logoutUser (pas logout)
   const navigate = useNavigate();
 
-  const userEmail = user?.email || user?.userName || 'admin@alexsys.com';
+  // Récupérer les informations de l'utilisateur
+  const userEmail = user?.email || user?.userName || 'superadmin@smsi.local';
   const userName = user?.nomComplet || user?.fullName || 'Super Admin';
 
   const handleLogout = () => {
-    logoutUser();
+    logoutUser();        // ⚠️ Appelle logoutUser (défini dans votre AuthContext)
     navigate('/login');
   };
 
@@ -138,7 +136,6 @@ export default function SuperAdminSpace() {
       case "holdings": return <GestionHoldings />;
       case "societes": return <GestionSocietes />;
       case "users": return <GestionUtilisateursAdmins />;
-      case "roles": return <GestionRoles isAdminSocieteMode={false} />;
       default: return <DashboardAdmin />;
     }
   };

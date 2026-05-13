@@ -31,7 +31,7 @@ public class CreateFormationCommandHandler(
         foreach (var p in cmd.Participants)
         {
             formation.Participants.Add(
-                FormationParticipant.Create(formation.Id, p.FullName, p.Email, p.Department));
+                FormationParticipant.Create(formation.Id, formation.SocieteId, p.FullName, p.Email, p.Department));
         }
 
         await repo.AddAsync(formation, ct);
@@ -52,6 +52,7 @@ public class CreateFormationCommandHandler(
             formation.Notifications.Add(
                 FormationNotification.Create(
                     formation.Id,
+                    formation.SocieteId,
                     "Invitation envoyée",
                     formation.Participants.Count));
         }

@@ -8,15 +8,17 @@ using Application.PDCA.Commands.RenameSection;
 using Application.PDCA.Commands.UpdateItem;
 using Application.PDCA.Queries.GetCycleById;
 using Application.PDCA.Queries.GetCycles;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers;
 
-[Authorize(Policy = "SmSiSocieteScope")]
+[Authorize(Policy = "SmsiTenantScope")]
 [ApiController]
 [Route("api/pdca")]
+[RequirePermission("pdca")]
 public class PdcaController : ControllerBase
 {
     private readonly IMediator _mediator;

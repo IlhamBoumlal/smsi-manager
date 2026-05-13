@@ -14,6 +14,7 @@ namespace backend.Application.Documentation.Commands.CreateDocumentation
         string? Approver,
         string? Clause,
         string? Controle,
+        string? Processus,
         string? Description,
         IFormFile? File,
         string CurrentUserId,

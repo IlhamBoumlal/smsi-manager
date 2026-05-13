@@ -1,21 +1,28 @@
 using backend.API.Hubs;
 using backend.Domain.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
 namespace backend.API.Controllers
 {
+    [Authorize(Policy = "PlatformScope")]
     [ApiController]
     [Route("api/test")]
     public class TestController : ControllerBase
     {
         private readonly IEmailServiceIncident _emailService;
         private readonly IUserRepository _userRepository;
+        private readonly IConfiguration _configuration;
 
-        public TestController(IEmailServiceIncident emailService, IUserRepository userRepository)
+        public TestController(
+            IEmailServiceIncident emailService,
+            IUserRepository userRepository,
+            IConfiguration configuration)
         {
             _emailService = emailService;
             _userRepository = userRepository;
+            _configuration = configuration;
         }
 
         [HttpGet("email")]
@@ -25,10 +32,12 @@ namespace backend.API.Controllers
             {
                 Console.WriteLine("🔍 Test email démarré...");
 
+                var targetEmail = _configuration["Bootstrap:SuperAdmin:Email"] ?? "superadmin@smsi.local";
+
                 // Test 1 : email direct sans passer par les users
                 Console.WriteLine("📧 Envoi email direct...");
                 var result = await _emailService.SendIncidentNotificationAsync(
-                    "boumlalilham@gmail.com",  // ton email directement
+                    targetEmail,
                     "Test Admin",
                     "Titre test incident",
                     "Description test"
@@ -62,7 +71,7 @@ namespace backend.API.Controllers
             try
             {
                 Console.WriteLine("🔍 Récupération des admins...");
-                var admins = await _userRepository.GetUsersByRoleAsync("Admin");
+                var admins = await _userRepository.GetUsersByRoleAsync("Admin Societe");
                 var list = admins.ToList();
                 Console.WriteLine($"✅ {list.Count} admin(s) trouvé(s)");
                 foreach (var a in list)
@@ -81,7 +90,7 @@ namespace backend.API.Controllers
         {
             try
             {
-                var targetEmail = "boumlalilham@gmail.com";
+                var targetEmail = _configuration["Bootstrap:SuperAdmin:Email"] ?? "superadmin@smsi.local";
                 var groupName = targetEmail.Replace("@", "_").Replace(".", "_");
 
                 var testNotification = new
