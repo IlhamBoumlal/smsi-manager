@@ -1,4 +1,5 @@
-﻿using backend.Domain.Interfaces;
+﻿using backend.Application.Security;
+using backend.Domain.Interfaces;
 using MediatR;
 
 namespace backend.Application.Users.Commands.UpdateUser
@@ -24,16 +25,46 @@ namespace backend.Application.Users.Commands.UpdateUser
             var user = await _userRepo.GetByIdAsync(req.UserId);
             if (user == null) return (false, "Utilisateur introuvable.");
 
-            if (!req.SocieteId.HasValue)
-                return (false, "Societe requise.");
+            var role = await _roleRepo.GetByIdAsync(req.RoleId);
+            if (role == null)
+                return (false, "Role introuvable.");
 
-            var societe = await _societeRepo.GetByIdAsync(req.SocieteId.Value);
-            if (societe == null) return (false, "Societe introuvable.");
+            var isSuperAdmin = AppRoles.IsSuperAdminRole(role.Name);
+            int? assignedSocieteId = null;
+
+            if (isSuperAdmin)
+            {
+                var existingSuperAdmins = await _userRepo.GetUsersByRoleAsync(AppRoles.SuperAdmin);
+                var hasAnotherSuperAdmin = existingSuperAdmins.Any(u =>
+                    !string.Equals(u.Id, user.Id, StringComparison.Ordinal));
+
+                if (hasAnotherSuperAdmin)
+                {
+                    return (false, "Un Super Admin existe déjà. Mise à jour refusée.");
+                }
+            }
+            else
+            {
+                if (!req.SocieteId.HasValue)
+                    return (false, "Societe requise.");
+
+                var societe = await _societeRepo.GetByIdAsync(req.SocieteId.Value);
+                if (societe == null) return (false, "Societe introuvable.");
+
+                assignedSocieteId = req.SocieteId.Value;
+            }
+
+            var primaryRoleKey = AppRoles.ToPrimaryRoleKey(role.Name, assignedSocieteId);
+            if (AppRoles.IsSuperAdminRoleKey(primaryRoleKey))
+            {
+                assignedSocieteId = null;
+            }
 
             user.NomComplet = req.NomComplet;
             user.Email = req.Email;
             user.UserName = req.Email;
-            user.SocieteId = req.SocieteId.Value;
+            user.SocieteId = assignedSocieteId;
+            user.PrimaryRoleKey = primaryRoleKey;
             user.IsActive = req.IsActive;
 
             var updateResult = await _userRepo.UpdateAsync(user);
@@ -42,10 +73,7 @@ namespace backend.Application.Users.Commands.UpdateUser
 
             var currentRoles = await _userRepo.GetRolesAsync(user);
             await _userRepo.RemoveFromRolesAsync(user, currentRoles);
-
-            var role = await _roleRepo.GetByIdAsync(req.RoleId);
-            if (role != null)
-                await _userRepo.AddToRoleAsync(user, role.Name!);
+            await _userRepo.AddToRoleAsync(user, role.Name!);
 
             if (!string.IsNullOrEmpty(req.Password))
             {

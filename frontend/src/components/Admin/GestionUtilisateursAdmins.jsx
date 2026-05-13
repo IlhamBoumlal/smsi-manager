@@ -8,8 +8,6 @@ const API_BASE = 'http://localhost:5006';
 export default function GestionUtilisateursAdmins() {
   const [users, setUsers] = useState([]);
   const [societes, setSocietes] = useState([]);
-  const [roles, setRoles] = useState([]);
-  const [adminRoleId, setAdminRoleId] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewMode, setViewMode] = useState("table");
@@ -39,27 +37,14 @@ export default function GestionUtilisateursAdmins() {
     try {
       const config = getAuthConfig();
       
-      const [usersRes, societesRes, rolesRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/user`, config),
-        axios.get(`${API_BASE}/api/societe`, config),
-        axios.get(`${API_BASE}/api/role`, config)
+      const [usersRes, societesRes] = await Promise.all([
+        axios.get(`${API_BASE}/api/user/platform/admin-societe`, config),
+        axios.get(`${API_BASE}/api/societe`, config)
       ]);
 
       console.log('Utilisateurs reçus:', usersRes.data);
-      console.log('Rôles reçus:', rolesRes.data);
-      
-      // Trouver l'ID du rôle "Admin"
-      const adminRole = rolesRes.data.find(r => r.nom === "Admin");
-      setAdminRoleId(adminRole?.id || null);
-      
-      // FILTRE: Garder uniquement les utilisateurs avec le rôle "Admin"
-      const adminUsers = usersRes.data.filter(user => user.role === "Admin");
-      
-      console.log('Utilisateurs Admin uniquement:', adminUsers);
-      
-      setUsers(adminUsers);
+      setUsers(usersRes.data || []);
       setSocietes(societesRes.data || []);
-      setRoles(rolesRes.data || []);
     } catch (error) {
       console.error("Erreur chargement :", error);
       if (error.response?.status === 401) {
@@ -98,9 +83,8 @@ export default function GestionUtilisateursAdmins() {
       alert("Les mots de passe ne correspondent pas.");
       return;
     }
-
-    if (!adminRoleId) {
-      alert("Rôle 'Admin' non trouvé. Veuillez contacter l'administrateur.");
+    if (!form.societeId) {
+      alert("La société est obligatoire pour un Admin Societe.");
       return;
     }
 
@@ -110,21 +94,19 @@ export default function GestionUtilisateursAdmins() {
       const config = getAuthConfig();
       
       if (editing) {
-        await axios.put(`${API_BASE}/api/user/${editing.id}`, {
+        await axios.put(`${API_BASE}/api/user/platform/admin-societe/${editing.id}`, {
           nomComplet: form.nomComplet,
           email: form.email,
-          societeId: form.societeId ? Number(form.societeId) : null,
-          roleId: adminRoleId,
+          societeId: Number(form.societeId),
           isActive: form.isActive,
           password: form.password || undefined,
           confirmPassword: form.confirmPassword || undefined
         }, config);
       } else {
-        await axios.post(`${API_BASE}/api/user`, {
+        await axios.post(`${API_BASE}/api/user/platform/admin-societe`, {
           nomComplet: form.nomComplet,
           email: form.email,
-          societeId: form.societeId ? Number(form.societeId) : null,
-          roleId: adminRoleId,
+          societeId: Number(form.societeId),
           password: form.password,
           confirmPassword: form.confirmPassword
         }, config);
@@ -149,7 +131,7 @@ export default function GestionUtilisateursAdmins() {
 
     try {
       const config = getAuthConfig();
-      await axios.delete(`${API_BASE}/api/user/${id}`, config);
+      await axios.delete(`${API_BASE}/api/user/platform/admin-societe/${id}`, config);
       await fetchData();
     } catch (error) {
       console.error("Erreur suppression :", error);
@@ -158,19 +140,20 @@ export default function GestionUtilisateursAdmins() {
   };
 
   const handleToggle = async (user) => {
-    if (!adminRoleId) {
-      alert("Rôle 'Admin' non trouvé.");
+    if (!user?.societeId) {
+      alert("Impossible de modifier ce compte: société manquante.");
       return;
     }
-    
+
     try {
       const config = getAuthConfig();
       
-      await axios.put(`${API_BASE}/api/user/${user.id}`, {
+      await axios.put(`${API_BASE}/api/user/platform/admin-societe/${user.id}`, {
         nomComplet: user.nomComplet,
         email: user.email,
         societeId: user.societeId,
-        roleId: adminRoleId,
+        password: null,
+        confirmPassword: null,
         isActive: !user.isActive
       }, config);
       await fetchData();
@@ -199,7 +182,7 @@ export default function GestionUtilisateursAdmins() {
   const initials = (name) => name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "?";
 
   const kpis = [
-    { label: 'Total Admins', value: stats.total, sub: `${stats.total} administrateur(s)`, primary: true },
+    { label: 'Total Admins Société', value: stats.total, sub: `${stats.total} administrateur(s)`, primary: true },
     { label: 'Actifs', value: stats.actifs, sub: `${Math.round((stats.actifs / (stats.total || 1)) * 100)}% du total` },
     { label: 'Inactifs', value: stats.inactifs, sub: `${Math.round((stats.inactifs / (stats.total || 1)) * 100)}% du total` },
     { label: 'Sociétés couvertes', value: stats.societesCouvertes, sub: `par les administrateurs` },
@@ -240,7 +223,7 @@ export default function GestionUtilisateursAdmins() {
         <div className="flex justify-between items-center mb-7">
           <div>
             <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Gestion des administrateurs</h1>
-            <p className="mt-1 text-[13.5px] text-slate-500">Administration des comptes administrateurs (rôle Admin)</p>
+            <p className="mt-1 text-[13.5px] text-slate-500">Administration des comptes administrateurs (rôle Admin Societe)</p>
           </div>
           <button 
             onClick={() => { setEditing(null); setForm({ nomComplet: "", email: "", societeId: "", password: "", confirmPassword: "", isActive: true }); setModalOpen(true); }} 
@@ -349,7 +332,7 @@ export default function GestionUtilisateursAdmins() {
                 </div>
                 <div className="flex gap-2 mb-3">
                   <span className="px-2 py-1 bg-violet-50 text-violet-700 rounded-full text-xs border border-violet-200">
-                    {user.role || "Admin"}
+                    {user.role || "Admin Societe"}
                   </span>
                   <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs border border-slate-200">
                     {user.societe || "—"}
@@ -420,7 +403,7 @@ export default function GestionUtilisateursAdmins() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 bg-violet-50 text-violet-700 rounded-full text-xs border border-violet-200">
-                          {user.role || "Admin"}
+                          {user.role || "Admin Societe"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">

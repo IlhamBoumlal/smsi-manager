@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import isoLogo from "../assets/ISO.png";
+import { resolveAssetUrl } from "../api/url";
 
 // Fonction pour décoder le token JWT et extraire le rôle
 const decodeToken = (token) => {
@@ -39,25 +40,11 @@ export default function Login() {
     }
   }, [user, isSuperAdmin, navigate]);
 
-  let logoImage = isoLogo;
-  if (user) {
-    let logoPath = null;
-    if (user.logoUrl) logoPath = user.logoUrl;
-    else if (user.logo) logoPath = user.logo;
-    else if (user.societeLogo) logoPath = user.societeLogo;
-    else if (user.societe?.logoUrl) logoPath = user.societe.logoUrl;
-    else if (user.societe?.logo) logoPath = user.societe.logo;
-    
-    if (logoPath) {
-      if (logoPath.startsWith('/')) {
-        logoImage = `http://localhost:5006${logoPath}`;
-      } else if (!logoPath.startsWith('http')) {
-        logoImage = `http://localhost:5006/${logoPath}`;
-      } else {
-        logoImage = logoPath;
-      }
-    }
-  }
+  const hasSociete = Boolean(user?.societeId || user?.societe?.id || user?.societe?.Id);
+  const societeLogoPath = hasSociete
+    ? (user?.societeLogo || user?.societe?.logoUrl || user?.societe?.logo || user?.logoUrl || user?.logo)
+    : null;
+  const logoImage = resolveAssetUrl(societeLogoPath, isoLogo);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

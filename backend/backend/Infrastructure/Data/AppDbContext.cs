@@ -44,11 +44,15 @@ namespace backend.Infrastructure.Data
         public DbSet<Module> Modules { get; set; }
         public DbSet<Action> Actions { get; set; }
         public DbSet<Permission> Permissions { get; set; }
+        public DbSet<CompanyRolePermissionOverride> CompanyRolePermissionOverrides { get; set; }
+        public DbSet<UserPermissionOverride> UserPermissionOverrides { get; set; }
+        public DbSet<UserActivityLog> UserActivityLogs { get; set; }
+        public DbSet<DashboardMonthlySnapshot> DashboardMonthlySnapshots { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // â”€â”€ ConformityProof â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── ConformityProof ────────────────────────────────────────────────
             modelBuilder.Entity<ConformityProof>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -64,7 +68,7 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ FileAttachment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── FileAttachment ─────────────────────────────────────────────────
             modelBuilder.Entity<FileAttachment>(e =>
             {
                 e.HasKey(f => f.Id);
@@ -99,11 +103,43 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ ApplicationUser â†’ SociÃ©tÃ© â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            modelBuilder.Entity<ApplicationUser>()
-                .HasOne(u => u.Societe)
-                .WithMany()
-                .HasForeignKey(u => u.SocieteId);
+            // ── ApplicationUser → Société + RBAC invariants ───────────────────
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.HasOne(u => u.Societe)
+                    .WithMany()
+                    .HasForeignKey(u => u.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.Property(u => u.PrimaryRoleKey)
+                    .HasMaxLength(64)
+                    .IsRequired()
+                    .HasDefaultValue("CONSULTANT");
+
+                entity.HasIndex(u => new { u.PrimaryRoleKey, u.IsActive })
+                    .HasDatabaseName("IX_AspNetUsers_PrimaryRoleKey_IsActive");
+
+                entity.HasIndex(u => u.PrimaryRoleKey)
+                    .HasDatabaseName("UX_AspNetUsers_SingleActiveSuperAdmin")
+                    .IsUnique()
+                    .HasFilter("[PrimaryRoleKey] = 'SUPER_ADMIN' AND [IsActive] = 1");
+
+                entity.HasIndex(u => u.SocieteId)
+                    .HasDatabaseName("UX_AspNetUsers_SingleActiveAdminPerSociete")
+                    .IsUnique()
+                    .HasFilter("[PrimaryRoleKey] = 'ADMIN_SOCIETE' AND [IsActive] = 1 AND [SocieteId] IS NOT NULL");
+
+                entity.ToTable(tb =>
+                {
+                    tb.HasCheckConstraint(
+                        "CK_AspNetUsers_PrimaryRoleKey_Allowed_Active",
+                        "[IsActive] = 0 OR [PrimaryRoleKey] IN ('SUPER_ADMIN','ADMIN_SOCIETE','RSSI','CONSULTANT','AUDITEUR')");
+
+                    tb.HasCheckConstraint(
+                        "CK_AspNetUsers_SocieteByPrimaryRole_Active",
+                        "[IsActive] = 0 OR (([PrimaryRoleKey] = 'SUPER_ADMIN' AND [SocieteId] IS NULL) OR ([PrimaryRoleKey] <> 'SUPER_ADMIN' AND [SocieteId] IS NOT NULL))");
+                });
+            });
 
             // ── PDCA cycles ───────────────────────────────────────────────────────────────────
             modelBuilder.Entity<PdcaCycle>(entity =>
@@ -125,6 +161,7 @@ namespace backend.Infrastructure.Data
                 entity.HasIndex(d => new { d.SocieteId, d.Status });
                 entity.HasIndex(d => new { d.SocieteId, d.Category });
                 entity.HasIndex(d => new { d.SocieteId, d.FileHash });
+                entity.HasIndex(d => new { d.SocieteId, d.Processus });
 
                 entity.HasOne(d => d.Societe)
                     .WithMany()
@@ -147,7 +184,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // â”€â”€ RiskStudy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── RiskStudy ──────────────────────────────────────────────────────
             modelBuilder.Entity<RiskStudy>(entity =>
             {
                 entity.ToTable("RiskStudies");
@@ -176,7 +213,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // â”€â”€ Controle : enum â†’ string + index â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Controle : enum → string + index ──────────────────────────────
             modelBuilder.Entity<Controle>()
                 .Property(c => c.Domaine)
                 .HasConversion<string>();
@@ -224,7 +261,7 @@ namespace backend.Infrastructure.Data
             modelBuilder.Entity<IsoClause>()
                 .HasIndex(c => c.Number);
 
-            // â”€â”€ ActionPlan : deux FK vers IsoClause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── ActionPlan : deux FK vers IsoClause ───────────────────────────
             modelBuilder.Entity<ActionPlan>()
                 .HasKey(ap => ap.Id);  // Id is now int
 
@@ -281,7 +318,7 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // â”€â”€ Document â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Document ───────────────────────────────────────────────────────
             modelBuilder.Entity<Document>(e =>
             {
                 e.HasKey(d => d.Id);
@@ -300,7 +337,7 @@ namespace backend.Infrastructure.Data
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ Audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Audit ──────────────────────────────────────────────────────────
             modelBuilder.Entity<Audit>(e =>
             {
                 e.HasKey(a => a.Id);
@@ -335,16 +372,21 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ AuditControlStatus â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── AuditControlStatus ────────────────────────────────────────────
             modelBuilder.Entity<AuditControlStatus>(e =>
             {
                 e.HasKey(s => s.Id);
                 e.Property(s => s.ControlId).IsRequired().HasMaxLength(10);
                 e.Property(s => s.Statut).IsRequired().HasMaxLength(5);
                 e.Property(s => s.Comment).HasMaxLength(1000);
+                e.HasIndex(s => s.SocieteId);
+                e.HasOne(s => s.Societe)
+                 .WithMany()
+                 .HasForeignKey(s => s.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ NonConformite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── NonConformite ─────────────────────────────────────────────────
             modelBuilder.Entity<NonConformite>(e =>
             {
                 e.HasKey(n => n.Id);
@@ -371,16 +413,21 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // â”€â”€ ActionCorrective â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── ActionCorrective ──────────────────────────────────────────────
             modelBuilder.Entity<ActionCorrective>(e =>
             {
                 e.HasKey(a => a.Id);
                 e.Property(a => a.Description).IsRequired().HasMaxLength(1000);
                 e.Property(a => a.Responsible).HasMaxLength(200);
                 e.Property(a => a.Status).IsRequired().HasMaxLength(50);
+                e.HasIndex(a => a.SocieteId);
+                e.HasOne(a => a.Societe)
+                 .WithMany()
+                 .HasForeignKey(a => a.SocieteId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ SimulationAudit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── SimulationAudit ───────────────────────────────────────────────
             modelBuilder.Entity<SimulationAudit>(e =>
             {
                 e.HasKey(s => s.Id);
@@ -398,7 +445,7 @@ namespace backend.Infrastructure.Data
                  .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // â”€â”€ Formation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Formation ─────────────────────────────────────────────────────
             modelBuilder.Entity<Formation>(e =>
             {
                 e.HasKey(f => f.Id);
@@ -428,7 +475,7 @@ namespace backend.Infrastructure.Data
             });
             // Add this to your OnModelCreating method, preferably near the ActionPlan configuration:
 
-            // â”€â”€ PlanStep â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── PlanStep ──────────────────────────────────────────────────────
             modelBuilder.Entity<PlanStep>(e =>
             {
                 e.HasKey(p => p.Id);
@@ -464,11 +511,80 @@ namespace backend.Infrastructure.Data
                 e.HasIndex(p => p.ActionPlanId);
                 e.HasIndex(p => p.Status);
                 e.HasIndex(p => p.Echeance);
+                e.HasIndex(p => p.SocieteId);
+
+                e.HasOne(p => p.Societe)
+                    .WithMany()
+                    .HasForeignKey(p => p.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
-            modelBuilder.Entity<FormationParticipant>().HasKey(p => p.Id);
-            modelBuilder.Entity<FormationDocument>().HasKey(d => d.Id);
-            modelBuilder.Entity<FormationNotification>().HasKey(n => n.Id);
+            modelBuilder.Entity<Phase>(e =>
+            {
+                e.HasIndex(p => p.SocieteId);
+                e.HasOne(p => p.Societe)
+                    .WithMany()
+                    .HasForeignKey(p => p.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Section>(e =>
+            {
+                e.HasIndex(s => s.SocieteId);
+                e.HasOne(s => s.Societe)
+                    .WithMany()
+                    .HasForeignKey(s => s.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<PdcaItem>(e =>
+            {
+                e.HasIndex(i => i.SocieteId);
+                e.HasOne(i => i.Societe)
+                    .WithMany()
+                    .HasForeignKey(i => i.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<ControleHistorique>(e =>
+            {
+                e.HasIndex(h => h.SocieteId);
+                e.HasOne(h => h.Societe)
+                    .WithMany()
+                    .HasForeignKey(h => h.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<FormationParticipant>(e =>
+            {
+                e.HasKey(p => p.Id);
+                e.HasIndex(p => p.SocieteId);
+                e.HasOne(p => p.Societe)
+                    .WithMany()
+                    .HasForeignKey(p => p.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<FormationDocument>(e =>
+            {
+                e.HasKey(d => d.Id);
+                e.HasIndex(d => d.SocieteId);
+                e.HasOne(d => d.Societe)
+                    .WithMany()
+                    .HasForeignKey(d => d.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<FormationNotification>(e =>
+            {
+                e.HasKey(n => n.Id);
+                e.HasIndex(n => n.SocieteId);
+                e.HasOne(n => n.Societe)
+                    .WithMany()
+                    .HasForeignKey(n => n.SocieteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
             modelBuilder.Entity<Controle>().ToTable("controles");
             modelBuilder.Entity<Permission>(entity =>
             {
@@ -498,6 +614,130 @@ namespace backend.Infrastructure.Data
             modelBuilder.Entity<Action>()
                 .HasIndex(a => a.Code)
                 .IsUnique();
+
+            modelBuilder.Entity<CompanyRolePermissionOverride>(entity =>
+            {
+                entity.ToTable("CompanyRolePermissionOverrides", tb =>
+                {
+                    tb.HasCheckConstraint(
+                        "CK_CompanyRolePermissionOverrides_RoleKey",
+                        "[RoleKey] IN ('SUPER_ADMIN','ADMIN_SOCIETE','RSSI','CONSULTANT','AUDITEUR')");
+                });
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.RoleKey).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.ModuleId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.ActionId).HasMaxLength(450).IsRequired();
+
+                entity.HasIndex(x => new { x.SocieteId, x.RoleKey, x.ModuleId, x.ActionId })
+                    .IsUnique();
+                entity.HasIndex(x => new { x.SocieteId, x.RoleKey });
+
+                entity.HasOne(x => x.Societe)
+                    .WithMany()
+                    .HasForeignKey(x => x.SocieteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Module)
+                    .WithMany()
+                    .HasForeignKey(x => x.ModuleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Action)
+                    .WithMany()
+                    .HasForeignKey(x => x.ActionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+            });
+
+            modelBuilder.Entity<UserPermissionOverride>(entity =>
+            {
+                entity.ToTable("UserPermissionOverrides");
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.ModuleId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.ActionId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.Reason).HasMaxLength(500);
+
+                entity.HasIndex(x => new { x.UserId, x.ModuleId, x.ActionId })
+                    .IsUnique();
+                entity.HasIndex(x => new { x.SocieteId, x.UserId });
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Societe)
+                    .WithMany()
+                    .HasForeignKey(x => x.SocieteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Module)
+                    .WithMany()
+                    .HasForeignKey(x => x.ModuleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Action)
+                    .WithMany()
+                    .HasForeignKey(x => x.ActionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserActivityLog>(entity =>
+            {
+                entity.ToTable("UserActivityLogs");
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.UserId).HasMaxLength(450);
+                entity.Property(x => x.UserFullName).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.UserEmail).HasMaxLength(256).IsRequired();
+                entity.Property(x => x.UserRole).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.ModuleCode).HasMaxLength(64).IsRequired();
+                entity.Property(x => x.ActionCode).HasMaxLength(32).IsRequired();
+                entity.Property(x => x.HttpMethod).HasMaxLength(12).IsRequired();
+                entity.Property(x => x.Path).HasMaxLength(512).IsRequired();
+                entity.Property(x => x.QueryString).HasMaxLength(1024);
+                entity.Property(x => x.TargetType).HasMaxLength(128);
+                entity.Property(x => x.TargetId).HasMaxLength(128);
+                entity.Property(x => x.Description).HasMaxLength(1000);
+                entity.Property(x => x.IpAddress).HasMaxLength(64);
+                entity.Property(x => x.UserAgent).HasMaxLength(512);
+                entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+                entity.HasIndex(x => x.SocieteId);
+                entity.HasIndex(x => x.UserId);
+                entity.HasIndex(x => x.CreatedAt);
+                entity.HasIndex(x => new { x.SocieteId, x.CreatedAt });
+                entity.HasIndex(x => new { x.SocieteId, x.ActionCode });
+                entity.HasIndex(x => new { x.SocieteId, x.ModuleCode });
+
+                entity.HasOne(x => x.Societe)
+                    .WithMany()
+                    .HasForeignKey(x => x.SocieteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DashboardMonthlySnapshot>(entity =>
+            {
+                entity.ToTable("DashboardMonthlySnapshots");
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => new { x.SocieteId, x.MonthStartUtc })
+                    .IsUnique();
+
+                entity.HasIndex(x => x.MonthStartUtc);
+                entity.HasIndex(x => x.SocieteId);
+
+                entity.Property(x => x.MonthStartUtc).IsRequired();
+                entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+                entity.HasOne(x => x.Societe)
+                    .WithMany()
+                    .HasForeignKey(x => x.SocieteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
         }
 

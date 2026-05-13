@@ -9,12 +9,14 @@ const normalizeRoleKey = (value) =>
     .trim();
 
 export default function PrivateAdminRoute({ children, allowedRoles = ['Super Admin'] }) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
 
   const userRole = normalizeRoleKey(user?.role || user?.roleName || '');
   const isAllowed = allowedRoles.some((role) => normalizeRoleKey(role) === userRole);
-  if (!isAllowed) return <Navigate to="/tableau-bord" replace />;
+  if (!isAllowed) {
+    return <Navigate to={isSuperAdmin ? "/super-admin" : "/tableau-bord"} replace />;
+  }
 
   return children;
 }

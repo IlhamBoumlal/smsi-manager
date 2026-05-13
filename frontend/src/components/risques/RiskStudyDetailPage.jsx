@@ -20,6 +20,7 @@ import {
 } from "./riskModel";
 import { printWorkshopLivrable } from "./riskExport";
 import { RiskCallout, RiskCard, RiskKpiTile, RiskPageHeader, RiskProgressBar, RiskStatusBadge } from "./RiskUi";
+import { useAuth } from "../../context/AuthContext";
 
 function countItems(value) {
   return Array.isArray(value) ? value.length : 0;
@@ -86,6 +87,8 @@ function getWorkshopCardKpis(study, workshopId, stepsCount) {
 
 export default function RiskStudyDetailPage() {
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
+  const canEditRisk = canEdit("risques");
   const { id } = useParams();
   const { getStudyById, updateStudyMeta, loading } = useRiskStudies();
   const study = getStudyById(id);
@@ -187,16 +190,18 @@ export default function RiskStudyDetailPage() {
                   <CalendarDays size={13} /> Creation {study.createdAt || "-"}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditMeta((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
-              >
-                <Edit3 size={13} /> {editMeta ? "Fermer edition" : "Modifier fiche"}
-              </button>
+              {canEditRisk && (
+                <button
+                  type="button"
+                  onClick={() => setEditMeta((prev) => !prev)}
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+                >
+                  <Edit3 size={13} /> {editMeta ? "Fermer edition" : "Modifier fiche"}
+                </button>
+              )}
             </div>
 
-            {editMeta ? (
+            {editMeta && canEditRisk ? (
               <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
                 <input className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={metaDraft.name} placeholder="Nom" onChange={(event) => setMetaDraft((prev) => ({ ...prev, name: event.target.value }))} />
                 <input className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700" value={metaDraft.organization} placeholder="Organisation" onChange={(event) => setMetaDraft((prev) => ({ ...prev, organization: event.target.value }))} />

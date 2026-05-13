@@ -7,6 +7,7 @@ using backend.Application.Documentation;
 using backend.Application.Documentation.Queries.GetAllDocumentation;
 using backend.Application.Documentation.Queries.GetDocumentationById;
 using backend.Application.DTOs.Documentation;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,9 +16,10 @@ using System.Security.Claims;
 
 namespace backend.API.Controllers
 {
-    [Authorize(Policy = "SmSiSocieteScope")]
+    [Authorize(Policy = "SmsiTenantScope")]
     [ApiController]
     [Route("api/[controller]")]
+    [RequirePermission("documentation")]
     public class DocumentationController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -46,6 +48,12 @@ namespace backend.API.Controllers
 
         private IReadOnlyCollection<string> CurrentRoles =>
             User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+
+        private string CurrentUserDisplayName =>
+            User.FindFirstValue("NomComplet")
+            ?? User.FindFirstValue("name")
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? CurrentUserId;
 
         [HttpGet("permissions")]
         public IActionResult GetPermissions()
@@ -97,6 +105,7 @@ namespace backend.API.Controllers
                 dto.Approver,
                 dto.Clause,
                 dto.Controle,
+                dto.Processus,
                 dto.Description,
                 file,
                 CurrentUserId,
@@ -126,9 +135,57 @@ namespace backend.API.Controllers
                 dto.Approver,
                 dto.Clause,
                 dto.Controle,
+                dto.Processus,
                 dto.Description,
                 dto.RemoveFile,
                 file,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles
+            );
+
+            var (success, error, data) = await _mediator.Send(command);
+            if (IsForbiddenError(error)) return Forbid();
+            if (IsNotFoundError(error)) return NotFound();
+            if (!success) return BadRequest(error);
+            return data is null ? NotFound() : Ok(data);
+        }
+
+        [HttpPost("{id:guid}/approve")]
+        [RequirePermission("documentation", "approve")]
+        public async Task<IActionResult> Approve(Guid id, [FromBody] ApproveDocumentationDto? dto)
+        {
+            var existing = await _mediator.Send(new GetDocumentationByIdQuery(
+                id,
+                CurrentUserId,
+                CurrentSocieteId,
+                CurrentRoles));
+
+            if (existing is null)
+            {
+                return NotFound();
+            }
+
+            var approver = string.IsNullOrWhiteSpace(dto?.Approver)
+                ? CurrentUserDisplayName
+                : dto.Approver!.Trim();
+
+            var command = new UpdateDocumentationCommand(
+                id,
+                existing.Name,
+                existing.Type,
+                existing.Category,
+                "approuve",
+                existing.Version,
+                existing.Classification,
+                existing.Author,
+                approver,
+                existing.Clause,
+                existing.Controle,
+                existing.Processus,
+                existing.Description,
+                RemoveFile: false,
+                File: null,
                 CurrentUserId,
                 CurrentSocieteId,
                 CurrentRoles
@@ -155,6 +212,7 @@ namespace backend.API.Controllers
                 dto.Approver,
                 dto.Clause,
                 dto.Controle,
+                dto.Processus,
                 dto.Description,
                 dto.RemoveFile,
                 file,
@@ -186,6 +244,7 @@ namespace backend.API.Controllers
         }
 
         [HttpGet("{id:guid}/file")]
+        [RequirePermission("documentation", "export")]
         public async Task<IActionResult> DownloadOriginalFile(Guid id)
         {
             var doc = await _mediator.Send(new GetDocumentationByIdQuery(
@@ -213,6 +272,7 @@ namespace backend.API.Controllers
         }
 
         [HttpGet("{id:guid}/download")]
+        [RequirePermission("documentation", "export")]
         public async Task<IActionResult> Download(Guid id, [FromQuery] string format = "pdf")
         {
             var doc = await _mediator.Send(new GetDocumentationByIdQuery(
@@ -224,7 +284,7 @@ namespace backend.API.Controllers
 
             var normalizedFormat = format.Trim().TrimStart('.').ToLowerInvariant();
             if (normalizedFormat is not ("pdf" or "docx" or "xlsx"))
-                return BadRequest("Format invalide. Formats autorisÃ©s: pdf, docx, xlsx.");
+                return BadRequest("Format invalide. Formats autorisés: pdf, docx, xlsx.");
 
             if (!string.IsNullOrWhiteSpace(doc.FilePath))
             {
@@ -277,8 +337,8 @@ namespace backend.API.Controllers
             {
                 var lines = new[]
                 {
-                    "Name,Type,Category,Status,Version,Classification,Author,Approver,Clause,Controle,UpdatedAt",
-                    $"{EscapeCsv(doc.Name)},{EscapeCsv(doc.Type)},{EscapeCsv(doc.Category)},{EscapeCsv(doc.Status)},{EscapeCsv(doc.Version)},{EscapeCsv(doc.Classification)},{EscapeCsv(doc.Author)},{EscapeCsv(doc.Approver)},{EscapeCsv(doc.Clause)},{EscapeCsv(doc.Controle)},{doc.UpdatedAt:O}"
+                    "Name,Type,Category,Status,Version,Classification,Author,Approver,Clause,Controle,Processus,UpdatedAt",
+                    $"{EscapeCsv(doc.Name)},{EscapeCsv(doc.Type)},{EscapeCsv(doc.Category)},{EscapeCsv(doc.Status)},{EscapeCsv(doc.Version)},{EscapeCsv(doc.Classification)},{EscapeCsv(doc.Author)},{EscapeCsv(doc.Approver)},{EscapeCsv(doc.Clause)},{EscapeCsv(doc.Controle)},{EscapeCsv(doc.Processus)},{doc.UpdatedAt:O}"
                 };
                 return string.Join(Environment.NewLine, lines);
             }
@@ -295,6 +355,7 @@ namespace backend.API.Controllers
             sb.AppendLine($"Approbateur: {doc.Approver ?? "-"}");
             sb.AppendLine($"Clause ISO: {doc.Clause ?? "-"}");
             sb.AppendLine($"Controle Annexe A: {doc.Controle ?? "-"}");
+            sb.AppendLine($"Processus: {doc.Processus ?? "-"}");
             sb.AppendLine($"Description: {doc.Description ?? "-"}");
             sb.AppendLine($"Mise a jour: {doc.UpdatedAt:O}");
             return sb.ToString();

@@ -7,6 +7,7 @@ public class FormationParticipant
 {
     public Guid Id { get; private set; }
     public Guid FormationId { get; private set; }
+    public int? SocieteId { get; private set; }
     public string FullName { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string Initials { get; private set; } = string.Empty;
@@ -16,13 +17,14 @@ public class FormationParticipant
 
     // Navigation
     public Formation Formation { get; private set; } = null!;
+    public Societe? Societe { get; private set; }
 
     private FormationParticipant() { }
 
     private static readonly string[] Colors = ["blue", "purple", "teal", "coral", "amber", "green"];
 
     public static FormationParticipant Create(
-        Guid formationId, string fullName, string email, string department)
+        Guid formationId, int? societeId, string fullName, string email, string department)
     {
         var parts = fullName.Trim().Split(' ', 2);
         var initials = parts.Length >= 2
@@ -33,6 +35,7 @@ public class FormationParticipant
         {
             Id = Guid.NewGuid(),
             FormationId = formationId,
+            SocieteId = societeId,
             FullName = fullName,
             Email = email,
             Initials = initials,

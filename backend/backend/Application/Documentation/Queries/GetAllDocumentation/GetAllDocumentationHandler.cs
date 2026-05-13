@@ -28,7 +28,10 @@ namespace backend.Application.Documentation.Queries.GetAllDocumentation
 
                 var matchesSearch = string.IsNullOrWhiteSpace(request.Search)
                     || d.Name.Contains(request.Search, StringComparison.OrdinalIgnoreCase)
-                    || d.Author.Contains(request.Search, StringComparison.OrdinalIgnoreCase);
+                    || d.Author.Contains(request.Search, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(d.Clause) && d.Clause.Contains(request.Search, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.Controle) && d.Controle.Contains(request.Search, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.Processus) && d.Processus.Contains(request.Search, StringComparison.OrdinalIgnoreCase));
 
                 var matchesType = string.IsNullOrWhiteSpace(request.Type)
                     || string.Equals(d.Type, request.Type, StringComparison.OrdinalIgnoreCase);

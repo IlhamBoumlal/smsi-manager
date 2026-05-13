@@ -27,7 +27,7 @@ public class UploadFormationDocumentCommandHandler(IFormationRepository repo)
 
         var ext = Path.GetExtension(safeName).ToLowerInvariant();
         var doc = FormationDocument.Create(
-            f.Id, safeName,
+            f.Id, f.SocieteId, safeName,
             ext == ".pdf" ? "pdf" : "file",
             storagePath, cmd.File.Length);
 

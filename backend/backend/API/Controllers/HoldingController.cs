@@ -4,6 +4,7 @@ using backend.Application.Holdings.Commands.CreateHolding;
 using backend.Application.Holdings.Commands.DeleteHolding;
 using backend.Application.Holdings.Commands.UpdateHolding;
 using backend.Application.Holdings.Queries.GetAllHoldings;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,8 @@ namespace backend.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "PlatformScope")]
+    [RequirePermission("holdings")]
     public class HoldingController : ControllerBase
     {
         private readonly IMediator _mediator;

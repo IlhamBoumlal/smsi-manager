@@ -1,26 +1,26 @@
 # 📋 Architecture des Composants de Gestion des Contrôles ISO 27001
 
-## ðŸ“ Fichiers Principaux
+## Fichiers Principaux
 
 ### 1. **Controles.jsx** - Tableau de Bord Principal
 Composant React d'évaluation de conformité des contrôles ISO 27001 (Annexe A).
 
 #### Structure Interne :
 ```
-ðŸŽ¯ Configuration Globale
+🎯 Configuration Globale
 ├── const API = 'http://localhost:5006/api/controles'
 ├── const T = { ... } // Thème de couleurs
 ├── const DOMAIN_THEMES { ... } // Styles par domaine
 └── const STATUTS = [ ... ] // États de conformité
 
-ðŸ› ï¸ Fonctions Utilitaires
+Fonctions Utilitaires
 ├── hexToRgba() // Conversion couleur hex → rgba
 ├── StyledSelect() // Composant select personnalisé
 ├── StatutBadge() // Badge d'affichage du statut
 ├── KpiStrip() // Bande de KPIs statistiques
 └── FilterBar() // Barre de filtrage par statut
 
-ðŸŽ¨ Composant Principal
+🎨 Composant Principal
 └── Controles()
     ├── STATE
     │   ├── controles : Array // Tous les contrôles
@@ -84,7 +84,7 @@ Composant pour les plans d'action des non-conformités selon ISO 27001.
 
 #### Structure Interne :
 ```
-ðŸ“š Dictionnaire PLANS_ACTION
+📚 Dictionnaire PLANS_ACTION
 ├── A.5.1 à A.5.37 (Organisationnel) → 37 contrôles
 ├── A.6.1 à A.6.8 (Personnes) → 8 contrôles
 ├── A.7.1 à A.7.14 (Physique) → 14 contrôles
@@ -99,7 +99,7 @@ Composant pour les plans d'action des non-conformités selon ISO 27001.
       delai           : String // Durée (via delai())
     }
 
-ðŸ”§ Outils
+🔧 Outils
 ├── delai(months) // Calcule une date d'échéance
 └── getDefaultPlan() // Plan générique fallback
 
@@ -111,7 +111,7 @@ Composant pour les plans d'action des non-conformités selon ISO 27001.
 ├── Étape 5 : Vérification par preuves
 └── Étape 6 : Clôture et archivage
 
-ðŸŽ¨ Composant Principal
+🎨 Composant Principal
 └── PlanActionNC({ ctrl, statut, onChange })
     ├── STATE
     │   ├── currentStep : Number (1-6)
@@ -164,7 +164,7 @@ Clôture (Étape 6) :
 
 ---
 
-## ðŸ”— Interaction Entre Composants
+## 🔗 Interaction Entre Composants
 
 ```
 Controles.jsx
@@ -283,7 +283,7 @@ interface Controle {
 
 ---
 
-## ðŸš€ Points de Personnalisation
+## 🚀 Points de Personnalisation
 
 ### Ajouter un Contrôle :
 1. Trouver le domaine (A.5, A.6, A.7, A.8)
@@ -314,7 +314,7 @@ const STATUTS = [ ... ]         // Par statut
 
 ---
 
-## ðŸ“š Ressources
+## 📚 Ressources
 
 - **ISO 27001 Annexe A** : https://www.iso.org/standard/54534.html
 - **Norme sur les plans d'action** : ISO 14644-1 (sérialisation)

@@ -1,43 +1,41 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import isoLogo from "../assets/ISO.png";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
-  LogIn,
   ChevronDown,
-  Database,
-  LogOut,
-  BarChart3,
-  Users,
-  Factory,
-  Building2,
-  Shield,
   ClipboardCheck,
+  Database,
+  History,
+  LogIn,
+  LogOut,
   Network,
+  Shield,
+  Users,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import isoLogo from "../assets/ISO.png";
 import { resolveAssetUrl } from "../api/url";
+import { useAuth } from "../context/AuthContext";
 
-// Définition de tous les axes possibles avec leur moduleCode
-const allMainAxes = [
+const mainAxesCatalog = [
   { id: "cartographie", label: "Cartographie", path: "/cartographie", moduleCode: "cartographie" },
   { id: "tableau-bord", label: "Tableau de bord", path: "/tableau-bord", moduleCode: "dashboard" },
   { id: "pdca", label: "PDCA", path: "/pdca", moduleCode: "pdca" },
   { id: "clauses", label: "Clauses", path: "/clauses", moduleCode: "clauses" },
-  { id: "controles", label: "Contrôles", path: "/controles", moduleCode: "controles" },
+  { id: "controles", label: "Controles", path: "/controles", moduleCode: "controles" },
   { id: "documentation", label: "Documentation", path: "/documentation", moduleCode: "documentation" },
   { id: "risques", label: "Risques", path: "/risques", moduleCode: "risques" },
 ];
 
-const allMoreAxes = [
+const moreAxesCatalog = [
   { id: "audits", label: "Audits", path: "/audits", moduleCode: "audit", icon: <ClipboardCheck size={20} /> },
   { id: "actifs", label: "Actifs", path: "/actifs", moduleCode: "actifs", icon: <Database size={20} /> },
   { id: "sensibilisation", label: "Sensibilisation", path: "/sensibilisation", moduleCode: "sensibilisation", icon: <Network size={20} /> },
   { id: "incidents", label: "Gestion Incidents", path: "/incidents", moduleCode: "incidents", icon: <Network size={20} /> },
 ];
 
-// Menu Admin réduit : seulement Utilisateurs
-const allAdminMenuItems = [
+const adminMenuCatalog = [
   { label: "Utilisateurs", Icon: Users, path: "/admin/utilisateurs", moduleCode: "users" },
+  { label: "Roles", Icon: Shield, path: "/admin/roles", moduleCode: "roles" },
+  { label: "Tracabilite", Icon: History, path: "/admin/tracabilite", moduleCode: "tracabilite" },
 ];
 
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
@@ -47,52 +45,48 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logoutUser, canRead, permissionsLoaded } = useAuth();
+  const { user, logoutUser, canRead, permissionsLoaded, isAdminSociete } = useAuth();
 
-  // Filtrer les axes selon les permissions de l'utilisateur
-  const mainAxes = allMainAxes.filter(axe => canRead(axe.moduleCode));
-  const moreAxes = allMoreAxes.filter(axe => canRead(axe.moduleCode));
-  const adminMenuItems = allAdminMenuItems.filter(item => canRead(item.moduleCode));
+  const mainAxes = mainAxesCatalog.filter((item) => canRead(item.moduleCode));
+  const moreAxes = moreAxesCatalog.filter((item) => canRead(item.moduleCode));
+  const adminMenuItems = adminMenuCatalog.filter((item) => canRead(item.moduleCode));
 
-  // Détecte automatiquement l'axe actif depuis l'URL courante
+  const hasSmsiNavigation = mainAxes.length > 0 || moreAxes.length > 0;
+  const hasAdminNavigation = isAdminSociete && adminMenuItems.length > 0;
   const allAxes = [...mainAxes, ...moreAxes];
+  const homePath = mainAxes[0]?.path || moreAxes[0]?.path || adminMenuItems[0]?.path || "/accueil";
+
   const activeAxe =
     activeAxeProp ??
-    allAxes.find((a) => a.path === location.pathname)?.id ??
-    (mainAxes.length > 0 ? mainAxes[0]?.id : "tableau-bord");
+    allAxes.find((item) => item.path === location.pathname)?.id ??
+    mainAxes[0]?.id ??
+    moreAxes[0]?.id ??
+    "tableau-bord";
 
-  const isMoreActive = moreAxes.some((a) => a.id === activeAxe);
-  
-  // Vérifier si l'utilisateur a le rôle Admin (peu importe l'email)
-  const isAdmin = user?.role === "Admin" || user?.Role === "Admin";
-
+  const isMoreActive = moreAxes.some((item) => item.id === activeAxe);
   const nom = user?.nomComplet || user?.NomComplet || "";
   const email = user?.email || user?.Email || "";
   const initiales = nom
     ? nom
         .split(" ")
-        .map((n) => n[0])
+        .map((segment) => segment[0])
         .join("")
         .substring(0, 2)
         .toUpperCase()
     : email?.charAt(0).toUpperCase() || "?";
 
-  let logoImage = isoLogo;
-  if (user) {
-    const logoPath =
-      user.logoUrl || user.logo || user.societeLogo || user.societe?.logoUrl || user.societe?.logo;
-
-    if (logoPath) {
-      logoImage = resolveAssetUrl(logoPath, isoLogo);
-    }
-  }
+  const hasSociete = Boolean(user?.societeId || user?.societe?.id || user?.societe?.Id);
+  const societeLogoPath = hasSociete
+    ? (user?.societeLogo || user?.societe?.logoUrl || user?.societe?.logo || user?.logoUrl || user?.logo)
+    : null;
+  const logoImage = resolveAssetUrl(societeLogoPath, isoLogo);
 
   useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+    const handler = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
     };
@@ -106,7 +100,6 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     if (axe.path) navigate(axe.path);
   };
 
-  // Pendant le chargement des permissions, afficher un header minimal
   if (!permissionsLoaded) {
     return (
       <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
@@ -117,9 +110,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
               <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
                 SMSI <span className="text-blue-600">Manager</span>
               </span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-                ISO 27001
-              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">ISO 27001</span>
             </div>
           </div>
           <div className="animate-pulse text-slate-400">Chargement...</div>
@@ -128,20 +119,17 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
     );
   }
 
-  // Si l'utilisateur n'a accès à aucun module, afficher un header minimal avec déconnexion
-  if (mainAxes.length === 0 && moreAxes.length === 0) {
+  if (!hasSmsiNavigation && !hasAdminNavigation) {
     return (
       <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
         <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate("/")}>
+          <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate("/accueil")}>
             <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
             <div className="flex flex-col leading-tight">
               <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
                 SMSI <span className="text-blue-600">Manager</span>
               </span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-                ISO 27001
-              </span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">ISO 27001</span>
             </div>
           </div>
           <button
@@ -151,7 +139,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
             }}
             className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <LogOut size={18} /> Déconnexion
+            <LogOut size={18} /> Deconnexion
           </button>
         </div>
       </header>
@@ -161,23 +149,16 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   return (
     <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
       <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
-        {/* LOGO */}
-        <div
-          className="flex items-center gap-3 flex-shrink-0 cursor-pointer"
-          onClick={() => handleAxeChange({ id: "tableau-bord", path: "/tableau-bord", moduleCode: "dashboard" })}
-        >
+        <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate(homePath)}>
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
             <span className="text-xl font-black text-[#1e3a5f] tracking-tight">
               SMSI <span className="text-blue-600">Manager</span>
             </span>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-              ISO 27001
-            </span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">ISO 27001</span>
           </div>
         </div>
 
-        {/* NAVIGATION - uniquement les modules accessibles */}
         {mainAxes.length > 0 && (
           <nav className="flex items-center gap-2 flex-1 justify-center">
             {mainAxes.map((axe) => (
@@ -188,12 +169,13 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                 onClick={() => handleAxeChange(axe)}
               />
             ))}
+
             {moreAxes.length > 0 && (
               <div ref={dropdownRef} className="relative">
                 <NavButton
                   label="Plus"
                   isActive={isMoreActive || dropdownOpen}
-                  onClick={() => setDropdownOpen((p) => !p)}
+                  onClick={() => setDropdownOpen((value) => !value)}
                   suffix={
                     <ChevronDown
                       size={18}
@@ -201,6 +183,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     />
                   }
                 />
+
                 {dropdownOpen && (
                   <div className="absolute left-0 top-full mt-4 w-60 bg-white rounded-2xl border border-blue-100 shadow-2xl overflow-hidden z-50 py-2">
                     {moreAxes.map((axe) => (
@@ -221,12 +204,11 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
           </nav>
         )}
 
-        {/* PROFIL - Menu admin réduit (seulement Utilisateurs) */}
         <div className="flex items-center flex-shrink-0 border-l border-slate-100 pl-6">
           {user ? (
             <div ref={userMenuRef} className="relative">
               <button
-                onClick={() => setUserMenuOpen((p) => !p)}
+                onClick={() => setUserMenuOpen((value) => !value)}
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors"
               >
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center text-sm font-bold shadow-lg shrink-0">
@@ -256,8 +238,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                     </div>
                   </div>
 
-                  {/* Menu Admin : uniquement Utilisateurs pour les admins */}
-                  {isAdmin && adminMenuItems.length > 0 && (
+                  {isAdminSociete && adminMenuItems.length > 0 && (
                     <div className="py-2 border-b border-slate-100">
                       {adminMenuItems.map(({ label, Icon, path }) => (
                         <button
@@ -288,7 +269,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
                       <span className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                         <LogOut size={18} className="text-red-500" />
                       </span>
-                      Déconnexion
+                      Deconnexion
                     </button>
                   </div>
                 </div>
@@ -312,8 +293,7 @@ function NavButton({ label, isActive, onClick, suffix }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[15px] font-bold transition-all duration-200 whitespace-nowrap
-      ${
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[15px] font-bold transition-all duration-200 whitespace-nowrap ${
         isActive
           ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
           : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
@@ -328,8 +308,9 @@ function DropdownItem({ axe, isActive, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-4 px-6 py-4 text-[15px] font-bold text-left transition-all
-      ${isActive ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"}`}
+      className={`w-full flex items-center gap-4 px-6 py-4 text-[15px] font-bold text-left transition-all ${
+        isActive ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+      }`}
     >
       <span className={isActive ? "text-blue-600" : "text-slate-400"}>{axe.icon}</span>
       {axe.label}

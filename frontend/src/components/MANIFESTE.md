@@ -1,4 +1,4 @@
-# ðŸŽ¯ MANIFESTE - Restructuration des Composants
+# 🎯 MANIFESTE - Restructuration des Composants
 
 **Date** : Avril 2026  
 **Statut** : ✅ COMPLÉTÉ  
@@ -180,7 +180,7 @@ Temps réduit : >50%
 
 ---
 
-## ðŸŽ“ Guide d'Utilisation
+## 🎓 Guide d'Utilisation
 
 ### Pour une Tache Simple (< 15 min)
 ```
@@ -272,7 +272,7 @@ Avant de clorer ce projet :
 
 ---
 
-## ðŸ“ Sign-Off
+## Sign-Off
 
 |  Rôle |Nom | Date | Signature |
 |-------|----|----- |-----------|
@@ -282,7 +282,7 @@ Avant de clorer ce projet :
 
 ---
 
-## ðŸ“ž Points de Contact
+## 📞 Points de Contact
 
 - **Questions architecture** → Voir README_STRUCTURE.md
 - **Questions taches** ? Voir GUIDE_PRATIQUE.md
@@ -291,7 +291,7 @@ Avant de clorer ce projet :
 
 ---
 
-## ðŸŽ Livrables
+## Livrables
 
 ```
 ✅ Controles.jsx (restructuré + commenté)

@@ -9,7 +9,6 @@ import {
 import { requireAuthenticatedUser } from "../middleware/auth.js";
 import {
   ChatbotServiceError,
-  buildChatbotResponse,
   detectConversationMethodFromMessage,
   generateAssistantReply,
   normalizeConversationMethod,
@@ -34,22 +33,6 @@ const activeConversationStreams = new Map();
 
 function normalizeMessage(value) {
   return String(value || "").trim();
-}
-
-function resolveLastMethodFromDialog(message, history = [], currentLastMethod = null) {
-  const fromCurrentMessage = detectConversationMethodFromMessage(message);
-  if (fromCurrentMessage) return fromCurrentMessage;
-
-  const rows = Array.isArray(history) ? history : [];
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows[index];
-    if (!row || typeof row !== "object") continue;
-    if (String(row.role || "").trim().toLowerCase() !== "user") continue;
-    const detected = detectConversationMethodFromMessage(row.content || "");
-    if (detected) return detected;
-  }
-
-  return normalizeConversationMethod(currentLastMethod);
 }
 
 function mapChatbotError(error) {
@@ -103,12 +86,56 @@ function lockIdleMs(lock) {
 }
 
 router.use(requireAuthenticatedUser);
+router.use((req, _res, next) => {
+  const societeId = Number(req.auth?.user?.societeId);
+
+  if (!Number.isInteger(societeId) || societeId <= 0) {
+    next(
+      new ChatbotServiceError(
+        "Acces chatbot reserve aux utilisateurs rattaches a une societe.",
+        403,
+        "CHATBOT_COMPANY_SCOPE_REQUIRED"
+      )
+    );
+    return;
+  }
+
+  req.auth.user.societeId = societeId;
+  next();
+});
+router.use((req, _res, next) => {
+  if (req.auth?.user?.isSuperAdmin) {
+    next(
+      new ChatbotServiceError(
+        "Le Super Admin n'a pas acces au chatbot SMSI.",
+        403,
+        "CHATBOT_SUPERADMIN_FORBIDDEN"
+      )
+    );
+    return;
+  }
+
+  const canAccessChatbot = Boolean(req.auth?.permissions?.can?.("chatbot", "read"));
+  if (!canAccessChatbot) {
+    next(
+      new ChatbotServiceError(
+        "Votre role ne dispose pas de la permission chatbot:lecture.",
+        403,
+        "CHATBOT_PERMISSION_DENIED"
+      )
+    );
+    return;
+  }
+
+  next();
+});
 
 router.post("/conversations", async (req, res) => {
   try {
     const userId = req.auth.user.id;
+    const societeId = req.auth.user.societeId;
     const bodyTitle = String(req.body?.title || "").trim();
-    const conversation = await createConversationForUser(userId, bodyTitle);
+    const conversation = await createConversationForUser(userId, societeId, bodyTitle);
     return res.status(201).json({ conversation });
   } catch (error) {
     return sendError(res, error);
@@ -118,7 +145,8 @@ router.post("/conversations", async (req, res) => {
 router.get("/conversations", async (req, res) => {
   try {
     const userId = req.auth.user.id;
-    const conversations = await listConversationsByUser(userId);
+    const societeId = req.auth.user.societeId;
+    const conversations = await listConversationsByUser(userId, societeId);
     return res.json({ conversations });
   } catch (error) {
     return sendError(res, error);
@@ -129,13 +157,14 @@ router.get("/conversations/:id/messages", async (req, res) => {
   try {
     const conversationId = String(req.params.id || "").trim();
     const userId = req.auth.user.id;
+    const societeId = req.auth.user.societeId;
 
-    const access = await assertConversationOwnership(conversationId, userId);
+    const access = await assertConversationOwnership(conversationId, userId, societeId);
     if (!access.ok) {
       throw new ChatbotServiceError(access.message, access.status, access.code);
     }
 
-    const messages = await listMessagesByConversation(conversationId);
+    const messages = await listMessagesByConversation(conversationId, userId, societeId);
 
     return res.json({
       conversation: access.conversation,
@@ -149,6 +178,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
 router.post("/conversations/:id/messages/stream", async (req, res) => {
   const conversationId = String(req.params.id || "").trim();
   const userId = req.auth.user.id;
+  const societeId = req.auth.user.societeId;
   const message = normalizeMessage(req.body?.message);
 
   if (!message) {
@@ -239,12 +269,17 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
   }, STREAM_LOCK_MAX_MS + 1000);
 
   try {
-    const access = await assertConversationOwnership(conversationId, userId);
+    const access = await assertConversationOwnership(conversationId, userId, societeId);
     if (!access.ok) {
       throw new ChatbotServiceError(access.message, access.status, access.code);
     }
 
-    const previousDialog = await listRecentDialogMessages(conversationId, MAX_HISTORY_MESSAGES);
+    const previousDialog = await listRecentDialogMessages(
+      conversationId,
+      userId,
+      societeId,
+      MAX_HISTORY_MESSAGES
+    );
     const history = previousDialog.map((row) => ({
       role: row.role,
       content: row.content,
@@ -254,7 +289,7 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
     const effectiveLastMethod = detectedMethod || conversationLastMethod;
 
     if (detectedMethod && detectedMethod !== conversationLastMethod) {
-      await updateConversationLastMethod(conversationId, detectedMethod);
+      await updateConversationLastMethod(conversationId, societeId, detectedMethod);
     }
 
     res.status(200);
@@ -293,6 +328,7 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
       token: req.auth.token,
       message,
       history,
+      permissionScope: req.auth.permissions,
       lastMethod: effectiveLastMethod,
       signal: streamAbortController.signal,
       onFirstToken(meta) {
@@ -316,13 +352,19 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
       return;
     }
 
-    const userMessage = await insertMessage(conversationId, "user", message);
+    const userMessage = await insertMessage(conversationId, userId, societeId, "user", message);
 
     if ((access.conversation.title || "").trim().toLowerCase() === "nouvelle conversation") {
-      await updateConversationTitle(conversationId, makeTitleFromFirstMessage(message));
+      await updateConversationTitle(conversationId, societeId, makeTitleFromFirstMessage(message));
     }
 
-    const assistantMessage = await insertMessage(conversationId, "assistant", answer);
+    const assistantMessage = await insertMessage(
+      conversationId,
+      userId,
+      societeId,
+      "assistant",
+      answer
+    );
 
     const totalElapsedMs = Date.now() - startedAt;
     console.info(
@@ -338,6 +380,7 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
       hasData: context.hasData,
       missingSources: context.missingSources,
       missingOptionalSources: context.missingOptionalSources,
+      permissionFilteredSources: context.permissionFilteredSources,
       appDataUsed: context.appDataUsed,
       documentUsed: context.documentUsed,
       ragUsed: context.ragUsed,
@@ -389,6 +432,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
   try {
     const conversationId = String(req.params.id || "").trim();
     const userId = req.auth.user.id;
+    const societeId = req.auth.user.societeId;
     const message = normalizeMessage(req.body?.message);
 
     if (!message) {
@@ -399,12 +443,17 @@ router.post("/conversations/:id/messages", async (req, res) => {
       );
     }
 
-    const access = await assertConversationOwnership(conversationId, userId);
+    const access = await assertConversationOwnership(conversationId, userId, societeId);
     if (!access.ok) {
       throw new ChatbotServiceError(access.message, access.status, access.code);
     }
 
-    const previousDialog = await listRecentDialogMessages(conversationId, MAX_HISTORY_MESSAGES);
+    const previousDialog = await listRecentDialogMessages(
+      conversationId,
+      userId,
+      societeId,
+      MAX_HISTORY_MESSAGES
+    );
     const history = previousDialog.map((row) => ({
       role: row.role,
       content: row.content,
@@ -414,23 +463,30 @@ router.post("/conversations/:id/messages", async (req, res) => {
     const effectiveLastMethod = detectedMethod || conversationLastMethod;
 
     if (detectedMethod && detectedMethod !== conversationLastMethod) {
-      await updateConversationLastMethod(conversationId, detectedMethod);
+      await updateConversationLastMethod(conversationId, societeId, detectedMethod);
     }
 
     const { answer, context } = await generateAssistantReply({
       token: req.auth.token,
       message,
       history,
+      permissionScope: req.auth.permissions,
       lastMethod: effectiveLastMethod,
     });
 
-    const userMessage = await insertMessage(conversationId, "user", message);
+    const userMessage = await insertMessage(conversationId, userId, societeId, "user", message);
 
     if ((access.conversation.title || "").trim().toLowerCase() === "nouvelle conversation") {
-      await updateConversationTitle(conversationId, makeTitleFromFirstMessage(message));
+      await updateConversationTitle(conversationId, societeId, makeTitleFromFirstMessage(message));
     }
 
-    const assistantMessage = await insertMessage(conversationId, "assistant", answer);
+    const assistantMessage = await insertMessage(
+      conversationId,
+      userId,
+      societeId,
+      "assistant",
+      answer
+    );
 
     return res.status(201).json({
       conversationId,
@@ -441,6 +497,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
       hasData: context.hasData,
       missingSources: context.missingSources,
       missingOptionalSources: context.missingOptionalSources,
+      permissionFilteredSources: context.permissionFilteredSources,
       appDataUsed: context.appDataUsed,
       documentUsed: context.documentUsed,
       ragUsed: context.ragUsed,
@@ -460,36 +517,15 @@ router.delete("/conversations/:id", async (req, res) => {
   try {
     const conversationId = String(req.params.id || "").trim();
     const userId = req.auth.user.id;
+    const societeId = req.auth.user.societeId;
 
-    const access = await assertConversationOwnership(conversationId, userId);
+    const access = await assertConversationOwnership(conversationId, userId, societeId);
     if (!access.ok) {
       throw new ChatbotServiceError(access.message, access.status, access.code);
     }
 
-    await softDeleteConversation(conversationId);
+    await softDeleteConversation(conversationId, societeId);
     return res.status(204).send();
-  } catch (error) {
-    return sendError(res, error);
-  }
-});
-
-// Route legacy conservee pour compatibilite frontend existant.
-router.post("/message", async (req, res) => {
-  const message = normalizeMessage(req.body?.message);
-  const history = Array.isArray(req.body?.history) ? req.body.history : [];
-  const token = req.auth.token;
-
-  if (!message) {
-    return res.status(400).json({
-      error: "Le champ 'message' est obligatoire.",
-      code: "CHATBOT_INVALID_MESSAGE",
-    });
-  }
-
-  try {
-    const lastMethod = resolveLastMethodFromDialog(message, history, null);
-    const result = await buildChatbotResponse({ message, history, token, lastMethod });
-    return res.json(result);
   } catch (error) {
     return sendError(res, error);
   }

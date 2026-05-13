@@ -63,7 +63,7 @@ export default function DashboardV1() {
 
   return (
     <div className="min-h-screen w-full bg-[#f8f9fb]" style={{ fontFamily: dashboardFont }}>
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-6 md:px-6">
+      <main className="mx-auto w-full max-w-[1450px] px-4 py-8 pb-14 md:px-8">
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}

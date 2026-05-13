@@ -2,13 +2,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Application.DTOs.Clause;
+using backend.Application.Security;
 using backend.Infrastructure.Services;
 
 namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
-[Authorize]
+[Authorize(Policy = "SmsiTenantScope")]
+[RequirePermission("clauses")]
 public class ClauseController : ControllerBase
 {
     private readonly IClauseService _svc;

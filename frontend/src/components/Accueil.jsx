@@ -1,7 +1,8 @@
 import React from 'react';
-import logoIso from "../assets/ISO.png"; 
+import isoLogo from "../assets/ISO.png";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '../context/AuthContext';
+import { resolveAssetUrl } from "../api/url";
 import { 
   ShieldCheck, Lightbulb, Play, Search, RotateCcw, 
   Zap, BarChart3, Users, LogIn
@@ -27,25 +28,11 @@ export default function Accueil() {
    const { user } = useAuth();
    
    // Logique pour déterminer le logo à afficher (défaut ou personnalisé selon l'utilisateur connecté)
-   let logoImage = logoIso;
-   if (user) {
-     let logoPath = null;
-     if (user.logoUrl) logoPath = user.logoUrl;
-     else if (user.logo) logoPath = user.logo;
-     else if (user.societeLogo) logoPath = user.societeLogo;
-     else if (user.societe?.logoUrl) logoPath = user.societe.logoUrl;
-     else if (user.societe?.logo) logoPath = user.societe.logo;
-     
-     if (logoPath) {
-       if (logoPath.startsWith('/')) {
-         logoImage = `http://localhost:5001${logoPath}`;
-       } else if (!logoPath.startsWith('http')) {
-         logoImage = `http://localhost:5001/${logoPath}`;
-       } else {
-         logoImage = logoPath;
-       }
-     }
-   }
+   const hasSociete = Boolean(user?.societeId || user?.societe?.id || user?.societe?.Id);
+   const societeLogoPath = hasSociete
+     ? (user?.societeLogo || user?.societe?.logoUrl || user?.societe?.logo || user?.logoUrl || user?.logo)
+     : null;
+   const logoImage = resolveAssetUrl(societeLogoPath, isoLogo);
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
       

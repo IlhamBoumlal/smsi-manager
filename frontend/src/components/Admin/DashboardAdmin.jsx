@@ -1,4 +1,4 @@
-// components/Admin/DashboardAdmin.jsx - Version avec 4 cartes d'actions rapides
+﻿// components/Admin/DashboardAdmin.jsx - Version avec 4 cartes d'actions rapides
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, Shield, Building2, Factory, 
@@ -172,7 +172,7 @@ export default function DashboardAdmin({ onTabChange }) {
       const config = getAuthConfig();
       const response = await axios.get(`${API_BASE}/api/user`, config);
       const allUsers = response.data || [];
-      const adminUsers = allUsers.filter(u => u.role === "Admin");
+      const adminUsers = allUsers.filter(u => u.role === "Admin Societe");
       return adminUsers;
     } catch (error) {
       console.error("Erreur chargement utilisateurs:", error);

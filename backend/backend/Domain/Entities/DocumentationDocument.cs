@@ -15,6 +15,7 @@ namespace backend.Domain.Entities
         public string? Approver { get; set; }
         public string? Clause { get; set; }
         public string? Controle { get; set; }
+        public string? Processus { get; set; }
         public string? Description { get; set; }
         public string? FilePath { get; set; }
         public string? OriginalFileName { get; set; }

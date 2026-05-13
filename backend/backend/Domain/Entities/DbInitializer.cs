@@ -1,37 +1,45 @@
-using backend.Application.DTOs.Controles;
-using backend.Domain.Entities;
+using backend.Application.Security;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Action = backend.Domain.Entities.Action;
 
 namespace backend.Application.Services
 {
     public static class DbInitializer
     {
-        private sealed record DemoUserSeed(string Email, string Password, string NomComplet, string Role);
+        private const string BootstrapEmailFallback = "superadmin@smsi.local";
+        private const string BootstrapPasswordFallback = "ChangeMe@123!";
+        private const string BootstrapNameFallback = "Super Admin";
 
-        // ============================================================
-        // RÔLES PRÉDÉFINIS DU SYSTÈME
-        // ============================================================
-        private static readonly string[] SystemRoles =
+        private static readonly string[] DeprecatedRoles =
         [
-            "Super Admin",
             "Admin",
-            "RSSI",
-            "Consultant",
-            "Auditeur",
             "DSI",
             "DRH",
             "Employé",
             "Utilisateur Standard",
         ];
 
+        private static readonly string[] LegacySeedAccounts =
+        [
+            "admin@alexsys.com",
+            "rssi.demo@smsi.local",
+            "drh.demo@smsi.local",
+            "dsi.demo@smsi.local",
+            "employe.demo@smsi.local",
+            "rssi@gmail.com",
+            "consultant@gmail.com",
+            "auditeur@gmail.com",
+            "admin@smsi.local",
+        ];
+
         public static async Task InitializeAsync(IServiceProvider serviceProvider)
         {
             var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
             var config = serviceProvider.GetRequiredService<IConfiguration>();
-            var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
+            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var cleanupLegacySeedAccounts = config.GetValue<bool>("Bootstrap:CleanupLegacySeedAccounts");
 
             try
             {
@@ -42,681 +50,613 @@ namespace backend.Application.Services
                 await dbContext.Database.EnsureCreatedAsync();
             }
 
-            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-            // ══════════════════════════════════════════════════════════════
-            //  TOUTES LES INITIALISATIONS SONT ACTIVES
-            // ══════════════════════════════════════════════════════════════
-
-            // ÉTAPE 1 : Rôles
-            //  await SeedRolesAsync(roleManager);
-
-            // ÉTAPE 2 : Actions
-            //  await SeedActionsAsync(dbContext);
-
-            // ÉTAPE 3 : Modules
-            //await SeedModulesAsync(dbContext);
-
-            // ÉTAPE 4 : Permissions
-            //await SeedPermissionsAsync(dbContext);
-
-            // ÉTAPE 5 : Contrôles ISO 27001 (depuis fichier JSON)
-            // await SeedControlesAsync(serviceProvider);
-
-            // ÉTAPE 6 : Utilisateurs système
-            //await SeedUsersAsync(userManager, config);
-
-            // ÉTAPE 7 : Démo RBAC (utilisateurs démo + documents)
-            // await SeedDocumentationMvpDemoAsync(dbContext, userManager, config);
-
-            // ══════════════════════════════════════════════════════════════
-
-            Console.WriteLine("✅ Toutes les initialisations sont terminées !");
+            await EnsureFinalRolesAsync(roleManager);
+            await EnsureRbacCatalogAsync(dbContext);
+            await EnsureBaselineRolePermissionsAsync(dbContext, roleManager);
+            if (cleanupLegacySeedAccounts)
+            {
+                await RemoveLegacySeedAccountsAsync(userManager);
+            }
+            await RemoveDeprecatedRolesAsync(userManager, roleManager);
+            await EnsureSingleSuperAdminAsync(userManager, roleManager, config);
+            await SynchronizePrimaryRoleKeysAsync(userManager);
         }
 
-        // ============================================================
-        // ÉTAPE 1 — RÔLES
-        // ============================================================
-
-        private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
+        private static async Task EnsureFinalRolesAsync(RoleManager<IdentityRole> roleManager)
         {
-            foreach (var roleName in SystemRoles)
+            foreach (var roleName in AppRoles.FinalRoles)
             {
-                if (!await roleManager.RoleExistsAsync(roleName))
+                if (await roleManager.RoleExistsAsync(roleName))
                 {
-                    var result = await roleManager.CreateAsync(new IdentityRole(roleName));
-                    if (result.Succeeded)
-                        Console.WriteLine($"✅ Rôle créé : {roleName}");
-                    else
-                        Console.WriteLine($"❌ Erreur création rôle '{roleName}' : {string.Join(", ", result.Errors.Select(e => e.Description))}");
-                }
-                else
-                {
-                    Console.WriteLine($"ℹ️  Rôle déjà existant : {roleName}");
-                }
-            }
-        }
-
-        // ============================================================
-        // ÉTAPE 2 — ACTIONS
-        // ============================================================
-
-        private static async Task SeedActionsAsync(AppDbContext db)
-        {
-            if (await db.Actions.AnyAsync())
-            {
-                Console.WriteLine("ℹ️  Actions déjà présentes — seed ignoré.");
-                return;
-            }
-
-            var actions = new List<Action>
-            {
-                new() { Id = Guid.NewGuid().ToString(), Code = "view",   Name = "Lecture"      },
-                new() { Id = Guid.NewGuid().ToString(), Code = "create", Name = "Écriture"     },
-                new() { Id = Guid.NewGuid().ToString(), Code = "edit",   Name = "Modification" },
-                new() { Id = Guid.NewGuid().ToString(), Code = "delete", Name = "Suppression"  },
-                new() { Id = Guid.NewGuid().ToString(), Code = "export", Name = "Export"       },
-                new() { Id = Guid.NewGuid().ToString(), Code = "manage", Name = "Gestion"      },
-            };
-
-            await db.Actions.AddRangeAsync(actions);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"✅ {actions.Count} actions créées.");
-        }
-
-        // ============================================================
-        // ÉTAPE 3 — MODULES
-        // ============================================================
-
-        private static async Task SeedModulesAsync(AppDbContext db)
-        {
-            if (await db.Modules.AnyAsync())
-            {
-                Console.WriteLine("ℹ️  Modules déjà présents — seed ignoré.");
-                return;
-            }
-
-            // ⚠️ Les codes doivent correspondre EXACTEMENT aux moduleCode
-            //    utilisés dans Header.jsx côté React.
-            var modules = new List<Module>
-            {
-                new() { Id = Guid.NewGuid().ToString(), Code = "dashboard",       Name = "Tableau De Bord",  CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "cartographie",    Name = "Cartographie",     CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "pdca",            Name = "PDCA",             CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "clauses",         Name = "Clauses",          CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "controles",       Name = "Contrôles",        CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "documentation",   Name = "Documentation",    CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "risques",         Name = "Risques",          CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "audit",           Name = "Audits",           CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "actifs",          Name = "Actifs",           CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "sensibilisation", Name = "Sensibilisation",  CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "incidents",       Name = "Incidents",        CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "statistiques",    Name = "Statistiques",     CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "users",           Name = "Utilisateurs",     CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "societes",        Name = "Sociétés",         CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "holdings",        Name = "Holdings",         CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "roles",           Name = "Rôles",            CreatedAt = DateTime.UtcNow },
-                new() { Id = Guid.NewGuid().ToString(), Code = "config",          Name = "Configuration",    CreatedAt = DateTime.UtcNow },
-            };
-
-            await db.Modules.AddRangeAsync(modules);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"✅ {modules.Count} modules créés.");
-        }
-
-        // ============================================================
-        // ÉTAPE 4 — PERMISSIONS
-        // ============================================================
-
-        private static async Task SeedPermissionsAsync(AppDbContext db)
-        {
-            if (await db.Permissions.AnyAsync())
-            {
-                Console.WriteLine("ℹ️  Permissions déjà présentes — seed ignoré.");
-                return;
-            }
-
-            // Lecture des IDs réels depuis la BD
-            var modules = await db.Modules.ToDictionaryAsync(m => m.Code, m => m.Id);
-            var actions = await db.Actions.ToDictionaryAsync(a => a.Code, a => a.Id);
-            var roles = await db.Set<IdentityRole>().ToDictionaryAsync(r => r.Name!, r => r.Id);
-
-            // Helpers — lèvent une exception claire si un code est manquant
-            string M(string code)
-            {
-                if (modules.TryGetValue(code, out var id)) return id;
-                throw new InvalidOperationException($"Module introuvable : '{code}'. Vérifiez SeedModulesAsync.");
-            }
-
-            string A(string code)
-            {
-                if (actions.TryGetValue(code, out var id)) return id;
-                throw new InvalidOperationException($"Action introuvable : '{code}'. Vérifiez SeedActionsAsync.");
-            }
-
-            string Ro(string name)
-            {
-                if (roles.TryGetValue(name, out var id)) return id;
-                throw new InvalidOperationException($"Rôle introuvable : '{name}'. Vérifiez SeedRolesAsync.");
-            }
-
-            var perms = new List<Permission>();
-
-            // Ajouter des actions spécifiques sur un module pour un rôle
-            void Add(string role, string module, params string[] actionCodes)
-            {
-                foreach (var ac in actionCodes)
-                    perms.Add(new Permission
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        RoleId = Ro(role),
-                        ModuleId = M(module),
-                        ActionId = A(ac),
-                    });
-            }
-
-            // Toutes les actions (view, create, edit, delete, export, manage)
-            void AddAll(string role, string module)
-                => Add(role, module, "view", "create", "edit", "delete", "export", "manage");
-
-            // Lecture + Export seulement
-            void AddViewExport(string role, string module)
-                => Add(role, module, "view", "export");
-
-            // Lecture + Écriture + Modification + Export (sans suppression)
-            void AddWritable(string role, string module)
-                => Add(role, module, "view", "create", "edit", "export");
-
-            // ──────────────────────────────────────────────────────────
-            // SUPER ADMIN — accès total à tous les modules
-            // ──────────────────────────────────────────────────────────
-            foreach (var modCode in modules.Keys)
-                AddAll("Super Admin", modCode);
-
-            // ──────────────────────────────────────────────────────────
-            // ADMIN
-            //   • Modules métier   → accès total
-            //   • dashboard        → view + export
-            //   • statistiques     → view + export
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[]
-            {
-                "cartographie", "pdca", "clauses", "controles", "documentation",
-                "risques", "audit", "actifs", "sensibilisation", "incidents",
-                "users", "societes", "holdings", "roles", "config"
-            })
-                AddAll("Admin", mod);
-
-            AddViewExport("Admin", "dashboard");
-            AddViewExport("Admin", "statistiques");
-
-            // ──────────────────────────────────────────────────────────
-            // CONSULTANT — lecture + export sur tous les modules métier
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[]
-            {
-                "dashboard", "cartographie", "pdca", "clauses", "controles",
-                "documentation", "risques", "audit", "actifs",
-                "sensibilisation", "incidents", "statistiques"
-            })
-                AddViewExport("Consultant", mod);
-
-            // ──────────────────────────────────────────────────────────
-            // AUDITEUR
-            //   • Modules consultation      → view + export
-            //   • Modules actions correctives → view + create + edit + export
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[]
-                { "dashboard", "cartographie", "clauses", "documentation", "actifs", "sensibilisation", "statistiques" })
-                AddViewExport("Auditeur", mod);
-
-            foreach (var mod in new[] { "pdca", "controles", "risques", "audit", "incidents" })
-                AddWritable("Auditeur", mod);
-
-            // ──────────────────────────────────────────────────────────
-            // RSSI
-            //   • Modules sécurité → accès total
-            //   • Autres modules   → view + export
-            //   • users            → view + create + edit + export
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[]
-                { "pdca", "controles", "documentation", "risques", "audit", "actifs", "sensibilisation", "incidents" })
-                AddAll("RSSI", mod);
-
-            foreach (var mod in new[] { "dashboard", "cartographie", "clauses", "statistiques" })
-                AddViewExport("RSSI", mod);
-
-            AddWritable("RSSI", "users");
-
-            // ──────────────────────────────────────────────────────────
-            // DSI
-            //   • Modules techniques → accès total
-            //   • Autres modules     → view + export
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[] { "actifs", "incidents", "risques", "audit", "sensibilisation" })
-                AddAll("DSI", mod);
-
-            foreach (var mod in new[]
-                { "dashboard", "cartographie", "pdca", "clauses", "controles", "documentation", "statistiques" })
-                AddViewExport("DSI", mod);
-
-            // ──────────────────────────────────────────────────────────
-            // DRH
-            //   • Modules RH     → accès total
-            //   • Autres modules → view + export
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[] { "sensibilisation", "users", "incidents" })
-                AddAll("DRH", mod);
-
-            foreach (var mod in new[]
-            {
-                "dashboard", "cartographie", "pdca", "clauses",
-                "controles", "documentation", "risques", "audit", "actifs", "statistiques"
-            })
-                AddViewExport("DRH", mod);
-
-            // ──────────────────────────────────────────────────────────
-            // EMPLOYÉ — lecture uniquement sur modules de base
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[] { "dashboard", "sensibilisation", "incidents" })
-                Add("Employé", mod, "view");
-
-            // ──────────────────────────────────────────────────────────
-            // UTILISATEUR STANDARD — lecture + export sur modules de base
-            // ──────────────────────────────────────────────────────────
-            foreach (var mod in new[]
-                { "dashboard", "cartographie", "clauses", "documentation", "sensibilisation" })
-                AddViewExport("Utilisateur Standard", mod);
-
-            await db.Permissions.AddRangeAsync(perms);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"✅ {perms.Count} permissions créées.");
-        }
-
-        // ============================================================
-        // ÉTAPE 5 — CONTRÔLES ISO 27001
-        // ============================================================
-
-        public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
-        {
-            var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
-
-            if (await dbContext.Controles.AnyAsync())
-            {
-                Console.WriteLine("ℹ️  Contrôles déjà présents — seed ignoré.");
-                return;
-            }
-
-            // Chercher le fichier JSON à différents emplacements
-            var candidatePaths = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "controles.json"),
-                Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
-                Path.Combine(Directory.GetCurrentDirectory(), "backend", "backend", "Infrastructure", "SeedData", "controles.json"),
-            };
-
-            var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
-            if (string.IsNullOrWhiteSpace(jsonPath))
-            {
-                Console.WriteLine("⚠️  Fichier controles.json non trouvé. Chemins testés :");
-                foreach (var path in candidatePaths)
-                    Console.WriteLine($"   - {path}");
-                return;
-            }
-
-            Console.WriteLine($"📄 Fichier trouvé : {jsonPath}");
-
-            try
-            {
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-                };
-
-                var jsonContent = await File.ReadAllTextAsync(jsonPath);
-                var dtos = System.Text.Json.JsonSerializer.Deserialize<List<ControleDto>>(jsonContent, options);
-
-                if (dtos is null || dtos.Count == 0)
-                {
-                    Console.WriteLine("⚠️  Aucune donnée trouvée dans controles.json.");
-                    return;
+                    continue;
                 }
 
-                var controles = dtos.Select(dto => new Controle
-                {
-                    Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
-                    Code = dto.Code,
-                    Titre = dto.Titre,
-                    Description = dto.Description,
-                    Domaine = dto.Domaine,
-                    Applicable = dto.Applicable,
-                    RaisonsApplicabilite = dto.RaisonsApplicabilite != null && dto.RaisonsApplicabilite.Any()
-                                                ? System.Text.Json.JsonSerializer.Serialize(dto.RaisonsApplicabilite)
-                                                : null,
-                    RaisonExclusion = dto.RaisonExclusion,
-                    Statut = dto.Statut,
-                    JustificationConformite = dto.JustificationConformite,
-                    Remarque = dto.Remarque,
-                    Preuves = dto.Preuves,
-                    Steps = dto.Steps != null
-                                                ? System.Text.Json.JsonSerializer.Serialize(dto.Steps)
-                                                : null,
-                    Priorite = dto.Priorite,
-                    StatutPlan = dto.StatutPlan,
-                    ResponsablePlan = dto.ResponsablePlan,
-                    DateEcheance = dto.DateEcheance,
-                    DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
-                    DernierModificateurId = dto.DernierModificateurId,
-                    DernierModificateurNom = dto.DernierModificateurNom,
-                }).ToList();
-
-                await dbContext.Controles.AddRangeAsync(controles);
-                await dbContext.SaveChangesAsync();
-                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Erreur seed contrôles : {ex.Message}");
-                Console.WriteLine($"   Stack trace : {ex.StackTrace}");
+                var result = await roleManager.CreateAsync(new IdentityRole(roleName));
+                ThrowIfFailed(result, $"Création du rôle '{roleName}'");
             }
         }
 
-        // ============================================================
-        // ÉTAPE 6 — UTILISATEURS SYSTÈME
-        // ============================================================
+        private static async Task RemoveLegacySeedAccountsAsync(UserManager<ApplicationUser> userManager)
+        {
+            foreach (var email in LegacySeedAccounts.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var user = await userManager.FindByEmailAsync(email);
+                if (user is null)
+                {
+                    continue;
+                }
 
-        private static async Task SeedUsersAsync(
+                var roles = await userManager.GetRolesAsync(user);
+                if (roles.Count > 0)
+                {
+                    var removeRoleResult = await userManager.RemoveFromRolesAsync(user, roles);
+                    ThrowIfFailed(removeRoleResult, $"Suppression des rôles de '{email}'");
+                }
+
+                var deleteResult = await userManager.DeleteAsync(user);
+                ThrowIfFailed(deleteResult, $"Suppression du compte legacy '{email}'");
+            }
+        }
+
+        private static async Task RemoveDeprecatedRolesAsync(
             UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager)
+        {
+            foreach (var deprecatedRole in DeprecatedRoles)
+            {
+                if (!await roleManager.RoleExistsAsync(deprecatedRole))
+                {
+                    continue;
+                }
+
+                var users = await userManager.GetUsersInRoleAsync(deprecatedRole);
+                foreach (var user in users)
+                {
+                    var removeResult = await userManager.RemoveFromRoleAsync(user, deprecatedRole);
+                    ThrowIfFailed(removeResult, $"Retrait du rôle legacy '{deprecatedRole}' pour '{user.Email}'");
+                }
+
+                var role = await roleManager.FindByNameAsync(deprecatedRole);
+                if (role is null)
+                {
+                    continue;
+                }
+
+                var deleteRoleResult = await roleManager.DeleteAsync(role);
+                ThrowIfFailed(deleteRoleResult, $"Suppression du rôle legacy '{deprecatedRole}'");
+            }
+        }
+
+        private static async Task EnsureSingleSuperAdminAsync(
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
             IConfiguration config)
         {
-            // Liste complète des utilisateurs à créer
-            var users = new[]
+            if (!await roleManager.RoleExistsAsync(AppRoles.SuperAdmin))
             {
-                // ── Administrateur (Admin) ──────────────────────────────────────
-                new { Email = "admin@alexsys.com",    Password = "Admin@123456!",    NomComplet = "Administrateur Système", Role = "Admin" },
-
-                // ── Super Admin ──────────────────────────────────────────────────
-                new { Email = "boumlalilham@gmail.com",  Password = "Admin@123456!",    NomComplet = "Ilham Boumlal",          Role = "Super Admin" },
-
-              
-                // ── Métier ────────────────────────────────────────────────────────
-                new { Email = "rssi@gmail.com",          Password = "Rssi@123456!",     NomComplet = "RSSI Système",           Role = "RSSI" },
-                new { Email = "consultant@gmail.com",    Password = "Consul@123456!",   NomComplet = "Consultant Système",     Role = "Consultant" },
-                new { Email = "auditeur@gmail.com",      Password = "Auditeur@123456!", NomComplet = "Auditeur Système",       Role = "Auditeur" },
-            };
-
-            foreach (var u in users)
-                await SeedUserIfMissingAsync(userManager, u.Email, u.Password, u.NomComplet, u.Role);
-
-            Console.WriteLine("✅ Utilisateurs système initialisés.");
-        }
-
-        // ============================================================
-        // ÉTAPE 7 — DÉMO RBAC (utilisateurs démo + documents)
-        // ============================================================
-
-        private static async Task SeedDocumentationMvpDemoAsync(
-            AppDbContext dbContext,
-            UserManager<ApplicationUser> userManager,
-            IConfiguration config)
-        {
-            const string demoSocieteName = "Societe Demo RBAC";
-            var societe = await dbContext.Societes.FirstOrDefaultAsync(s => s.Nom == demoSocieteName);
-            if (societe is null)
-            {
-                societe = new Societe { Nom = demoSocieteName, Logo = null };
-                dbContext.Societes.Add(societe);
-                await dbContext.SaveChangesAsync();
-                Console.WriteLine($"✅ Société créée : {demoSocieteName}");
+                var createRoleResult = await roleManager.CreateAsync(new IdentityRole(AppRoles.SuperAdmin));
+                ThrowIfFailed(createRoleResult, "Création du rôle Super Admin");
             }
 
-            var demoUsers = new[]
+            var bootstrapEmail = config["Bootstrap:SuperAdmin:Email"]?.Trim();
+            if (string.IsNullOrWhiteSpace(bootstrapEmail))
             {
-                new DemoUserSeed("rssi.demo@smsi.local",    "RssiDemo@123",    "RSSI Demo",    "RSSI"   ),
-                new DemoUserSeed("drh.demo@smsi.local",     "DrhDemo@123",     "DRH Demo",     "DRH"    ),
-                new DemoUserSeed("dsi.demo@smsi.local",     "DsiDemo@123",     "DSI Demo",     "DSI"    ),
-                new DemoUserSeed("employe.demo@smsi.local", "EmployeDemo@123", "Employe Demo", "Employé"),
-            };
-
-            var usersByRole = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
-            foreach (var demoUser in demoUsers)
-            {
-                var user = await EnsureDemoUserAsync(userManager, demoUser, societe.Id);
-                usersByRole[demoUser.Role] = user;
+                bootstrapEmail = BootstrapEmailFallback;
             }
 
-            var rssi = usersByRole["RSSI"];
-            var drh = usersByRole["DRH"];
-            var dsi = usersByRole["DSI"];
-
-            var documentSeeds = new[]
+            var bootstrapPassword = config["Bootstrap:SuperAdmin:Password"];
+            if (string.IsNullOrWhiteSpace(bootstrapPassword))
             {
-                new DocumentationDocument
+                bootstrapPassword = BootstrapPasswordFallback;
+            }
+
+            var bootstrapName = config["Bootstrap:SuperAdmin:NomComplet"];
+            if (string.IsNullOrWhiteSpace(bootstrapName))
+            {
+                bootstrapName = BootstrapNameFallback;
+            }
+
+            var superAdmins = (await userManager.GetUsersInRoleAsync(AppRoles.SuperAdmin)).ToList();
+
+            ApplicationUser? primarySuperAdmin = await userManager.FindByEmailAsync(bootstrapEmail);
+            if (primarySuperAdmin is null)
+            {
+                primarySuperAdmin = new ApplicationUser
                 {
-                    Name                 = "[DEMO] Procedure RH - Formation securite",
-                    Type                 = "Procedure",
-                    Category             = "RH",
-                    Status               = "brouillon",
-                    Version              = "1.0",
-                    Classification       = "Interne",
-                    Author               = drh.NomComplet,
-                    Clause               = "7.2",
-                    Controle             = "A.6.3",
-                    Description          = "Document RH non approuve pour tester les restrictions DRH.",
-                    SocieteId            = societe.Id,
-                    CreatedByUserId      = drh.Id,
-                    LastModifiedByUserId = drh.Id,
-                    CreatedAt            = DateTime.UtcNow.AddDays(-8),
-                    UpdatedAt            = DateTime.UtcNow.AddDays(-2),
-                },
-                new DocumentationDocument
-                {
-                    Name                 = "[DEMO] Guide Technique - Gestion des acces",
-                    Type                 = "Guide",
-                    Category             = "Technique",
-                    Status               = "en-validation",
-                    Version              = "0.9",
-                    Classification       = "Interne",
-                    Author               = dsi.NomComplet,
-                    Clause               = "8.1",
-                    Controle             = "A.8.2",
-                    Description          = "Document technique en validation pour tester le perimetre DSI.",
-                    SocieteId            = societe.Id,
-                    CreatedByUserId      = dsi.Id,
-                    LastModifiedByUserId = dsi.Id,
-                    CreatedAt            = DateTime.UtcNow.AddDays(-7),
-                    UpdatedAt            = DateTime.UtcNow.AddDays(-1),
-                },
-                new DocumentationDocument
-                {
-                    Name                 = "[DEMO] Politique SMSI - Gouvernance",
-                    Type                 = "Politique",
-                    Category             = "Gouvernance",
-                    Status               = "approuve",
-                    Version              = "2.0",
-                    Classification       = "Interne",
-                    Author               = rssi.NomComplet,
-                    Approver             = rssi.NomComplet,
-                    Clause               = "5.2",
-                    Controle             = "A.5.1",
-                    Description          = "Document approuve par le RSSI, visible par tous les employes.",
-                    SocieteId            = societe.Id,
-                    CreatedByUserId      = rssi.Id,
-                    LastModifiedByUserId = rssi.Id,
-                    ApprovedByUserId     = rssi.Id,
-                    ApprovedAt           = DateTime.UtcNow.AddDays(-5),
-                    CreatedAt            = DateTime.UtcNow.AddDays(-10),
-                    UpdatedAt            = DateTime.UtcNow.AddDays(-5),
-                },
-                new DocumentationDocument
-                {
-                    Name                 = "[DEMO] Registre RH - Habilitations",
-                    Type                 = "Registre",
-                    Category             = "RH",
-                    Status               = "approuve",
-                    Version              = "1.1",
-                    Classification       = "Interne",
-                    Author               = drh.NomComplet,
-                    Approver             = rssi.NomComplet,
-                    Clause               = "7.5.3",
-                    Controle             = "A.6.1",
-                    Description          = "Document RH cree par DRH et approuve par RSSI.",
-                    SocieteId            = societe.Id,
-                    CreatedByUserId      = drh.Id,
-                    LastModifiedByUserId = rssi.Id,
-                    ApprovedByUserId     = rssi.Id,
-                    ApprovedAt           = DateTime.UtcNow.AddDays(-4),
-                    CreatedAt            = DateTime.UtcNow.AddDays(-9),
-                    UpdatedAt            = DateTime.UtcNow.AddDays(-4),
-                },
-            };
-
-            foreach (var seedDoc in documentSeeds)
-            {
-                var exists = await dbContext.DocumentationDocuments.AnyAsync(d =>
-                    d.SocieteId == societe.Id && d.Name == seedDoc.Name);
-                if (!exists)
-                    dbContext.DocumentationDocuments.Add(seedDoc);
-            }
-
-            await dbContext.SaveChangesAsync();
-            Console.WriteLine("✅ Documentation démo seed terminée.");
-        }
-
-        // ============================================================
-        // HELPER — créer un utilisateur s'il est absent
-        // ============================================================
-
-        private static async Task SeedUserIfMissingAsync(
-            UserManager<ApplicationUser> userManager,
-            string email, string password, string nomComplet, string role)
-        {
-            if (await userManager.FindByEmailAsync(email) is not null)
-            {
-                Console.WriteLine($"ℹ️  Utilisateur déjà existant : {email}");
-                return;
-            }
-
-            var user = new ApplicationUser
-            {
-                UserName = email,
-                Email = email,
-                NomComplet = nomComplet,
-                EmailConfirmed = true,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow,
-            };
-
-            var result = await userManager.CreateAsync(user, password);
-            if (result.Succeeded)
-            {
-                var roleResult = await userManager.AddToRoleAsync(user, role);
-                if (roleResult.Succeeded)
-                    Console.WriteLine($"✅ Utilisateur créé : {email}  →  rôle [{role}]");
-                else
-                    Console.WriteLine($"⚠️  Utilisateur créé mais rôle non assigné ({email}) : " +
-                                      $"{string.Join(", ", roleResult.Errors.Select(e => e.Description))}");
-            }
-            else
-            {
-                Console.WriteLine($"❌ Erreur création utilisateur {email} : " +
-                                  $"{string.Join(", ", result.Errors.Select(e => e.Description))}");
-            }
-        }
-
-        // ============================================================
-        // HELPER — créer / mettre à jour un utilisateur démo
-        // ============================================================
-
-        private static async Task<ApplicationUser> EnsureDemoUserAsync(
-            UserManager<ApplicationUser> userManager,
-            DemoUserSeed seed,
-            int societeId)
-        {
-            var user = await userManager.FindByEmailAsync(seed.Email);
-
-            if (user is null)
-            {
-                user = new ApplicationUser
-                {
-                    UserName = seed.Email,
-                    Email = seed.Email,
-                    NomComplet = seed.NomComplet,
-                    SocieteId = societeId,
+                    UserName = bootstrapEmail,
+                    Email = bootstrapEmail,
+                    NomComplet = bootstrapName,
+                    PrimaryRoleKey = AppRoles.SuperAdminRoleKey,
                     EmailConfirmed = true,
                     IsActive = true,
+                    SocieteId = null,
                     CreatedAt = DateTime.UtcNow,
                 };
 
-                var createResult = await userManager.CreateAsync(user, seed.Password);
-                if (!createResult.Succeeded)
-                    throw new InvalidOperationException(
-                        $"Impossible de créer l'utilisateur démo {seed.Email} : " +
-                        $"{string.Join(", ", createResult.Errors.Select(e => e.Description))}");
-
-                Console.WriteLine($"✅ Utilisateur démo créé : {seed.Email}");
+                var createResult = await userManager.CreateAsync(primarySuperAdmin, bootstrapPassword);
+                ThrowIfFailed(createResult, "Création du Super Admin initial");
             }
-            else
+
+            if (!await userManager.IsInRoleAsync(primarySuperAdmin, AppRoles.SuperAdmin))
             {
-                var changed = false;
+                var addRoleResult = await userManager.AddToRoleAsync(primarySuperAdmin, AppRoles.SuperAdmin);
+                ThrowIfFailed(addRoleResult, $"Attribution du rôle Super Admin à '{primarySuperAdmin.Email}'");
+            }
 
-                if (!string.Equals(user.NomComplet, seed.NomComplet, StringComparison.Ordinal))
-                { user.NomComplet = seed.NomComplet; changed = true; }
+            await NormalizePrimarySuperAdminAsync(userManager, primarySuperAdmin, bootstrapName);
 
-                if (user.SocieteId != societeId)
-                { user.SocieteId = societeId; changed = true; }
+            superAdmins = (await userManager.GetUsersInRoleAsync(AppRoles.SuperAdmin))
+                .OrderBy(u => u.CreatedAt)
+                .ThenBy(u => u.Id, StringComparer.Ordinal)
+                .ToList();
 
-                if (!user.EmailConfirmed)
-                { user.EmailConfirmed = true; changed = true; }
-
-                if (!user.IsActive)
-                { user.IsActive = true; changed = true; }
-
-                if (changed)
+            foreach (var user in superAdmins)
+            {
+                if (user.Id == primarySuperAdmin.Id)
                 {
-                    var updateResult = await userManager.UpdateAsync(user);
-                    if (!updateResult.Succeeded)
-                        throw new InvalidOperationException(
-                            $"Impossible de mettre à jour l'utilisateur démo {seed.Email} : " +
-                            $"{string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
+                    continue;
                 }
 
-                // Réinitialiser le mot de passe
-                var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
-                var resetResult = await userManager.ResetPasswordAsync(user, resetToken, seed.Password);
+                var removeRoleResult = await userManager.RemoveFromRoleAsync(user, AppRoles.SuperAdmin);
+                ThrowIfFailed(removeRoleResult, $"Retrait du rôle Super Admin de '{user.Email}'");
 
-                if (!resetResult.Succeeded && !await userManager.HasPasswordAsync(user))
+                user.IsActive = false;
+                user.PrimaryRoleKey = AppRoles.ConsultantRoleKey;
+                var updateResult = await userManager.UpdateAsync(user);
+                ThrowIfFailed(updateResult, $"Désactivation du compte Super Admin en doublon '{user.Email}'");
+            }
+        }
+
+        private static async Task NormalizePrimarySuperAdminAsync(
+            UserManager<ApplicationUser> userManager,
+            ApplicationUser primarySuperAdmin,
+            string bootstrapName)
+        {
+            var primaryRoles = await userManager.GetRolesAsync(primarySuperAdmin);
+            var rolesToRemove = primaryRoles
+                .Where(role => !AppRoles.IsSuperAdminRole(role))
+                .ToList();
+
+            if (rolesToRemove.Count > 0)
+            {
+                var removeOtherRolesResult = await userManager.RemoveFromRolesAsync(primarySuperAdmin, rolesToRemove);
+                ThrowIfFailed(removeOtherRolesResult, $"Nettoyage des rôles non Super Admin pour '{primarySuperAdmin.Email}'");
+            }
+
+            if (!await userManager.IsInRoleAsync(primarySuperAdmin, AppRoles.SuperAdmin))
+            {
+                var addRoleResult = await userManager.AddToRoleAsync(primarySuperAdmin, AppRoles.SuperAdmin);
+                ThrowIfFailed(addRoleResult, $"Attribution du rôle Super Admin à '{primarySuperAdmin.Email}'");
+            }
+
+            var needsUpdate = false;
+
+            if (primarySuperAdmin.SocieteId.HasValue)
+            {
+                primarySuperAdmin.SocieteId = null;
+                needsUpdate = true;
+            }
+
+            if (!primarySuperAdmin.IsActive)
+            {
+                primarySuperAdmin.IsActive = true;
+                needsUpdate = true;
+            }
+
+            if (!string.Equals(primarySuperAdmin.PrimaryRoleKey, AppRoles.SuperAdminRoleKey, StringComparison.OrdinalIgnoreCase))
+            {
+                primarySuperAdmin.PrimaryRoleKey = AppRoles.SuperAdminRoleKey;
+                needsUpdate = true;
+            }
+
+            if (!primarySuperAdmin.EmailConfirmed)
+            {
+                primarySuperAdmin.EmailConfirmed = true;
+                needsUpdate = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(primarySuperAdmin.NomComplet))
+            {
+                primarySuperAdmin.NomComplet = bootstrapName;
+                needsUpdate = true;
+            }
+
+            if (needsUpdate)
+            {
+                var updateResult = await userManager.UpdateAsync(primarySuperAdmin);
+                ThrowIfFailed(updateResult, $"Mise à jour du Super Admin principal '{primarySuperAdmin.Email}'");
+            }
+        }
+
+        private static async Task SynchronizePrimaryRoleKeysAsync(UserManager<ApplicationUser> userManager)
+        {
+            var users = await userManager.Users.ToListAsync();
+
+            foreach (var user in users)
+            {
+                var roles = await userManager.GetRolesAsync(user);
+                var resolvedRoleName = AppRoles.ResolvePrimaryRole(roles, user.SocieteId);
+                var targetRoleKey = AppRoles.ToPrimaryRoleKey(resolvedRoleName, user.SocieteId);
+
+                var needsUpdate = false;
+
+                if (!string.Equals(user.PrimaryRoleKey, targetRoleKey, StringComparison.OrdinalIgnoreCase))
                 {
-                    var addPwdResult = await userManager.AddPasswordAsync(user, seed.Password);
-                    if (!addPwdResult.Succeeded)
-                        throw new InvalidOperationException(
-                            $"Impossible de définir le mot de passe démo pour {seed.Email} : " +
-                            $"{string.Join(", ", addPwdResult.Errors.Select(e => e.Description))}");
+                    user.PrimaryRoleKey = targetRoleKey;
+                    needsUpdate = true;
+                }
+
+                if (AppRoles.IsSuperAdminRoleKey(targetRoleKey))
+                {
+                    if (user.SocieteId.HasValue)
+                    {
+                        user.SocieteId = null;
+                        needsUpdate = true;
+                    }
+                }
+                else if (!user.SocieteId.HasValue && user.IsActive)
+                {
+                    // Active société-scoped users must be bound to a company.
+                    user.IsActive = false;
+                    needsUpdate = true;
+                }
+
+                if (!needsUpdate)
+                {
+                    continue;
+                }
+
+                var updateResult = await userManager.UpdateAsync(user);
+                ThrowIfFailed(updateResult, $"Synchronisation PrimaryRoleKey pour '{user.Email}'");
+            }
+        }
+
+        private static async Task EnsureRbacCatalogAsync(AppDbContext dbContext)
+        {
+            var now = DateTime.UtcNow;
+
+            var modules = new (string Code, string Name)[]
+            {
+                ("dashboard", "Dashboard SMSI"),
+                ("cartographie", "Cartographie"),
+                ("pdca", "PDCA"),
+                ("clauses", "Clauses"),
+                ("controles", "Controles"),
+                ("risques", "Risques"),
+                ("documentation", "Documentation"),
+                ("actifs", "Actifs"),
+                ("incidents", "Incidents"),
+                ("sensibilisation", "Sensibilisation"),
+                ("audit", "Audits"),
+                ("chatbot", "Chatbot"),
+                ("tracabilite", "Tracabilite Utilisateurs"),
+                ("users", "Gestion Utilisateurs"),
+                ("roles", "Gestion Roles"),
+                ("holdings", "Gestion Holdings"),
+                ("societes", "Gestion Societes"),
+                ("statistiques", "Dashboard Plateforme")
+            };
+
+            var actions = new (string Code, string Name)[]
+            {
+                (PermissionCatalog.Actions.Read, "Lire"),
+                (PermissionCatalog.Actions.Create, "Creer"),
+                (PermissionCatalog.Actions.Edit, "Modifier"),
+                (PermissionCatalog.Actions.Delete, "Supprimer"),
+                (PermissionCatalog.Actions.Import, "Importer"),
+                (PermissionCatalog.Actions.Export, "Exporter"),
+                (PermissionCatalog.Actions.Approve, "Approuver"),
+                (PermissionCatalog.Actions.Administer, "Administrer"),
+            };
+
+            var existingModules = await dbContext.Modules.ToListAsync();
+            var existingByCode = existingModules
+                .ToDictionary(
+                    m => PermissionCatalog.CanonicalizeModule(m.Code),
+                    m => m,
+                    StringComparer.OrdinalIgnoreCase);
+
+            var existingActions = await dbContext.Actions.ToListAsync();
+            var actionsByCode = existingActions
+                .ToDictionary(
+                    a => PermissionCatalog.Actions.Canonicalize(a.Code),
+                    a => a,
+                    StringComparer.OrdinalIgnoreCase);
+
+            foreach (var module in modules)
+            {
+                var key = PermissionCatalog.CanonicalizeModule(module.Code);
+                if (existingByCode.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                dbContext.Modules.Add(new backend.Domain.Entities.Module
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Code = module.Code,
+                    Name = module.Name,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+
+            foreach (var action in actions)
+            {
+                var key = PermissionCatalog.Actions.Canonicalize(action.Code);
+                if (actionsByCode.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                dbContext.Actions.Add(new backend.Domain.Entities.Action
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Code = action.Code,
+                    Name = action.Name
+                });
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        private static async Task EnsureBaselineRolePermissionsAsync(
+            AppDbContext dbContext,
+            RoleManager<IdentityRole> roleManager)
+        {
+            var roles = await roleManager.Roles
+                .AsNoTracking()
+                .Where(r => AppRoles.FinalRoles.Contains(r.Name!))
+                .ToListAsync();
+
+            if (roles.Count == 0)
+            {
+                return;
+            }
+
+            var modules = await dbContext.Modules
+                .AsNoTracking()
+                .ToListAsync();
+
+            var actions = await dbContext.Actions
+                .AsNoTracking()
+                .ToListAsync();
+
+            var moduleIdByCode = modules.ToDictionary(
+                m => PermissionCatalog.CanonicalizeModule(m.Code),
+                m => m.Id,
+                StringComparer.OrdinalIgnoreCase);
+
+            var actionIdByCode = actions.ToDictionary(
+                a => PermissionCatalog.Actions.Canonicalize(a.Code),
+                a => a.Id,
+                StringComparer.OrdinalIgnoreCase);
+
+            var readAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Read);
+            var createAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Create);
+            var editAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Edit);
+            var deleteAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Delete);
+            var importAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Import);
+            var exportAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Export);
+            var approveAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Approve);
+            var administerAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Administer);
+
+            var smsiModules = PermissionCatalog.SmsiModules
+                .Where(moduleIdByCode.ContainsKey)
+                .ToArray();
+
+            var platformModules = PermissionCatalog.PlatformModules
+                .Where(moduleIdByCode.ContainsKey)
+                .ToArray();
+
+            var templates = new Dictionary<string, Dictionary<string, string[]>>(StringComparer.OrdinalIgnoreCase)
+            {
+                [AppRoles.SuperAdmin] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["holdings"] = [readAction, createAction, editAction, deleteAction, administerAction],
+                    ["societes"] = [readAction, createAction, editAction, deleteAction, administerAction],
+                    ["users"] = [readAction, createAction, editAction, deleteAction, administerAction],
+                    ["statistiques"] = [readAction, exportAction],
+                },
+                [AppRoles.AdminSociete] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["dashboard"] = [readAction],
+                    ["cartographie"] = [readAction],
+                    ["pdca"] = [readAction],
+                    ["clauses"] = [readAction],
+                    ["controles"] = [readAction],
+                    ["risques"] = [readAction],
+                    ["documentation"] = [readAction],
+                    ["actifs"] = [readAction],
+                    ["incidents"] = [readAction],
+                    ["sensibilisation"] = [readAction],
+                    ["audit"] = [readAction],
+                    ["chatbot"] = [readAction],
+                    ["tracabilite"] = [readAction, exportAction],
+                    ["users"] = [readAction, createAction, editAction, deleteAction, administerAction],
+                    ["roles"] = [readAction, editAction, administerAction],
+                },
+                [AppRoles.Rssi] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["dashboard"] = [readAction, exportAction],
+                    ["cartographie"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["pdca"] = [readAction, createAction, editAction, deleteAction, exportAction],
+                    ["clauses"] = [readAction, createAction, editAction, deleteAction, exportAction],
+                    ["controles"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["risques"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["documentation"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction, approveAction],
+                    ["actifs"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["incidents"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["sensibilisation"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
+                    ["audit"] = [readAction, createAction, editAction, deleteAction, exportAction],
+                    ["chatbot"] = [readAction],
+                },
+                [AppRoles.Consultant] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["dashboard"] = [readAction],
+                    ["cartographie"] = [readAction],
+                    ["pdca"] = [readAction],
+                    ["clauses"] = [readAction],
+                    ["controles"] = [readAction],
+                    ["risques"] = [readAction],
+                    ["documentation"] = [readAction],
+                    ["actifs"] = [readAction],
+                    ["incidents"] = [readAction],
+                    ["sensibilisation"] = [readAction],
+                    ["audit"] = [readAction],
+                    ["chatbot"] = [readAction],
+                },
+                [AppRoles.Auditeur] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["dashboard"] = [readAction],
+                    ["cartographie"] = [readAction],
+                    ["pdca"] = [readAction],
+                    ["clauses"] = [readAction],
+                    ["controles"] = [readAction],
+                    ["risques"] = [readAction],
+                    ["documentation"] = [readAction],
+                    ["actifs"] = [readAction],
+                    ["incidents"] = [readAction],
+                    ["sensibilisation"] = [readAction],
+                    ["audit"] = [readAction],
+                    ["chatbot"] = [readAction],
+                },
+            };
+
+            var roleIdByName = roles.ToDictionary(r => r.Name!, r => r.Id, StringComparer.OrdinalIgnoreCase);
+
+            var desiredPermissionsByRoleId = new Dictionary<string, HashSet<(string ModuleId, string ActionId)>>();
+
+            foreach (var template in templates)
+            {
+                if (!roleIdByName.TryGetValue(template.Key, out var roleId))
+                {
+                    continue;
+                }
+
+                var set = new HashSet<(string ModuleId, string ActionId)>();
+                foreach (var moduleEntry in template.Value)
+                {
+                    if (!moduleIdByCode.TryGetValue(PermissionCatalog.CanonicalizeModule(moduleEntry.Key), out var moduleId))
+                    {
+                        continue;
+                    }
+
+                    foreach (var actionId in moduleEntry.Value.Distinct(StringComparer.Ordinal))
+                    {
+                        if (string.IsNullOrWhiteSpace(actionId))
+                        {
+                            continue;
+                        }
+
+                        set.Add((moduleId, actionId));
+                    }
+                }
+
+                desiredPermissionsByRoleId[roleId] = set;
+            }
+
+            var allPermissions = await dbContext.Permissions.ToListAsync();
+
+            foreach (var roleEntry in desiredPermissionsByRoleId)
+            {
+                var roleId = roleEntry.Key;
+                var desired = roleEntry.Value;
+
+                var current = allPermissions
+                    .Where(p => p.RoleId == roleId)
+                    .ToList();
+
+                foreach (var permission in current)
+                {
+                    var key = (permission.ModuleId, permission.ActionId);
+                    if (desired.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    dbContext.Permissions.Remove(permission);
+                }
+
+                foreach (var key in desired)
+                {
+                    var exists = current.Any(p => p.ModuleId == key.ModuleId && p.ActionId == key.ActionId);
+                    if (exists)
+                    {
+                        continue;
+                    }
+
+                    dbContext.Permissions.Add(new backend.Domain.Entities.Permission
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        RoleId = roleId,
+                        ModuleId = key.ModuleId,
+                        ActionId = key.ActionId
+                    });
                 }
             }
 
-            // Réassigner le rôle proprement
-            var currentRoles = await userManager.GetRolesAsync(user);
-            if (currentRoles.Count > 0)
+            // Règle absolue: super admin jamais sur les modules SMSI.
+            if (roleIdByName.TryGetValue(AppRoles.SuperAdmin, out var superAdminRoleId))
             {
-                var removeResult = await userManager.RemoveFromRolesAsync(user, currentRoles);
-                if (!removeResult.Succeeded)
-                    throw new InvalidOperationException(
-                        $"Impossible de réinitialiser les rôles pour {seed.Email} : " +
-                        $"{string.Join(", ", removeResult.Errors.Select(e => e.Description))}");
+                var smsiModuleIds = smsiModules
+                    .Where(moduleIdByCode.ContainsKey)
+                    .Select(code => moduleIdByCode[code])
+                    .ToArray();
+
+                if (smsiModuleIds.Length > 0)
+                {
+                    await dbContext.Permissions
+                        .Where(p => p.RoleId == superAdminRoleId && smsiModuleIds.Contains(p.ModuleId))
+                        .ExecuteDeleteAsync();
+                }
             }
 
-            var addRoleResult = await userManager.AddToRoleAsync(user, seed.Role);
-            if (!addRoleResult.Succeeded)
-                throw new InvalidOperationException(
-                    $"Impossible d'assigner le rôle {seed.Role} à {seed.Email} : " +
-                    $"{string.Join(", ", addRoleResult.Errors.Select(e => e.Description))}");
+            // Règle stricte: rôles société jamais sur les modules plateforme.
+            var societeRoleNames = new[] { AppRoles.AdminSociete, AppRoles.Rssi, AppRoles.Consultant, AppRoles.Auditeur };
+            var societeRoleIds = societeRoleNames
+                .Where(roleIdByName.ContainsKey)
+                .Select(name => roleIdByName[name])
+                .ToArray();
 
-            return user;
+            var platformModuleIds = platformModules
+                .Where(moduleIdByCode.ContainsKey)
+                .Select(code => moduleIdByCode[code])
+                .ToArray();
+
+            if (societeRoleIds.Length > 0 && platformModuleIds.Length > 0)
+            {
+                await dbContext.Permissions
+                    .Where(p => societeRoleIds.Contains(p.RoleId) && platformModuleIds.Contains(p.ModuleId))
+                    .ExecuteDeleteAsync();
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        private static string ResolveActionId(
+            IReadOnlyDictionary<string, string> actionIdByCode,
+            string expectedActionCode)
+        {
+            var key = PermissionCatalog.Actions.Canonicalize(expectedActionCode);
+            if (actionIdByCode.TryGetValue(key, out var actionId))
+            {
+                return actionId;
+            }
+
+            throw new InvalidOperationException($"Action RBAC manquante: {expectedActionCode}");
+        }
+
+        private static void ThrowIfFailed(IdentityResult result, string operation)
+        {
+            if (result.Succeeded)
+            {
+                return;
+            }
+
+            var details = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"{operation} a échoué: {details}");
         }
     }
 }
+

@@ -17,7 +17,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -Ap
 ## Custom credentials
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -Email "admin@alexsys.com" -Password "Admin@123456!"
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -Email "superadmin@smsi.local" -Password "ChangeMe@123!"
 ```
 
 ## CI / fail fast mode

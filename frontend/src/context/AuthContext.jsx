@@ -11,6 +11,37 @@ const normalizeRoleKey = (value) =>
     .toLowerCase()
     .trim();
 
+const normalizePermissionKey = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[\s\-_]/g, '')
+    .trim();
+
+const canonicalModuleCode = (value) => {
+  const key = normalizePermissionKey(value);
+  if (key === 'dashboard' || key === 'tableaudebord' || key === 'tableaubord') return 'dashboard';
+  if (key === 'audits') return 'audit';
+  if (key === 'user' || key === 'users' || key === 'utilisateur' || key === 'utilisateurs') return 'users';
+  if (key === 'role' || key === 'roles') return 'roles';
+  if (key === 'tracabilite' || key === 'traceabilite' || key === 'historique' || key === 'logs') return 'tracabilite';
+  return key;
+};
+
+const canonicalActionCode = (value) => {
+  const key = normalizePermissionKey(value);
+  if (key === 'view' || key === 'lecture' || key === 'read') return 'read';
+  if (key === 'create' || key === 'creation' || key === 'write') return 'create';
+  if (key === 'edit' || key === 'modification' || key === 'update') return 'edit';
+  if (key === 'delete' || key === 'suppression' || key === 'remove') return 'delete';
+  if (key === 'import' || key === 'importer') return 'import';
+  if (key === 'export') return 'export';
+  if (key === 'approve' || key === 'approbation') return 'approve';
+  if (key === 'manage' || key === 'gestion' || key === 'administer' || key === 'administrer' || key === 'admin') return 'administer';
+  return key;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
@@ -159,21 +190,30 @@ export function AuthProvider({ children }) {
   } catch (error) {
     console.error('[Permissions] Erreur chargement:', error.response?.status, error.response?.data);
     setPermissions({ modules: [] });
-    setPermissionsLoaded(false);
+    setPermissionsLoaded(true);
   }
 }, []);
   /* ─── Vérifier si l'utilisateur a une permission ───────────── */
   const can = useCallback((moduleCode, actionCode) => {
     if (!permissions.modules || permissions.modules.length === 0) return false;
-    
-    const module = permissions.modules.find(m => m.moduleCode === moduleCode);
+
+    const targetModuleCode = canonicalModuleCode(moduleCode);
+    const targetActionCode = canonicalActionCode(actionCode);
+
+    const module = permissions.modules.find((m) => {
+      const moduleCandidates = [m?.moduleCode, m?.moduleName, m?.code];
+      return moduleCandidates.some((candidate) => canonicalModuleCode(candidate) === targetModuleCode);
+    });
     if (!module) return false;
-    
-    return module.actions.some(a => a.actionCode === actionCode);
+
+    return (module.actions || []).some((a) => {
+      const actionCandidates = [a?.actionCode, a?.actionName, a?.code];
+      return actionCandidates.some((candidate) => canonicalActionCode(candidate) === targetActionCode);
+    });
   }, [permissions]);
 
   /* ─── Vérifier si l'utilisateur peut lire un module ─────────── */
-  const canRead = useCallback((moduleCode) => can(moduleCode, 'view'), [can]);
+  const canRead = useCallback((moduleCode) => can(moduleCode, 'read'), [can]);
 
   /* ─── Vérifier si l'utilisateur peut écrire ─────────────────── */
   const canWrite = useCallback((moduleCode) => can(moduleCode, 'create'), [can]);
@@ -186,6 +226,15 @@ export function AuthProvider({ children }) {
 
   /* ─── Vérifier si l'utilisateur peut exporter ───────────────── */
   const canExport = useCallback((moduleCode) => can(moduleCode, 'export'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut importer ───────────────────────────── */
+  const canImport = useCallback((moduleCode) => can(moduleCode, 'import'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut approuver ──────────────────────────── */
+  const canApprove = useCallback((moduleCode) => can(moduleCode, 'approve'), [can]);
+
+  /* ─── Vérifier si l'utilisateur peut administrer ────────────────────────── */
+  const canAdminister = useCallback((moduleCode) => can(moduleCode, 'administer'), [can]);
 
   /* ─── Login ─────────────────────────────────────────────────── */
   const loginUser = async (data) => {
@@ -274,7 +323,10 @@ export function AuthProvider({ children }) {
       canWrite,
       canEdit,
       canDelete,
-      canExport
+      canExport,
+      canImport,
+      canApprove,
+      canAdminister
     }}>
       {children}
     </AuthContext.Provider>

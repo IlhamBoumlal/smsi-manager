@@ -5,13 +5,17 @@ using backend.Application.Permissions.Commands.AssignPermission;
 using backend.Application.Permissions.Commands.RemovePermission;
 using backend.Application.Permissions.Commands.RevokeAllModulePermissions;
 using backend.Application.Permissions.Queries.GetRolePermissions;
+using backend.Application.Security;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.API.Controllers
 {
     [ApiController]
     [Route("api/roles/{roleId}/permissions")]
+    [Authorize(Policy = "PlatformScope")]
+    [RequirePermission("roles")]
     public class PermissionController : ControllerBase
     {
         private readonly IMediator _mediator;

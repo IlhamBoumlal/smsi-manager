@@ -3,6 +3,7 @@ using backend.Application.Actifs.Commands.DeleteActif;
 using backend.Application.Actifs.Commands.UpdateActif;
 using backend.Application.Actifs.Queries.GetActifById;
 using backend.Application.Actifs.Queries.GetAllActifs;
+using backend.Application.Security;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,9 +12,10 @@ using System.Security.Claims;
 namespace backend.API.Controllers
 {
 
-    [Authorize]
+    [Authorize(Policy = "SmsiTenantScope")]
     [ApiController]
     [Route("api/[controller]")]
+    [RequirePermission("actifs")]
     public class ActifsController : ControllerBase
     {
         private readonly IMediator _mediator;

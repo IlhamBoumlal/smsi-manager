@@ -38,7 +38,6 @@ app.get("/", (_req, res) => {
       health: "/health",
       chatbotBase: "/api/chatbot",
       conversations: "/api/chatbot/conversations",
-      legacyMessage: "/api/chatbot/message",
     },
     note: "Ce service est une API (pas une interface web). Utilisez le frontend sur http://localhost:3000.",
   });

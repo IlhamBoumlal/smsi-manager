@@ -500,20 +500,29 @@ export function RiskCrudTable({
   emptyText = "Aucune donnee",
   compact = false,
   readOnly = false,
+  allowCreate = true,
+  allowEdit = true,
+  allowDelete = true,
   deleteConfirmMessage,
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState(() => ({}));
   const [errors, setErrors] = useState(() => ({}));
 
+  const canCreate = !readOnly && allowCreate;
+  const canEdit = !readOnly && allowEdit;
+  const canDelete = !readOnly && allowDelete;
+  const isEditing = Boolean(draft?.id);
+  const canSubmit = isEditing ? canEdit : canCreate;
+
   const rowCount = rows?.length || 0;
   const canSave = useMemo(
-    () => !readOnly && fields.every((field) => !isFieldRequired(field, draft) || valueHasContent(draft[field.key])),
-    [draft, fields, readOnly],
+    () => canSubmit && fields.every((field) => !isFieldRequired(field, draft) || valueHasContent(draft[field.key])),
+    [canSubmit, draft, fields],
   );
 
   const startCreate = () => {
-    if (readOnly) return;
+    if (!canCreate) return;
     const next = {};
     fields.forEach((field) => {
       next[field.key] = field.defaultValue ?? (field.type === "multiselect" ? [] : "");
@@ -524,7 +533,7 @@ export function RiskCrudTable({
   };
 
   const startEdit = (row) => {
-    if (readOnly) return;
+    if (!canEdit) return;
     const next = { ...row };
     fields.forEach((field) => {
       if (field.type === "multiselect" && !Array.isArray(next[field.key])) next[field.key] = [];
@@ -545,7 +554,7 @@ export function RiskCrudTable({
   };
 
   const askDelete = (row) => {
-    if (readOnly) return;
+    if (!canDelete) return;
     const message = typeof deleteConfirmMessage === "function" ? deleteConfirmMessage(row) : deleteConfirmMessage;
     const confirmed = window.confirm(message || "Confirmer la suppression de cet element ?");
     if (!confirmed) return;
@@ -560,14 +569,15 @@ export function RiskCrudTable({
         right={
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{rowCount} element(s)</span>
-            <button
-              type="button"
-              onClick={startCreate}
-              disabled={readOnly}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white enabled:hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus size={14} /> {addLabel}
-            </button>
+            {canCreate && (
+              <button
+                type="button"
+                onClick={startCreate}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white enabled:hover:bg-blue-700"
+              >
+                <Plus size={14} /> {addLabel}
+              </button>
+            )}
           </div>
         }
       />
@@ -584,7 +594,9 @@ export function RiskCrudTable({
                       {column.label}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th>
+                  {(canEdit || canDelete) && (
+                    <th className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -595,16 +607,22 @@ export function RiskCrudTable({
                         {renderTableCell(column, row)}
                       </td>
                     ))}
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => startEdit(row)} className="rounded-lg border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" disabled={readOnly}>
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" onClick={() => askDelete(row)} className="rounded-lg border border-red-200 p-1.5 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50" disabled={readOnly}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    {(canEdit || canDelete) && (
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {canEdit && (
+                            <button type="button" onClick={() => startEdit(row)} className="rounded-lg border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50">
+                              <Pencil size={14} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button type="button" onClick={() => askDelete(row)} className="rounded-lg border border-red-200 p-1.5 text-red-600 hover:bg-red-50">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

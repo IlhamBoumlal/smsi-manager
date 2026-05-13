@@ -2,13 +2,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Application.DTOs.Clause;
+using backend.Application.Security;
 using backend.Infrastructure.Services;
 
 namespace backend.API.Controllers;
 
 [ApiController]
 [Route("api/clauses")]
-[Authorize]
+[Authorize(Policy = "SmsiTenantScope")]
+[RequirePermission("clauses")]
 public class ClauseFileController : ControllerBase
 {
     private readonly IClauseService _svc;
@@ -39,6 +41,7 @@ public class ClauseFileController : ControllerBase
         => Ok(await _svc.UpsertConformityProofAsync(dto.IsoClauseId, UserId, CurrentSocieteId, dto));
 
     [HttpPost("proofs/{proofId:int}/files")]
+    [RequirePermission("clauses", "import")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> UploadProofFile(
         int proofId, IFormFile file, [FromForm] string? description = null)
@@ -65,6 +68,7 @@ public class ClauseFileController : ControllerBase
         => Ok(await _svc.GetActionPlanFilesAsync(planId, UserId, CurrentSocieteId));
 
     [HttpPost("plans/{planId:int}/files")]
+    [RequirePermission("clauses", "import")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> UploadPlanFile(
         int planId, IFormFile file, [FromForm] string? description = null)
@@ -87,6 +91,7 @@ public class ClauseFileController : ControllerBase
     // ══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("files/{fileId:int}/download")]
+    [RequirePermission("clauses", "export")]
     public async Task<IActionResult> Download(int fileId)
     {
         var result = await _svc.DownloadFileAsync(fileId, UserId, CurrentSocieteId);

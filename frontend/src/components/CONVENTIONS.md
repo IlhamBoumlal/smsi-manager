@@ -1,4 +1,4 @@
-# ðŸ“ Conventions de Code - Projet ISO 27001
+# Conventions de Code - Projet ISO 27001
 
 > Normes et patterns utilisés dans Controles.jsx et PlanActionNC.js
 
@@ -159,7 +159,7 @@ const handleFileChange = (e) => { ... };
 
 ---
 
-## ðŸŽ¨ Patterns de Style
+## 🎨 Patterns de Style
 
 ### Style Inline (PAS de fichier CSS séparé)
 ```javascript
@@ -239,7 +239,7 @@ const normalized = data.map(normalize);
 
 ---
 
-## ðŸ“¡ Communication API
+## 📡 Communication API
 
 ### Récupération (GET)
 ```javascript
@@ -291,7 +291,7 @@ const handleSave = async (updated) => {
 
 ---
 
-## ðŸ› Debugging
+## Debugging
 
 ### Logging
 ```javascript
@@ -319,7 +319,7 @@ useEffect(() => {
 
 ---
 
-## ðŸš€ Performance
+## 🚀 Performance
 
 ### Éviter les Rendus Inutiles
 ```javascript
@@ -366,7 +366,7 @@ Avant de merger :
 
 ---
 
-## ðŸ“š Ressources
+## 📚 Ressources
 
 - **React Best Practices** : https://react.dev/learn
 - **ISO 27001** : https://www.iso.org/standard/54534.html

@@ -41,7 +41,7 @@ namespace backend.Application.Incidents.Commands.CreateIncident
             // ── Vérification que le SocieteId est bien présent ─────────────────
             if (request.SocieteId == null)
             {
-                _logger.LogWarning("CreateIncidentHandler: SocieteId est NULL — l'incident ne sera pas isolé par société.");
+                throw new InvalidOperationException("SocieteId requis pour creer un incident.");
             }
 
             var incident = new Incident
@@ -53,6 +53,9 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                 Priorite = request.Incident.Priorite,
                 Statut = StatutIncident.EnCours,
                 Resolution = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                ClosedAt = null,
                 SocieteId = request.SocieteId   // ← isolation clé
             };
 
@@ -86,26 +89,20 @@ namespace backend.Application.Incidents.Commands.CreateIncident
             _logger.LogInformation("=== ENVOI NOTIFICATIONS pour incident {IncidentId} (SocieteId={SocieteId}) ===",
                 incident.Id, incident.SocieteId);
 
-            // Récupérer les utilisateurs admins de la société concernée
-            // Si SocieteId est null → récupérer les super-admins (sans société)
+            if (!incident.SocieteId.HasValue)
+            {
+                _logger.LogWarning("Notification ignoree: incident sans SocieteId.");
+                return;
+            }
+
+            // Récupérer les utilisateurs de la société concernée
             IEnumerable<ApplicationUser> targets;
 
             try
             {
-                if (incident.SocieteId.HasValue)
-                {
-                    // Admins de cette société spécifique
-                    targets = await _context.Users
-                        .Where(u => u.SocieteId == incident.SocieteId.Value)
-                        .ToListAsync();
-                }
-                else
-                {
-                    // Incidents sans société : notifier les super-admins (SocieteId == null)
-                    targets = await _context.Users
-                        .Where(u => u.SocieteId == null)
-                        .ToListAsync();
-                }
+                targets = await _context.Users
+                    .Where(u => u.SocieteId == incident.SocieteId.Value)
+                    .ToListAsync();
             }
             catch (Exception ex)
             {

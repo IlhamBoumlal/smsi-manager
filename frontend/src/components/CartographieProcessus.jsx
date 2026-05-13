@@ -102,7 +102,7 @@ function useProcesses() {
 ═══════════════════════════════════════════════════════════ */
 export default function CartographieProcessus() {
   useFontAwesome();
-  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const { canRead, canWrite, canEdit, canDelete, canExport, canImport } = useAuth();
   const moduleCode = "cartographie";
   const hasAccess = canRead(moduleCode);
 
@@ -138,8 +138,12 @@ export default function CartographieProcessus() {
 
   /* ── CRUD Processus ── */
   const saveProc = async () => {
-    if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission d'ajouter ou modifier des processus");
+    const isEdit = Boolean(procModal.editId);
+    const canSave = isEdit ? canEdit(moduleCode) : canWrite(moduleCode);
+    if (!canSave) {
+      alert(isEdit
+        ? "Vous n'avez pas la permission de modifier des processus"
+        : "Vous n'avez pas la permission d'ajouter des processus");
       return;
     }
     const { editId, form } = procModal;
@@ -169,8 +173,8 @@ export default function CartographieProcessus() {
 
   /* ── CRUD Documents ── */
   const saveDoc = async () => {
-    if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission d'ajouter des documents");
+    if (!canImport(moduleCode)) {
+      alert("Vous n'avez pas la permission d'importer des documents");
       return;
     }
     const { form } = docModal;
@@ -428,7 +432,7 @@ export default function CartographieProcessus() {
                           </div>
                         </div>
                         <div className={`cx-doc-st ${STATUS_CLASS[d.status]||""}`}>{d.status}</div>
-                        {d.aFichier && (
+                        {d.aFichier && canExport(moduleCode) && (
                           <button
                             className="cx-dl-btn"
                             title={`Télécharger ${d.fichierNom}`}
@@ -446,7 +450,7 @@ export default function CartographieProcessus() {
                     ))
                   }
                 </div>
-                {canWrite(moduleCode) && (
+                {canImport(moduleCode) && (
                   <button
                     className="cx-add-doc-btn"
                     style={{ "--ac":meta.color }}
@@ -489,7 +493,7 @@ export default function CartographieProcessus() {
               <button className="cx-btn-cancel" onClick={()=>setProcModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              {canWrite(moduleCode) && (
+              {(procModal.editId ? canEdit(moduleCode) : canWrite(moduleCode)) && (
                 <button
                   className="cx-btn-save"
                   style={{ background:CAT_META[procModal.form.cat].gradient }}
@@ -594,7 +598,7 @@ export default function CartographieProcessus() {
               <button className="cx-btn-cancel" onClick={()=>setDocModal(m=>({...m,open:false}))}>
                 <i className="fa-solid fa-xmark" style={{marginRight:6}}/>Annuler
               </button>
-              {canWrite(moduleCode) && (
+              {canImport(moduleCode) && (
                 <button className="cx-btn-save" onClick={saveDoc} disabled={saving}>
                   <i className={`fa-solid ${saving ? "fa-spinner fa-spin" : "fa-check"}`} style={{marginRight:6}}/>
                   Ajouter

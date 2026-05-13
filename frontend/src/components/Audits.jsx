@@ -1365,7 +1365,7 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export function Audits() {
   const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
-  const moduleCode = "audits";
+  const moduleCode = "audit";
   const hasAccess = canRead(moduleCode);
 
   const [audits,     setAudits]     = useState([]);
