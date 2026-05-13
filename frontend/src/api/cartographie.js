@@ -15,8 +15,21 @@ export const updateProcessus  = (id, body)  => axiosInstance.put(`${BASE}/${id}`
 export const deleteProcessus  = (id)        => axiosInstance.delete(`${BASE}/${id}`).then(r => r.data);
 
 export const getProcessusDetail = (id)      => axiosInstance.get(`${BASE}/${id}/detail`).then(r => r.data);
-export const getAllClausesForSelection   = () => axiosInstance.get('/api/cartographie/clauses').then(r => r.data);
-export const getAllControlesForSelection = () => axiosInstance.get('/api/cartographie/controles').then(r => r.data);
+const trySelectionEndpoint = async (primaryUrl, fallbackUrl) => {
+  try {
+    const response = await axiosInstance.get(primaryUrl);
+    return response.data;
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      const response = await axiosInstance.get(fallbackUrl);
+      return response.data;
+    }
+    throw error;
+  }
+};
+
+export const getAllClausesForSelection   = () => trySelectionEndpoint('/api/cartographie/clauses-selection', '/api/cartographie/clauses');
+export const getAllControlesForSelection = () => trySelectionEndpoint('/api/cartographie/controles-selection', '/api/cartographie/controles');
 export const addClauseToProcessus       = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/clauses`, body).then(r => r.data);
 export const removeClauseFromProcessus  = (processusId, clauseId) => axiosInstance.delete(`${BASE}/${processusId}/clauses/${clauseId}`).then(r => r.data);
 export const addControleToProcessus     = (processusId, body) => axiosInstance.post(`${BASE}/${processusId}/controles`, body).then(r => r.data);

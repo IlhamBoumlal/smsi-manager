@@ -13,74 +13,30 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════
-   FONT AWESOME (CDN via useEffect)
+   CHARGEMENT DES POLICES & ICONES (Sora + Font Awesome)
 ═══════════════════════════════════════════════════════════ */
-function useFontAwesome() {
+function useSora() {
   useEffect(() => {
-    if (document.getElementById("fa-cdn")) return;
-    const link = document.createElement("link");
-    link.id = "fa-cdn";
-    link.rel = "stylesheet";
-    link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
-    document.head.appendChild(link);
+    if (!document.getElementById("sora-cdn")) {
+      const soraLink = document.createElement("link");
+      soraLink.id = "sora-cdn";
+      soraLink.rel = "stylesheet";
+      soraLink.href = "https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap";
+      document.head.appendChild(soraLink);
+    }
+    if (!document.getElementById("fa-cdn")) {
+      const faLink = document.createElement("link");
+      faLink.id = "fa-cdn";
+      faLink.rel = "stylesheet";
+      faLink.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
+      document.head.appendChild(faLink);
+    }
   }, []);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ISO 27001 REFERENCES – DONNÉES STATIQUES SIMULÉES
+   ISO 27001 REFERENCES – OPTIONS CHARGÉES DEPUIS LE BACKEND
 ═══════════════════════════════════════════════════════════ */
-const ISO_CLAUSES = [
-  "4.1 - Compréhension du contexte",
-  "4.2 - Parties intéressées",
-  "4.3 - Domaine du SMSI",
-  "5.1 - Leadership et engagement",
-  "5.2 - Politique de sécurité",
-  "5.3 - Rôles et responsabilités",
-  "6.1 - Actions face aux risques",
-  "6.2 - Objectifs de sécurité",
-  "7.1 - Ressources",
-  "7.2 - Compétence",
-  "7.3 - Sensibilisation",
-  "7.4 - Communication",
-  "7.5 - Informations documentées",
-  "8.1 - Planification opérationnelle",
-  "9.1 - Surveillance et mesure",
-  "9.2 - Audit interne",
-  "9.3 - Revue de direction",
-  "10.1 - Non-conformité",
-  "10.2 - Amélioration",
-];
-
-const ISO_CONTROLS = [
-  "A.5.1 - Politiques de sécurité",
-  "A.5.2 - Rôles et responsabilités",
-  "A.5.3 - Séparation des fonctions",
-  "A.6.1 - Revue de sécurité",
-  "A.6.2 - Conditions d'utilisation",
-  "A.6.3 - Contacts avec autorités",
-  "A.7.1 - Vérification pré-emploi",
-  "A.7.2 - Pendant l'emploi",
-  "A.7.3 - Résiliation et changement",
-  "A.8.1 - Gestion des actifs",
-  "A.8.2 - Classification des informations",
-  "A.8.3 - Gestion des supports",
-  "A.8.4 - Protection contre les malwares",
-  "A.8.5 - Sauvegarde",
-  "A.8.6 - Gestion des capacités",
-  "A.8.7 - Contrôle d'accès logique",
-  "A.8.8 - Gestion des vulnérabilités",
-  "A.9.1 - Politique de contrôle d'accès",
-  "A.9.2 - Gestion des droits",
-  "A.10.1 - Cryptographie",
-  "A.11.1 - Périmètre physique",
-  "A.12.1 - Procédures opérationnelles",
-  "A.13.1 - Gestion des incidents",
-  "A.14.1 - Sécurité des développements",
-  "A.15.1 - Relations fournisseurs",
-  "A.16.1 - Gestion des incidents sécurité",
-  "A.17.1 - Continuité des activités",
-  "A.18.1 - Conformité",
-];
 
 /* ═══════════════════════════════════════════════════════════
    COMPOSANT DE SÉLECTION MULTI GÉNÉRIQUE
@@ -90,8 +46,15 @@ function IsoMultiSelect({ items, selected, onChange, placeholder, color }) {
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef(null);
 
-  const filteredItems = items.filter(item =>
-    item.toLowerCase().includes(search.toLowerCase())
+  const normalizedItems = items.map(item => {
+    if (typeof item === "string") return { value: item, label: item };
+    const value = String(item?.value ?? item?.label ?? "");
+    const label = String(item?.label ?? item?.value ?? "");
+    return { value, label };
+  }).filter(item => item.value);
+
+  const filteredItems = normalizedItems.filter(item =>
+    item.label.toLowerCase().includes(search.toLowerCase())
   );
 
   const toggleItem = (itemValue) => {
@@ -122,14 +85,18 @@ function IsoMultiSelect({ items, selected, onChange, placeholder, color }) {
         {selected.length === 0 && (
           <span className="cx-iso-placeholder">{placeholder}</span>
         )}
-        {selected.map(item => (
-          <span key={item} className="cx-iso-tag" style={{ background: `${color}15`, borderColor: color }}>
-            {item}
-            <button type="button" onClick={() => removeItem(item)} className="cx-iso-tag-remove">
-              <i className="fa-solid fa-xmark"/>
-            </button>
-          </span>
-        ))}
+        {selected.map(value => {
+          const selectedItem = normalizedItems.find(item => item.value === value);
+          const label = selectedItem?.label ?? value;
+          return (
+            <span key={value} className="cx-iso-tag" style={{ background: `${color}15`, borderColor: color }}>
+              {label}
+              <button type="button" onClick={() => removeItem(value)} className="cx-iso-tag-remove">
+                <i className="fa-solid fa-xmark"/>
+              </button>
+            </span>
+          );
+        })}
         <button
           type="button"
           className="cx-iso-add-btn"
@@ -157,15 +124,15 @@ function IsoMultiSelect({ items, selected, onChange, placeholder, color }) {
               <div className="cx-iso-empty">Aucun élément trouvé</div>
             )}
             {filteredItems.map(item => {
-              const isSelected = selected.includes(item);
+              const isSelected = selected.includes(item.value);
               return (
-                <label key={item} className={`cx-iso-item ${isSelected ? "selected" : ""}`}>
+                <label key={item.value} className={`cx-iso-item ${isSelected ? "selected" : ""}`}>
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => toggleItem(item)}
+                    onChange={() => toggleItem(item.value)}
                   />
-                  <span className="cx-iso-item-value">{item}</span>
+                  <span className="cx-iso-item-value">{item.label}</span>
                 </label>
               );
             })}
@@ -177,7 +144,7 @@ function IsoMultiSelect({ items, selected, onChange, placeholder, color }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CONSTANTES
+   CONSTANTES METIER
 ═══════════════════════════════════════════════════════════ */
 const DOC_TYPE_ICONS = {
   "procédure":  "fa-solid fa-clipboard-list",
@@ -197,9 +164,9 @@ const STATUS_CLASS = {
 };
 
 const CAT_META = {
-  mgmt:{ label:"Processus de Management",  color:"#0e6073", gradient:"linear-gradient(90deg,#0e6073,#2196a8)" },
-  real:{ label:"Processus de Réalisation", color:"#1a4f72", gradient:"linear-gradient(90deg,#1a4f72,#5dade2)" },
-  supp:{ label:"Processus de Support",     color:"#2471a3", gradient:"linear-gradient(90deg,#2471a3,#5dade2)" },
+  mgmt: { label: "Management",  color: "#0ea5e9", gradient: "linear-gradient(90deg,#0ea5e9,#38bdf8)" },
+  real: { label: "Réalisation", color: "#8b5cf6", gradient: "linear-gradient(90deg,#8b5cf6,#a78bfa)" },
+  supp: { label: "Support",     color: "#10b981", gradient: "linear-gradient(90deg,#10b981,#34d399)" },
 };
 
 const extractIsoKeyFromLabel = (label) => {
@@ -278,8 +245,8 @@ function useProcesses() {
    COMPOSANT PRINCIPAL
 ═══════════════════════════════════════════════════════════ */
 export default function CartographieProcessus() {
-  useFontAwesome();
-  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  useSora();
+  const { canRead, canWrite, canEdit, canDelete } = useAuth();
   const moduleCode = "cartographie";
   const hasAccess = canRead(moduleCode);
 
@@ -288,7 +255,7 @@ export default function CartographieProcessus() {
   const [activeId,  setActiveId]  = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [procModal, setProcModal] = useState({ open:false, editId:null, form:EMPTY_PROC });
-  const [docModal,  setDocModal]  = useState({ open:false, form:EMPTY_DOC });
+  const [docModal,  setDocModal]  = useState({ open:false, form:EMPTY_DOC, targetProcId: null });
   const [mounted,   setMounted]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [clauseOptions, setClauseOptions] = useState([]);
@@ -307,13 +274,19 @@ export default function CartographieProcessus() {
   }, []);
 
   const normalizeClauseOption = useCallback((clause) => {
-    const number = clause?.number ?? clause?.numero ?? clause?.code ?? clause?.ref ?? clause?.identifiant ?? "";
-    return extractIsoKey(number);
+    const raw = typeof clause === "string" ? clause : clause?.number ?? clause?.numero ?? clause?.code ?? clause?.ref ?? clause?.identifiant ?? "";
+    const title = typeof clause === "string" ? "" : clause?.title ?? clause?.titre ?? clause?.name ?? clause?.label ?? "";
+    const value = extractIsoKey(raw);
+    if (!value) return null;
+    return { value, label: title ? `${value} — ${title}` : value };
   }, [extractIsoKey]);
 
   const normalizeControlOption = useCallback((controle) => {
-    const code = controle?.code ?? controle?.numero ?? controle?.identifiant ?? controle?.ref ?? "";
-    return extractIsoKey(code);
+    const raw = typeof controle === "string" ? controle : controle?.code ?? controle?.numero ?? controle?.identifiant ?? controle?.ref ?? "";
+    const title = typeof controle === "string" ? "" : controle?.title ?? controle?.titre ?? controle?.name ?? controle?.label ?? "";
+    const value = extractIsoKey(raw);
+    if (!value) return null;
+    return { value, label: title ? `${value} — ${title}` : value };
   }, [extractIsoKey]);
 
   useEffect(() => {
@@ -323,7 +296,6 @@ export default function CartographieProcessus() {
           getAllClausesForSelection(),
           getAllControlesForSelection()
         ]);
-
         setClauseOptions(clauses.map(normalizeClauseOption).filter(Boolean));
         setControlOptions(controles.map(normalizeControlOption).filter(Boolean));
       } catch (e) {
@@ -332,7 +304,6 @@ export default function CartographieProcessus() {
         setIsoOptionsLoaded(true);
       }
     };
-
     loadIsoOptions();
   }, [normalizeClauseOption, normalizeControlOption]);
 
@@ -376,6 +347,15 @@ export default function CartographieProcessus() {
         }
       });
     }
+  };
+
+  const openAddDocForProc = (procId) => {
+    if (!canWrite(moduleCode)) {
+      alert("Vous n'avez pas la permission d'ajouter des documents");
+      return;
+    }
+    setActiveId(procId);
+    setDocModal({ open: true, form: EMPTY_DOC, targetProcId: procId });
   };
 
   /* ── CRUD Processus ── */
@@ -424,14 +404,15 @@ export default function CartographieProcessus() {
       alert("Vous n'avez pas la permission d'ajouter des documents");
       return;
     }
-    const { form } = docModal;
-    if (!form.name.trim() || !activeId) return;
+    const { form, targetProcId } = docModal;
+    const pid = targetProcId || activeId;
+    if (!form.name.trim() || !pid) return;
     setSaving(true);
     try {
       const body = { nom: form.name, type: form.type, reference: form.ref, statut: form.status };
-      const newDoc = await addDocument(activeId, body, form.fichier ?? null);
+      const newDoc = await addDocument(pid, body, form.fichier ?? null);
       setProcs(prev => prev.map(p =>
-        p.id === activeId
+        p.id === pid
           ? { ...p, docs: [...p.docs, {
                 id:          newDoc.id,
                 name:        newDoc.nom,
@@ -444,7 +425,7 @@ export default function CartographieProcessus() {
               }]}
           : p
       ));
-      setDocModal({ open:false, form:EMPTY_DOC });
+      setDocModal({ open:false, form:EMPTY_DOC, targetProcId: null });
     } finally {
       setSaving(false);
     }
@@ -467,21 +448,21 @@ export default function CartographieProcessus() {
     return (
       <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", gap:12, flexDirection:"column" }}>
         <i className="fa-solid fa-ban" style={{ fontSize:48, color:"#e74c3c" }}/>
-        <div style={{ fontSize:18, fontWeight:600, color:"#0d2b3e" }}>Accès non autorisé</div>
-        <p style={{ fontSize:13, color:"#4a7a95" }}>Vous n'avez pas les permissions nécessaires pour accéder à la cartographie.</p>
+        <div style={{ fontSize:18, fontWeight:600, color:"#111827" }}>Accès non autorisé</div>
+        <p style={{ fontSize:13, color:"#6B7280" }}>Vous n'avez pas les permissions nécessaires pour accéder à la cartographie.</p>
       </div>
     );
   }
 
   if (loading) return (
-    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#4a7a95", fontFamily:"Outfit,sans-serif", gap:12 }}>
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#0ea5e9", fontFamily:"Sora,sans-serif", gap:12 }}>
       <i className="fa-solid fa-spinner fa-spin" style={{ fontSize:22 }}/>
       Chargement de la cartographie…
     </div>
   );
 
   if (error) return (
-    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#e74c3c", fontFamily:"Outfit,sans-serif", gap:12 }}>
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:"60vh", color:"#EF4444", fontFamily:"Sora,sans-serif", gap:12 }}>
       <i className="fa-solid fa-triangle-exclamation" style={{ fontSize:22 }}/>
       Erreur de chargement. Veuillez réessayer.
     </div>
@@ -492,8 +473,10 @@ export default function CartographieProcessus() {
       <style>{CSS}</style>
       <div className={`cx-root ${mounted?"cx-in":""}`}>
 
+        {/* BACKGROUND BLOBS */}
         <div className="cx-blob cx-b1"/><div className="cx-blob cx-b2"/><div className="cx-blob cx-b3"/>
 
+        {/* HEADER AVEC TITRE PLUS PETIT (comme version simplifiée) */}
         <div className="cx-hero">
           <div className="cx-badge">
             <span className="cx-dot"/>ISO 27001 · Système de Management
@@ -505,9 +488,9 @@ export default function CartographieProcessus() {
           <p className="cx-lead">Visualisez et gérez l'ensemble de vos processus qualité et sécurité</p>
         </div>
 
+        {/* FLOW LAYOUT */}
         <div className="cx-flow">
           <div className="cx-flow-wrapper">
-
             <div className="cx-side cx-side-l">
               <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
               <span>Exigences des clients et autres parties intéressées</span>
@@ -557,8 +540,10 @@ export default function CartographieProcessus() {
                               onClick={() => selectProc(p.id)}
                               onEdit={() => openEditProc(p.id)}
                               onDelete={() => deleteProc(p.id)}
+                              onAddDoc={() => openAddDocForProc(p.id)}
                               canEdit={canEdit(moduleCode)}
                               canDelete={canDelete(moduleCode)}
+                              canWrite={canWrite(moduleCode)}
                             />
                           </div>
                         ))}
@@ -584,27 +569,26 @@ export default function CartographieProcessus() {
               <span>Satisfaction clients et autres parties intéressées</span>
               <i className="fa-solid fa-arrow-right cx-side-arrow-icon"/>
             </div>
-
           </div>
         </div>
 
+        {/* LÉGENDE */}
         <div className="cx-legend">
           {[
-            ["#0ea5e9","Management",   "fa-solid fa-building-columns"],
-            ["#8b5cf6","Réalisation",  "fa-solid fa-bolt"],
-            ["#10b981","Support",      "fa-solid fa-screwdriver-wrench"],
-          ].map(([c,l,ico]) => (
+            ["#0ea5e9", "Management",   "fa-solid fa-building-columns"],
+            ["#8b5cf6", "Réalisation",  "fa-solid fa-bolt"],
+            ["#10b981", "Support",      "fa-solid fa-screwdriver-wrench"],
+          ].map(([c, l, ico]) => (
             <div key={l} className="cx-leg-item">
               <i className={ico} style={{ color:c, fontSize:13 }}/>
               <span style={{ color:c }}>{l}</span>
             </div>
           ))}
           <span className="cx-leg-hint">
-            <i className="fa-solid fa-hand-pointer" style={{marginRight:5}}/>
-            Cliquez sur un processus pour gérer ses documents et voir ses références ISO 27001
+            <i className="fa-solid fa-hand-pointer" style={{ marginRight: 5 }}/>
+            Cliquez sur un processus pour gérer ses documents et références ISO 27001
           </span>
         </div>
-
       </div>
 
       {/* PANNEAU DÉTAIL */}
@@ -620,15 +604,15 @@ export default function CartographieProcessus() {
           return (
             <>
               <div className="cx-ph">
-                <div className="cx-ph-strip" style={{ background:meta.gradient }}/>
-                <div className="cx-ph-cat" style={{ color:meta.color }}>
+                <div className="cx-ph-strip" style={{ background: meta.gradient }}/>
+                <div className={`cx-ph-cat cx-ph-cat-${activeProc.cat}`}>
                   <i className={`${CAT_ICONS[activeProc.cat]} cx-ph-cat-ico`}/>
                   {meta.label}
                 </div>
                 <div className="cx-ph-title">{activeProc.name}</div>
                 <div className="cx-ph-owner">
-                  <i className="fa-solid fa-user-tie" style={{ color:meta.color }}/>
-                  <span style={{ color:meta.color }}>{activeProc.owner}</span>
+                  <i className="fa-solid fa-user-tie" style={{ color: meta.color }}/>
+                  <span style={{ color: meta.color }}>{activeProc.owner}</span>
                 </div>
                 <button className="cx-ph-close" onClick={closePanel}>
                   <i className="fa-solid fa-xmark"/>
@@ -645,7 +629,7 @@ export default function CartographieProcessus() {
                     <i className="fa-regular fa-file-lines cx-sh-ico"/>
                     Clauses ISO 27001
                   </span>
-                  <span className="cx-pb-cnt" style={{ color:meta.color }}>{clauses.length}</span>
+                  <span className="cx-pb-cnt" style={{ color: meta.color }}>{clauses.length}</span>
                 </div>
                 <div className="cx-iso-refs-list">
                   {clauses.length === 0 ? (
@@ -670,7 +654,7 @@ export default function CartographieProcessus() {
                     <i className="fa-solid fa-shield-halved cx-sh-ico"/>
                     Contrôles ISO 27001 (Annexe A)
                   </span>
-                  <span className="cx-pb-cnt" style={{ color:meta.color }}>{controls.length}</span>
+                  <span className="cx-pb-cnt" style={{ color: meta.color }}>{controls.length}</span>
                 </div>
                 <div className="cx-iso-refs-list">
                   {controls.length === 0 ? (
@@ -695,7 +679,7 @@ export default function CartographieProcessus() {
                     <i className="fa-solid fa-file-invoice cx-sh-ico"/>
                     Documents associés
                   </span>
-                  <span className="cx-pb-cnt" style={{ color:meta.color }}>
+                  <span className="cx-pb-cnt" style={{ color: meta.color }}>
                     {activeProc.docs.length} doc{activeProc.docs.length!==1?"s":""}
                   </span>
                 </div>
@@ -743,8 +727,8 @@ export default function CartographieProcessus() {
                 {canWrite(moduleCode) && (
                   <button
                     className="cx-add-doc-btn"
-                    style={{ "--ac":meta.color }}
-                    onClick={() => setDocModal({ open:true, form:EMPTY_DOC })}
+                    style={{ "--ac": meta.color }}
+                    onClick={() => setDocModal({ open:true, form:EMPTY_DOC, targetProcId: activeProc.id })}
                   >
                     <i className="fa-solid fa-circle-plus"/> Ajouter un document
                   </button>
@@ -786,14 +770,14 @@ export default function CartographieProcessus() {
                 Clauses ISO 27001
               </label>
               <IsoMultiSelect
-                items={isoOptionsLoaded && clauseOptions.length > 0 ? clauseOptions : ISO_CLAUSES}
+                items={clauseOptions}
                 selected={procModal.form.clauses}
                 onChange={(newClauses) => setProcModal(m => ({
                   ...m,
                   form: { ...m.form, clauses: newClauses }
                 }))}
-                placeholder={isoOptionsLoaded && clauseOptions.length === 0 ? "Aucune clause disponible" : "Aucune clause sélectionnée"}
-                color={CAT_META[procModal.form.cat]?.color || "#0e6073"}
+                placeholder={isoOptionsLoaded ? "Aucune clause sélectionnée" : "Chargement des clauses..."}
+                color={CAT_META[procModal.form.cat]?.color || "#0ea5e9"}
               />
             </div>
 
@@ -803,14 +787,14 @@ export default function CartographieProcessus() {
                 Contrôles ISO 27001 (Annexe A)
               </label>
               <IsoMultiSelect
-                items={isoOptionsLoaded && controlOptions.length > 0 ? controlOptions : ISO_CONTROLS}
+                items={controlOptions}
                 selected={procModal.form.controls}
                 onChange={(newControls) => setProcModal(m => ({
                   ...m,
                   form: { ...m.form, controls: newControls }
                 }))}
-                placeholder={isoOptionsLoaded && controlOptions.length === 0 ? "Aucun contrôle disponible" : "Aucun contrôle sélectionné"}
-                color={CAT_META[procModal.form.cat]?.color || "#0e6073"}
+                placeholder={isoOptionsLoaded ? "Aucun contrôle sélectionné" : "Chargement des contrôles..."}
+                color={CAT_META[procModal.form.cat]?.color || "#0ea5e9"}
               />
             </div>
 
@@ -821,7 +805,7 @@ export default function CartographieProcessus() {
               {canWrite(moduleCode) && (
                 <button
                   className="cx-btn-save"
-                  style={{ background:CAT_META[procModal.form.cat].gradient }}
+                  style={{ background: CAT_META[procModal.form.cat].gradient }}
                   onClick={saveProc}
                   disabled={saving}
                 >
@@ -885,7 +869,7 @@ export default function CartographieProcessus() {
                 {docModal.form.fichier
                   ? (
                     <span className="cx-file-chosen">
-                      <i className="fa-solid fa-file-check" style={{marginRight:7, color:"#0e6073"}}/>
+                      <i className="fa-solid fa-file-check" style={{marginRight:7, color:"#0ea5e9"}}/>
                       {docModal.form.fichier.name}
                       <button
                         className="cx-file-clear"
@@ -939,25 +923,28 @@ export default function CartographieProcessus() {
 /* ═══════════════════════════════════════════════════════════
    SOUS-COMPOSANTS
 ═══════════════════════════════════════════════════════════ */
-function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, canEdit, canDelete }) {
+function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, onAddDoc, canEdit, canDelete, canWrite }) {
   const CAT_ICONS = {
     mgmt: "fa-solid fa-building-columns",
     real: "fa-solid fa-bolt",
     supp: "fa-solid fa-screwdriver-wrench",
   };
-  const { clauses, controls } = splitIsoRefs(proc.isoRefs);
-  const totalIso = clauses.length + controls.length;
   return (
     <div className={`cx-card cx-card-${cat} ${isActive?"cx-card-on":""}`} onClick={onClick}>
       <div className="cx-card-acts">
+        {canWrite && (
+          <button className="cx-act cx-act-doc" title="Ajouter un document" onClick={e=>{e.stopPropagation(); onAddDoc();}}>
+            <i className="fa-solid fa-file-circle-plus text-green-500"/>
+          </button>
+        )}
         {canEdit && (
-          <button className="cx-act cx-act-e" title="Modifier" onClick={e=>{e.stopPropagation();onEdit();}}>
-            <i className="fa-solid fa-pen"/>
+          <button className="cx-act cx-act-e" title="Modifier" onClick={e=>{e.stopPropagation(); onEdit();}}>
+            <i className="fa-solid fa-pen text-blue-600"/>
           </button>
         )}
         {canDelete && (
-          <button className="cx-act cx-act-d" title="Supprimer" onClick={e=>{e.stopPropagation();onDelete();}}>
-            <i className="fa-solid fa-trash-can"/>
+          <button className="cx-act cx-act-d" title="Supprimer" onClick={e=>{e.stopPropagation(); onDelete();}}>
+            <i className="fa-solid fa-trash-can text-red-500"/>
           </button>
         )}
       </div>
@@ -968,12 +955,6 @@ function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, canEd
       <div className="cx-card-ft">
         <div className="cx-card-own">
           <i className="fa-solid fa-user cx-own-ico"/> {proc.owner}
-        </div>
-        <div className={`cx-card-bdg cx-bdg-${cat}`}>
-          <i className="fa-solid fa-shield-halved cx-bdg-ico"/> {totalIso}
-        </div>
-        <div className={`cx-card-bdg cx-bdg-${cat}`}>
-          <i className="fa-solid fa-file cx-bdg-ico"/> {proc.docs.length}
         </div>
       </div>
     </div>
@@ -993,7 +974,7 @@ function Fg({ label, icon, children }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CSS
+   CSS (fonds blancs pour cartes, titre plus petit)
 ═══════════════════════════════════════════════════════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1008,10 +989,11 @@ const CSS = `
 
 .cx-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.2s ease; }
 .cx-in .cx-blob { opacity: 1; }
-.cx-b1 { width:520px;height:520px;top:-130px;left:-80px;  background:radial-gradient(ellipse,rgba(14,165,233,0.13),transparent 70%); }
-.cx-b2 { width:440px;height:440px;top:35%;right:-100px;   background:radial-gradient(ellipse,rgba(139,92,246,0.09),transparent 70%); }
-.cx-b3 { width:380px;height:380px;bottom:-80px;left:32%;  background:radial-gradient(ellipse,rgba(16,185,129,0.09),transparent 70%); }
+.cx-b1 { width:520px;height:520px;top:-130px;left:-80px; background:radial-gradient(ellipse,rgba(14,165,233,0.13),transparent 70%); }
+.cx-b2 { width:440px;height:440px;top:35%;right:-100px; background:radial-gradient(ellipse,rgba(139,92,246,0.09),transparent 70%); }
+.cx-b3 { width:380px;height:380px;bottom:-80px;left:32%; background:radial-gradient(ellipse,rgba(16,185,129,0.09),transparent 70%); }
 
+/* HEADER - TITRE PLUS PETIT (comme version simplifiée) */
 .cx-hero { position:relative;z-index:10;text-align:center;padding:60px 48px 48px;opacity:0;transform:translateY(22px);transition:opacity .65s ease,transform .65s ease; }
 .cx-in .cx-hero { opacity:1;transform:none; }
 .cx-badge { display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#0ea5e9;background:#e0f2fe;border:1px solid #bae6fd;padding:6px 16px;border-radius:99px;margin-bottom:24px; }
@@ -1058,27 +1040,73 @@ const CSS = `
 .cx-empty-real  { color:#7c3aed;border-color:rgba(139,92,246,0.3); }
 .cx-empty-supp  { color:#059669;border-color:rgba(16,185,129,0.3); }
 
-.cx-card { flex:1;min-width:140px;background:#fff;border-radius:14px;padding:14px 14px 12px;cursor:pointer;position:relative;overflow:hidden;transition:all .22s cubic-bezier(.34,1.56,.64,1); }
+/* CARTES : fond blanc, bordures colorées */
+.cx-card { flex:1;min-width:140px;background:#fff;border-radius:14px;padding:14px 14px 12px;cursor:pointer;position:relative;overflow:hidden;transition:all .22s cubic-bezier(.34,1.56,.64,1);border:1.5px solid transparent;box-shadow:0 2px 10px rgba(0,0,0,0.05); }
 .cx-card::before { content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0; }
-.cx-card-mgmt { border:1.5px solid rgba(14,165,233,0.25);box-shadow:0 2px 10px rgba(14,165,233,0.08); }
-.cx-card-real  { border:1.5px solid rgba(139,92,246,0.25);box-shadow:0 2px 10px rgba(139,92,246,0.08); }
-.cx-card-supp  { border:1.5px solid rgba(16,185,129,0.25);box-shadow:0 2px 10px rgba(16,185,129,0.08); }
+.cx-card-mgmt { border-color:rgba(14,165,233,0.25); }
+.cx-card-real  { border-color:rgba(139,92,246,0.25); }
+.cx-card-supp  { border-color:rgba(16,185,129,0.25); }
 .cx-card-mgmt::before { background:linear-gradient(90deg,#0ea5e9,#38bdf8); }
 .cx-card-real::before  { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
 .cx-card-supp::before  { background:linear-gradient(90deg,#10b981,#34d399); }
 .cx-card:hover { transform:translateY(-4px); }
-.cx-card-mgmt:hover { border-color:#0ea5e9;box-shadow:0 8px 28px rgba(14,165,233,0.18); }
-.cx-card-real:hover  { border-color:#8b5cf6;box-shadow:0 8px 28px rgba(139,92,246,0.18); }
-.cx-card-supp:hover  { border-color:#10b981;box-shadow:0 8px 28px rgba(16,185,129,0.18); }
+.cx-card-mgmt:hover { border-color:#0ea5e9;box-shadow:0 8px 28px rgba(14,165,233,0.15); }
+.cx-card-real:hover  { border-color:#8b5cf6;box-shadow:0 8px 28px rgba(139,92,246,0.15); }
+.cx-card-supp:hover  { border-color:#10b981;box-shadow:0 8px 28px rgba(16,185,129,0.15); }
 .cx-card-on { transform:translateY(-2px) !important; }
 .cx-card-mgmt.cx-card-on { border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,0.15),0 8px 24px rgba(14,165,233,0.18) !important; }
 .cx-card-real.cx-card-on  { border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.15),0 8px 24px rgba(139,92,246,0.18) !important; }
 .cx-card-supp.cx-card-on  { border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.15),0 8px 24px rgba(16,185,129,0.18) !important; }
-.cx-card-acts { position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s; }
-.cx-card:hover .cx-card-acts { opacity:1; }
-.cx-act { width:24px;height:24px;border-radius:6px;border:1px solid transparent;background:rgba(255,255,255,.85);font-size:11px;cursor:pointer;transition:all .12s;color:#4a7a95;display:flex;align-items:center;justify-content:center; }
-.cx-act-e:hover { background:#eaf4fb;border-color:#0e6073;color:#0e6073; }
-.cx-act-d:hover { background:#fde8e8;border-color:#e74c3c;color:#e74c3c; }
+
+/* Actions toujours visibles avec couleurs pastel (comme GestionActifs) */
+.cx-card-acts {
+  position: absolute; top: 8px; right: 8px;
+  display: flex; gap: 6px;
+  opacity: 1;
+  transition: none;
+  z-index: 2;
+}
+..cx-act {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  background: transparent;
+  box-shadow: none;
+}
+/* Ajouter document - vert */
+.cx-act-doc {
+  background: transparent;
+  color: #059669;
+}
+.cx-act-doc:hover {
+  background: transparent;
+  color: #047857;
+}
+/* Modifier - bleu */
+.cx-act-e {
+  background: transparent;
+  color: #1D4ED8;
+}
+.cx-act-e:hover {
+  background: transparent;
+  color: #2563EB;
+}
+/* Supprimer - rouge */
+.cx-act-d {
+  background: transparent;
+  color: #DC2626;
+}
+.cx-act-d:hover {
+  background: transparent;
+  color: #B91C1C;
+}
+
 .cx-card-num { font-family:'JetBrains Mono',monospace;font-size:9px;color:#8fb8cc;margin-bottom:6px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:5px; }
 .cx-card-cat-ico { font-size:9px; }
 .cx-card-nm  { font-size:13px;font-weight:600;color:#0d2b3e;line-height:1.35;margin-bottom:10px; }
@@ -1095,15 +1123,18 @@ const CSS = `
 .cx-conn-line { width:2px;height:100%;background:linear-gradient(to bottom,#0ea5e9,#8b5cf6,#10b981);opacity:.3;border-radius:2px; }
 .cx-legend { position:relative;z-index:10;display:flex;gap:24px;justify-content:center;align-items:center;padding:0 48px 52px;flex-wrap:wrap; }
 .cx-leg-item { display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600; }
-.cx-leg-hint { font-size:11px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;display:flex;align-items:center; }
+.cx-leg-hint { font-size:11px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:5px; }
 
-/* PANNEAU */
+/* PANNEAU DÉTAIL (inchangé) */
 .cx-panel { position:fixed;right:-430px;top:85px;width:410px;height:calc(100vh - 85px);background:#fff;border-left:2px solid #aed6f1;z-index:50;transition:right .38s cubic-bezier(.34,1.56,.64,1);overflow-y:auto;display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(14,96,115,0.1);font-family:'Outfit',sans-serif; }
 .cx-panel-open { right:0; }
 .cx-ph { padding:24px 22px 18px;border-bottom:1px solid #d6eaf8;position:sticky;top:0;background:#fff;z-index:5; }
 .cx-ph-strip { height:4px;border-radius:4px;margin-bottom:15px; }
 .cx-ph-cat { font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;display:flex;align-items:center;gap:6px; }
 .cx-ph-cat-ico { font-size:11px; }
+.cx-ph-cat-mgmt { color:#0ea5e9; }
+.cx-ph-cat-real  { color:#8b5cf6; }
+.cx-ph-cat-supp  { color:#10b981; }
 .cx-ph-title { font-size:16px;font-weight:700;color:#0d2b3e;padding-right:38px;line-height:1.35; }
 .cx-ph-owner { margin-top:8px;font-size:12px;color:#4a7a95;display:flex;align-items:center;gap:6px; }
 .cx-ph-close { position:absolute;top:20px;right:16px;width:30px;height:30px;background:#eaf4fb;border:1px solid #aed6f1;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#4a7a95;transition:all .15s; }
@@ -1116,90 +1147,47 @@ const CSS = `
 .cx-sh-ico { font-size:11px; }
 .cx-pb-cnt { font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700; }
 
-/* ISO REFERENCES (panel) */
+/* ISO refs */
 .cx-iso-refs-list { margin-bottom:16px; }
-.cx-no-iso { text-align:center;padding:16px;color:#8fb8cc;font-size:12px;border:1.5px dashed #d6eaf8;border-radius:10px;background:#f9fbfd; }
-.cx-iso-refs-grid { display:flex;flex-wrap:wrap;gap:8px; }
-.cx-iso-ref-badge { display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#f0f7fb;border-left:3px solid;border-radius:0 6px 6px 0;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:500;color:#0d2b3e;transition:all .12s; }
+.cx-no-iso { text-align:center;padding:14px;color:#9CA3AF;font-size:12px;border:1.5px dashed #E5E7EB;border-radius:10px;background:#FAFAFA; }
+.cx-iso-refs-grid { display:flex;flex-wrap:wrap;gap:6px; }
+.cx-iso-ref-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 9px;background:#F9FAFB;border-left:3px solid;border-radius:0 6px 6px 0;font-size:11px;font-weight:600;color:#111827; }
 .cx-iso-ref-badge i { font-size:10px; }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   ISO MULTI SELECT — FIX COMPLET (texte visible dans dropdown)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-.cx-iso-selector { position:relative; width:100%; }
-
-.cx-iso-tags { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-height:42px; background:#eaf4fb; border:1.5px solid #d6eaf8; border-radius:10px; padding:8px 12px; transition:border-color .15s; }
-.cx-iso-tags:focus-within { border-color:#0e6073; background:#fff; }
-
-.cx-iso-placeholder { font-size:12px; color:#8fb8cc; }
-
-.cx-iso-tag { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:20px; font-size:11px; font-family:'JetBrains Mono',monospace; color:#0d2b3e; max-width:100%; overflow-wrap:anywhere; border:1px solid transparent; }
-.cx-iso-tag-remove { background:none; border:none; cursor:pointer; font-size:10px; color:#4a7a95; display:inline-flex; align-items:center; padding:2px; border-radius:50%; transition:all .12s; flex-shrink:0; }
-.cx-iso-tag-remove:hover { color:#e74c3c; background:rgba(231,76,60,0.1); }
-
-.cx-iso-add-btn { display:inline-flex; align-items:center; gap:5px; background:transparent; border:1px solid; border-radius:20px; padding:4px 12px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; flex-shrink:0; }
+/* ISO MultiSelect */
+.cx-iso-selector { position:relative;width:100%; }
+.cx-iso-tags { display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:42px;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:8px 12px;transition:border-color .15s; }
+.cx-iso-tags:focus-within { border-color:#1D4ED8;background:#fff; }
+.cx-iso-placeholder { font-size:12px;color:#9CA3AF; }
+.cx-iso-tag { display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:20px;font-size:11px;color:#111827;max-width:100%;overflow-wrap:anywhere;border:1px solid transparent; }
+.cx-iso-tag-remove { background:none;border:none;cursor:pointer;font-size:10px;color:#6B7280;display:inline-flex;align-items:center;padding:2px;border-radius:50%;transition:all .12s;flex-shrink:0; }
+.cx-iso-tag-remove:hover { color:#EF4444;background:rgba(239,68,68,.1); }
+.cx-iso-add-btn { display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0; }
 .cx-iso-add-btn:hover { transform:translateY(-1px); }
+.cx-iso-dropdown { position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:.5px solid #E5E7EB;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.12);z-index:200;max-height:320px;display:flex;flex-direction:column;overflow:hidden; }
+.cx-iso-search { padding:10px 12px;border-bottom:.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;background:#FAFAFA;flex-shrink:0; }
+.cx-iso-search i { color:#9CA3AF;font-size:12px;flex-shrink:0; }
+.cx-iso-search input { flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:12px;padding:6px 0;font-family:'Sora',sans-serif; }
+.cx-iso-list { overflow-y:auto;flex:1;padding:8px; }
+.cx-iso-item { display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .1s;font-size:12px;width:100%;min-width:0;box-sizing:border-box; }
+.cx-iso-item:hover { background:#EFF6FF; }
+.cx-iso-item.selected { background:#DBEAFE; }
+.cx-iso-item input[type="checkbox"] { margin:0;flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:#1D4ED8; }
+.cx-iso-item-value { flex:1;min-width:0;color:#111827;font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.cx-iso-empty { padding:20px;text-align:center;color:#9CA3AF;font-size:12px; }
 
-.cx-iso-dropdown { position:absolute; top:calc(100% + 6px); left:0; right:0; background:#fff; border:1px solid #aed6f1; border-radius:12px; box-shadow:0 12px 28px rgba(13,43,62,0.15); z-index:200; max-height:320px; display:flex; flex-direction:column; overflow:hidden; }
-
-.cx-iso-search { padding:10px 12px; border-bottom:1px solid #d6eaf8; display:flex; align-items:center; gap:8px; background:#fafdff; flex-shrink:0; }
-.cx-iso-search i { color:#8fb8cc; font-size:12px; flex-shrink:0; }
-.cx-iso-search input { flex:1; min-width:0; border:none; outline:none; background:transparent; font-size:12px; padding:6px 0; font-family:'Outfit',sans-serif; }
-
-.cx-iso-list { overflow-y:auto; flex:1; padding:8px; }
-
-/* ── FIX PRINCIPAL : le <label> doit avoir min-width:0 pour que son enfant flex puisse afficher le texte ── */
-.cx-iso-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background .1s;
-  font-size: 12px;
-  width: 100%;
-  min-width: 0;        /* ← CORRECTION CLÉE : empêche le label flex de déborder */
-  box-sizing: border-box;
-}
-.cx-iso-item:hover { background:#eaf4fb; }
-.cx-iso-item.selected { background:#e0f2fe; }
-
-.cx-iso-item input[type="checkbox"] {
-  margin: 0;
-  flex-shrink: 0;
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
-  accent-color: #0e6073;
-}
-
-/* ── FIX SECONDAIRE : le span texte s'étend et tronque proprement ── */
-.cx-iso-item-value {
-  flex: 1;
-  min-width: 0;        /* ← CORRECTION CLÉE : permet le rétrécissement en flex */
-  color: #0d2b3e;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cx-iso-empty { padding:20px; text-align:center; color:#8fb8cc; font-size:12px; }
-
-/* DOCUMENTS */
-.cx-doc-list { display:flex; flex-direction:column; gap:8px; }
+/* Documents */
+.cx-doc-list { display:flex;flex-direction:column;gap:8px; }
 .cx-no-doc { text-align:center;padding:22px;color:#8fb8cc;font-size:12px;border:1.5px dashed #d6eaf8;border-radius:10px;line-height:1.9; }
 .cx-no-doc-ico { font-size:26px;display:block;margin-bottom:4px;opacity:.5; }
 .cx-doc-item { display:flex;align-items:center;gap:10px;padding:10px 12px;background:#eaf4fb;border:1px solid #d6eaf8;border-radius:10px;transition:border-color .15s; }
 .cx-doc-item:hover { border-color:#aed6f1; }
-.cx-doc-type-ico { font-size:15px;color:#0e6073;flex-shrink:0;width:18px;text-align:center; }
+.cx-doc-type-ico { font-size:15px;color:#0ea5e9;flex-shrink:0;width:18px;text-align:center; }
 .cx-doc-info { flex:1;min-width:0; }
-.cx-doc-nm   { font-size:12px;font-weight:600;color:#0d2b3e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.cx-doc-mt   { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
+.cx-doc-nm { font-size:12px;font-weight:600;color:#0d2b3e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.cx-doc-mt { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
 .cx-doc-fichier-badge { display:inline-flex;align-items:center;gap:3px;background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.cx-doc-st   { font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;flex-shrink:0;white-space:nowrap; }
+.cx-doc-st { font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;flex-shrink:0;white-space:nowrap; }
 .s-vigueur { background:#d4edda;color:#1a7a3c;border:1px solid #b3dfc0; }
 .s-cours   { background:#d6eaf8;color:#1a4f72;border:1px solid #aed6f1; }
 .s-reviser { background:#fef9e7;color:#9a7d0a;border:1px solid #f9e79f; }
@@ -1208,24 +1196,24 @@ const CSS = `
 .cx-dl-btn:hover { color:#0e6073;background:#e0f2fe; }
 .cx-del-btn { background:none;border:none;cursor:pointer;color:#8fb8cc;font-size:13px;padding:5px;border-radius:6px;transition:color .15s,background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
 .cx-del-btn:hover { color:#e74c3c;background:#fde8e8; }
-.cx-add-doc-btn { width:100%;margin-top:12px;padding:11px;background:transparent;border:1.5px dashed #aed6f1;border-radius:10px;color:var(--ac,#0e6073);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px; }
-.cx-add-doc-btn:hover { border-color:#0e6073;background:#eaf4fb; }
+.cx-add-doc-btn { width:100%;margin-top:12px;padding:11px;background:transparent;border:1.5px dashed #aed6f1;border-radius:10px;color:var(--ac,#0ea5e9);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px; }
+.cx-add-doc-btn:hover { border-color:#0ea5e9;background:#eaf4fb; }
 
 /* MODALS */
 .cx-overlay { position:fixed;inset:0;background:rgba(13,43,62,0.45);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center; }
 .cx-modal { background:#fff;border:1.5px solid #aed6f1;border-radius:20px;width:520px;max-width:92vw;padding:28px;box-shadow:0 32px 80px rgba(13,43,62,0.22);animation:cxPop .22s cubic-bezier(.34,1.56,.64,1);font-family:'Outfit',sans-serif;max-height:90vh;overflow-y:auto; }
 @keyframes cxPop { from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none} }
-.cx-modal h3 { font-size:17px;font-weight:700;color:#0e6073;margin-bottom:20px;display:flex;align-items:center; }
+.cx-modal h3 { font-size:17px;font-weight:700;color:#0ea5e9;margin-bottom:20px;display:flex;align-items:center; }
 .cx-fg { margin-bottom:14px; }
 .cx-flbl { display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#4a7a95;margin-bottom:6px; }
 .cx-flbl-ico { font-size:10px; }
 .cx-fg input, .cx-fg select, .cx-fg textarea { width:100%;background:#eaf4fb;border:1.5px solid #d6eaf8;border-radius:10px;padding:9px 13px;color:#0d2b3e;font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s; }
-.cx-fg input:focus,.cx-fg select:focus,.cx-fg textarea:focus { border-color:#0e6073;box-shadow:0 0 0 3px rgba(14,96,115,0.1);background:#fff; }
+.cx-fg input:focus,.cx-fg select:focus,.cx-fg textarea:focus { border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,0.1);background:#fff; }
 .cx-fg textarea { resize:vertical;min-height:72px; }
 
 /* Zone fichier */
 .cx-file-zone { width:100%;min-height:54px;background:#eaf4fb;border:1.5px dashed #aed6f1;border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:center; }
-.cx-file-zone:hover { border-color:#0e6073;background:#dff0f9; }
+.cx-file-zone:hover { border-color:#0ea5e9;background:#dff0f9; }
 .cx-file-placeholder { display:flex;align-items:center;font-size:12px;color:#4a7a95;flex-wrap:wrap;font-family:'Outfit',sans-serif; }
 .cx-file-hint { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-left:8px; }
 .cx-file-chosen { display:flex;align-items:center;gap:4px;font-size:12px;color:#0d2b3e;font-weight:600;font-family:'Outfit',sans-serif;word-break:break-all;flex:1; }
@@ -1235,8 +1223,8 @@ const CSS = `
 .cx-modal-ft { display:flex;justify-content:flex-end;gap:10px;margin-top:22px; }
 .cx-btn-cancel { display:inline-flex;align-items:center;padding:9px 18px;background:transparent;border:1.5px solid #aed6f1;border-radius:10px;color:#4a7a95;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s; }
 .cx-btn-cancel:hover { border-color:#e74c3c;color:#e74c3c; }
-.cx-btn-save { display:inline-flex;align-items:center;padding:9px 22px;border:none;border-radius:10px;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:linear-gradient(135deg,#0e6073,#1a4f72);box-shadow:0 4px 14px rgba(14,96,115,0.3); }
-.cx-btn-save:hover { transform:translateY(-1px);box-shadow:0 6px 20px rgba(14,96,115,0.4); }
+.cx-btn-save { display:inline-flex;align-items:center;padding:9px 22px;border:none;border-radius:10px;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 4px 14px rgba(14,165,233,0.3); }
+.cx-btn-save:hover { transform:translateY(-1px);box-shadow:0 6px 20px rgba(14,165,233,0.4); }
 .cx-btn-save:disabled { opacity:.65;cursor:not-allowed;transform:none; }
 
 ::-webkit-scrollbar { width:5px; }
