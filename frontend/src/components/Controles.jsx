@@ -799,7 +799,8 @@ export default function Controles() {
   const ncMineureCount    = controles.filter(c => c.statut === 'NCMineure').length;
   const ncMajeureCount    = controles.filter(c => c.statut === 'NCMajeure').length;
   const nonEvalueCount    = controles.filter(c => c.statut === 'NonEvalue').length;
-  const averageConformity = totalControles > 0 ? Math.round((conformeCount / ((totalControles - nonEvalueCount) || 1)) * 100) : 0;
+  // Conformite stricte: 100% uniquement si tous les controles sont conformes.
+  const averageConformity = totalControles > 0 ? Math.round((conformeCount / totalControles) * 100) : 0;
   const stats = { totalControles, averageConformity, conformeCount, nonConformeCount, ncMineureCount, ncMajeureCount, nonEvalueCount, delayedActions: 0, inProgressActions: 0 };
 
   const filtered = controles.filter(c => {

@@ -20,7 +20,12 @@ namespace backend.Infrastructure.Data
                     "La chaine de connexion 'DefaultConnection' est introuvable dans la configuration.");
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            optionsBuilder.UseSqlServer(connectionString);
+            optionsBuilder.UseSqlServer(
+                connectionString,
+                sqlOptions => sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorNumbersToAdd: new[] { 1205 }));
 
             return new AppDbContext(optionsBuilder.Options);
         }

@@ -17,7 +17,13 @@ namespace backend.Application.Auth.Commands.Login
 
         public async Task<(bool, string?, AuthResponseDto?)> Handle(LoginCommand req, CancellationToken ct)
         {
-            var user = await _userRepo.GetByEmailAsync(req.Email);
+            var normalizedEmail = req.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedEmail) || string.IsNullOrWhiteSpace(req.Password))
+            {
+                return (false, "Identifiants incorrects.", null);
+            }
+
+            var user = await _userRepo.GetByEmailAsync(normalizedEmail);
             if (user == null) return (false, "Identifiants incorrects.", null);
 
             // Vérifier si le compte est actif
@@ -27,6 +33,16 @@ namespace backend.Application.Auth.Commands.Login
             }
 
             var result = await _userRepo.CheckPasswordAsync(user, req.Password);
+            if (result.IsLockedOut)
+            {
+                return (false, "Compte temporairement verrouille apres plusieurs tentatives. Reessayez dans quelques minutes.", null);
+            }
+
+            if (result.IsNotAllowed)
+            {
+                return (false, "Connexion non autorisee pour ce compte.", null);
+            }
+
             if (!result.Succeeded) return (false, "Identifiants incorrects.", null);
 
             var token = await _jwtService.GenerateTokenAsync(user);

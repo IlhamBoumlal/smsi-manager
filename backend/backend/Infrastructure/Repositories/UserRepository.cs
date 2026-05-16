@@ -43,9 +43,20 @@ namespace backend.Infrastructure.Repositories
 
         public async Task<ApplicationUser?> GetByEmailAsync(string email)
         {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            var normalizedEmail = _userManager.NormalizeEmail(email.Trim());
+            if (string.IsNullOrWhiteSpace(normalizedEmail))
+            {
+                return null;
+            }
+
             return await _context.Users
                 .Include(u => u.Societe)
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .FirstOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail);
         }
 
         public async Task<List<ApplicationUser>> GetAllWithSocieteAsync()

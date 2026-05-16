@@ -1,8 +1,7 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, FileText } from "lucide-react";
-import { useRiskStudies } from "./RiskStudiesContext";
+import { useRiskStudies } from "../../../hooks/useRiskStudies";
 import {
   G_LABELS,
   MEASURE_CATEGORIES,
@@ -16,10 +15,10 @@ import {
   normalizeRiskEntryStatus,
   riskLevel,
   riskEntryStatusLabel,
-} from "./riskModel";
-import { printWorkshopLivrable } from "./riskExport";
+} from "../riskModel";
+import { printWorkshopLivrable } from "../riskExport";
 import { RiskCallout, RiskCard, RiskCrudTable, RiskKpiTile, RiskPageHeader, RiskSectionHeader, RiskStatusBadge } from "./RiskUi";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../hooks/useAuth";
 
 const SCALE_1_4_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: `${value}/4` }));
 const GRAVITY_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: `G${value} - ${G_LABELS[value]}` }));

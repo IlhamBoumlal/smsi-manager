@@ -1,41 +1,47 @@
-# Visual Studio
+# IDE
 .vs/
+.vscode/
 *.user
 *.suo
-
-# Build
-bin/
-obj/
-
-# Node
-node_modules/
-
-# Logs
-*.log
 
 # OS
 .DS_Store
 Thumbs.db
 
-<<<<<<< HEAD
-# Local config
-backend/backend/appsettings.json
-frontend/.env
-.env
-.env.*
+# Dependencies
+node_modules/
+**/node_modules/
 
-# .NET local cache / SDK / packages
-.dotnet/
-.dotnet_home/
-.nuget/
-packages/
-
-# Optional
+# Build artifacts
+bin/
+obj/
+**/bin/
+**/obj/
 dist/
 build/
 coverage/
-=======
-backend/backend/appsettings.jsonbackend/backend/appsettings.json
->>>>>>> meriem
+
+# Logs
+*.log
+backend/backend/logs/
+
+# Local environment/config
+.env
+.env.*
+!*.env.example
+frontend/.env
+backend/backend/appsettings.json
+
+# Local SDK/cache folders
+.dotnet/
+.dotnet_home/
+.dotnethome/
+.nuget/
+.runtime/
+backend/.dotnet/
+backend/.dotnet_home/
+
+# Temporary verification/build folders
 backend/backend/_buildtmp/
 backend/backend/tmp_build/
+backend/backend/_verify_build*/

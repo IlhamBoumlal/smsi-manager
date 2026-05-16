@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import { cn } from "./utils";
-import { useDashboardV1Data } from "./useDashboardV1Data";
+import { useDashboardV1Data } from "../../hooks/useDashboardV1Data";
 import { OverviewModule } from "./modules/OverviewModule";
 import { ControlesModule } from "./modules/ControlesModule";
 import { ClausesModule } from "./modules/ClausesModule";
@@ -30,8 +30,9 @@ const modules = [
 
 export default function DashboardV1() {
   const [tab, setTab] = useState("overview");
-  const { user } = useAuth();
-  const { data, loading, refreshing, error, warnings, refresh } = useDashboardV1Data();
+  const { user, canWrite, canEdit } = useAuth();
+  const canPersistSnapshots = canWrite("dashboard") || canEdit("dashboard");
+  const { data, loading, refreshing, error, warnings, refresh } = useDashboardV1Data({ canPersistSnapshots });
   const dashboardFont = "'Sora', 'Inter', 'Segoe UI', sans-serif";
 
   const userDisplayName = useMemo(() => {
@@ -159,4 +160,3 @@ export default function DashboardV1() {
     </div>
   );
 }
-

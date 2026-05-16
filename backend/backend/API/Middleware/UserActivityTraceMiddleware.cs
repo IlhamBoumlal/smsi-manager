@@ -9,10 +9,12 @@ namespace backend.API.Middleware
 {
     public sealed class UserActivityTraceMiddleware
     {
+        internal const string ActionOverrideItemKey = "UserActivityTrace.ActionCode";
         private static readonly HashSet<string> IgnoredPathPrefixes = new(StringComparer.OrdinalIgnoreCase)
         {
             "/swagger",
-            "/notificationHub"
+            "/notificationHub",
+            "/api/dashboard"
         };
 
         private readonly RequestDelegate _next;
@@ -241,6 +243,15 @@ namespace backend.API.Middleware
 
         private static string ResolveActionCode(HttpContext context, string moduleCode)
         {
+            if (context.Items.TryGetValue(ActionOverrideItemKey, out var overrideValue))
+            {
+                var overriddenAction = PermissionCatalog.Actions.Canonicalize(overrideValue?.ToString());
+                if (!string.IsNullOrWhiteSpace(overriddenAction))
+                {
+                    return overriddenAction;
+                }
+            }
+
             var endpoint = context.GetEndpoint();
             if (endpoint is not null)
             {
@@ -297,6 +308,9 @@ namespace backend.API.Middleware
 
             return normalized switch
             {
+                "dashboard" when HasLiteral("snapshots") => "dashboard-snapshot",
+                "dashboard" => "dashboard",
+
                 "pdca" when HasLiteral("cycles") => "pdca-cycle",
                 "pdca" when HasLiteral("sections") => "pdca-section",
                 "pdca" when HasLiteral("items") => "pdca-item",
@@ -338,6 +352,8 @@ namespace backend.API.Middleware
         {
             string[] preferredKeys = targetType switch
             {
+                "dashboard-snapshot" => ["id", "snapshotId"],
+
                 "process-document" => ["documentId", "docId", "id", "processusId"],
                 "formation-document" => ["docId", "documentId", "id"],
                 "formation-participant" => ["pid", "participantId", "id"],

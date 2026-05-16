@@ -11,7 +11,9 @@ using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 
 namespace backend.API.Controllers
@@ -27,6 +29,7 @@ namespace backend.API.Controllers
             AppRoles.NormalizeKey(AppRoles.Consultant),
             AppRoles.NormalizeKey(AppRoles.Auditeur)
         };
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> PermissionOverrideLocks = new(StringComparer.OrdinalIgnoreCase);
 
         private readonly IMediator _mediator;
         private readonly IUserRepository _userRepository;
@@ -401,6 +404,16 @@ namespace backend.API.Controllers
                 return Forbid();
             }
 
+            if (string.Equals(id, CurrentUserId, StringComparison.Ordinal))
+            {
+                return BadRequest("Impossible de modifier vos propres permissions.");
+            }
+
+            if (dto is null)
+            {
+                return BadRequest("Payload d'overrides invalide.");
+            }
+
             var targetUser = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (targetUser is null)
             {
@@ -426,7 +439,7 @@ namespace backend.API.Controllers
             var targetIsRssi = targetRoles.Any(role =>
                 string.Equals(AppRoles.NormalizeKey(role), AppRoles.NormalizeKey(AppRoles.Rssi), StringComparison.OrdinalIgnoreCase));
 
-            var requestedOverrides = dto?.Overrides ?? new List<UserPermissionOverrideItemDto>();
+            var requestedOverrides = dto.Overrides ?? new List<UserPermissionOverrideItemDto>();
 
             var modules = await _dbContext.Modules
                 .AsNoTracking()
@@ -434,6 +447,12 @@ namespace backend.API.Controllers
             var actions = await _dbContext.Actions
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
+
+            var maxExpectedOverrides = modules.Count * actions.Count;
+            if (maxExpectedOverrides > 0 && requestedOverrides.Count > maxExpectedOverrides)
+            {
+                return BadRequest("Nombre d'overrides invalide.");
+            }
 
             var moduleIdByCanonicalCode = modules.ToDictionary(
                 m => PermissionCatalog.CanonicalizeModule(m.Code),
@@ -448,6 +467,11 @@ namespace backend.API.Controllers
 
             foreach (var overrideItem in requestedOverrides)
             {
+                if (overrideItem is null)
+                {
+                    return BadRequest("Override invalide.");
+                }
+
                 var moduleCode = PermissionCatalog.CanonicalizeModule(overrideItem.ModuleCode);
                 var actionCode = PermissionCatalog.Actions.Canonicalize(overrideItem.ActionCode);
 
@@ -507,11 +531,20 @@ namespace backend.API.Controllers
 
             // Plusieurs actions UI peuvent déclencher des requêtes quasi simultanées.
             // On remplace le jeu d'overrides dans une transaction et on tente un court retry.
-            const int maxAttempts = 3;
-            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            var lockKey = $"{CurrentSocieteId.Value}:{targetUser.Id}";
+            var syncLock = PermissionOverrideLocks.GetOrAdd(lockKey, _ => new SemaphoreSlim(1, 1));
+            await syncLock.WaitAsync(cancellationToken);
+
+            try
             {
-                try
+                const int maxAttempts = 3;
+                for (var attempt = 1; attempt <= maxAttempts; attempt++)
                 {
+                    try
+                    {
+                        var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
+                        await executionStrategy.ExecuteAsync(async () =>
+                        {
                     _dbContext.ChangeTracker.Clear();
 
                     await using var tx = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -541,21 +574,35 @@ namespace backend.API.Controllers
 
                     await _dbContext.SaveChangesAsync(cancellationToken);
                     await tx.CommitAsync(cancellationToken);
+                        });
 
                     var effectivePermissions = await _permissionService.GetEffectivePermissionsAsync(targetUser.Id, cancellationToken);
                     return Ok(effectivePermissions);
                 }
-                catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
-                {
-                    await Task.Delay(40 * attempt, cancellationToken);
+                    catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
+                    {
+                        await Task.Delay(40 * attempt, cancellationToken);
+                    }
+                    catch (DbUpdateException ex) when (attempt < maxAttempts && (IsLikelyUniqueConstraint(ex) || IsLikelyDeadlock(ex)))
+                    {
+                        await Task.Delay(80 * attempt, cancellationToken);
+                    }
+                    catch (InvalidOperationException ex) when (attempt < maxAttempts && IsLikelyDeadlock(ex))
+                    {
+                        await Task.Delay(80 * attempt, cancellationToken);
+                    }
+                    catch (SqlException ex) when (attempt < maxAttempts && IsLikelyDeadlock(ex))
+                    {
+                        await Task.Delay(80 * attempt, cancellationToken);
+                    }
                 }
-                catch (DbUpdateException ex) when (attempt < maxAttempts && IsLikelyUniqueConstraint(ex))
-                {
-                    await Task.Delay(40 * attempt, cancellationToken);
-                }
-            }
 
-            return Conflict("Conflit de mise a jour detecte. Veuillez reessayer.");
+                return Conflict("Conflit transitoire detecte (verrou SQL). Veuillez reessayer.");
+            }
+            finally
+            {
+                syncLock.Release();
+            }
         }
 
         private async Task<string?> ResolveRoleNameAsync(string roleId)
@@ -626,6 +673,23 @@ namespace backend.API.Controllers
                 || message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
                 || message.Contains("2627", StringComparison.OrdinalIgnoreCase)
                 || message.Contains("2601", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsLikelyDeadlock(Exception ex)
+        {
+            if (ex is SqlException sqlEx)
+            {
+                return sqlEx.Number == 1205;
+            }
+
+            var message = ex.Message ?? string.Empty;
+            if (message.Contains("deadlock", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("1205", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return ex.InnerException is not null && IsLikelyDeadlock(ex.InnerException);
         }
     }
 }

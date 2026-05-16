@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { buildApiUrl } from '../api/url';
+import { buildApiUrl } from '../services/config/url';
 
 const HUB_URL = buildApiUrl('/notificationHub');
 

@@ -46,13 +46,26 @@ namespace backend.Infrastructure.Services
                 {
                     await CheckEmails(stoppingToken);
                 }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erreur lors de la vérification des emails");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(_settings.CheckIntervalSeconds), stoppingToken);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.CheckIntervalSeconds), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
+
+            _logger.LogInformation("EmailMonitoringService arrêté");
         }
         private async Task CheckEmails(CancellationToken stoppingToken)
         {

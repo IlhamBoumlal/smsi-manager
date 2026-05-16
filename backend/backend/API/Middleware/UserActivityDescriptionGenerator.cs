@@ -108,6 +108,8 @@ namespace backend.API.Middleware
                 "sensibilisation:formationdocument" => "du document de formation",
                 "users:user" => "de l'utilisateur",
                 "roles:role" => "du role",
+                "dashboard:dashboard" => "du tableau de bord",
+                "dashboard:dashboardsnapshot" => "du snapshot du tableau de bord",
                 _ => "de l'element"
             };
         }
@@ -296,6 +298,16 @@ namespace backend.API.Middleware
                         .Where(role => role.Id == id)
                         .Select(role => role.Name)
                         .FirstOrDefaultAsync(cancellationToken)),
+
+                "dashboardsnapshot" => await ResolveGuidNameAsync(context.TargetId, async id =>
+                {
+                    var monthStart = await dbContext.DashboardMonthlySnapshots.AsNoTracking()
+                        .Where(snapshot => snapshot.Id == id && snapshot.SocieteId == context.SocieteId)
+                        .Select(snapshot => (DateTime?)snapshot.MonthStartUtc)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    return monthStart.HasValue ? monthStart.Value.ToString("MM/yyyy") : null;
+                }),
 
                 _ => null
             };

@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import isoLogo from "../assets/ISO.png";
-import { resolveAssetUrl } from "../api/url";
+import { resolveAssetUrl } from "../services/config/url";
 import { useAuth } from "../context/AuthContext";
 
 const mainAxesCatalog = [

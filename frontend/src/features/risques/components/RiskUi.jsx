@@ -1,6 +1,6 @@
 import { isValidElement, useMemo, useState } from "react";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
-import { statusClass, statusLabel } from "./riskModel";
+import { statusClass, statusLabel } from "../riskModel";
 
 export function RiskPageHeader({ title, subtitle, badge, actions, variant = "default" }) {
   const headerClass = `risk-page-header${variant === "hero" ? " risk-page-header-hero" : ""}`;

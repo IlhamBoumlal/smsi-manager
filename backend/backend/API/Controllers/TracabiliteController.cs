@@ -16,6 +16,14 @@ namespace backend.API.Controllers
     public class TracabiliteController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
+        private static readonly string[] ExcludedSuperAdminRoleLabels =
+        [
+            AppRoles.SuperAdmin,
+            "SUPER ADMIN",
+            "SuperAdmin",
+            "SUPERADMIN",
+            AppRoles.SuperAdminRoleKey
+        ];
 
         public TracabiliteController(AppDbContext dbContext)
         {
@@ -91,19 +99,17 @@ namespace backend.API.Controllers
                 });
             }
 
-            var moduleOptions = await _dbContext.UserActivityLogs
-                .AsNoTracking()
-                .Where(log => log.SocieteId == CurrentSocieteId.Value
-                    && log.ActionCode != PermissionCatalog.Actions.Read)
+            var moduleOptions = await ApplyTraceVisibilityFilters(
+                    _dbContext.UserActivityLogs.AsNoTracking(),
+                    CurrentSocieteId.Value)
                 .Select(log => log.ModuleCode)
                 .Distinct()
                 .OrderBy(code => code)
                 .ToListAsync(cancellationToken);
 
-            var actionOptions = await _dbContext.UserActivityLogs
-                .AsNoTracking()
-                .Where(log => log.SocieteId == CurrentSocieteId.Value
-                    && log.ActionCode != PermissionCatalog.Actions.Read)
+            var actionOptions = await ApplyTraceVisibilityFilters(
+                    _dbContext.UserActivityLogs.AsNoTracking(),
+                    CurrentSocieteId.Value)
                 .Select(log => log.ActionCode)
                 .Distinct()
                 .OrderBy(code => code)
@@ -166,9 +172,9 @@ namespace backend.API.Controllers
         private IQueryable<backend.Domain.Entities.UserActivityLog> BuildFilteredQuery(int societeId, TracabiliteQuery query)
         {
             var q = _dbContext.UserActivityLogs
-                .AsNoTracking()
-                .Where(log => log.SocieteId == societeId
-                    && log.ActionCode != PermissionCatalog.Actions.Read);
+                .AsNoTracking();
+
+            q = ApplyTraceVisibilityFilters(q, societeId);
 
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
@@ -214,6 +220,17 @@ namespace backend.API.Controllers
             }
 
             return q;
+        }
+
+        private static IQueryable<backend.Domain.Entities.UserActivityLog> ApplyTraceVisibilityFilters(
+            IQueryable<backend.Domain.Entities.UserActivityLog> query,
+            int societeId)
+        {
+            return query.Where(log =>
+                log.SocieteId == societeId
+                && log.ActionCode != PermissionCatalog.Actions.Read
+                && log.ModuleCode != "dashboard"
+                && !ExcludedSuperAdminRoleLabels.Contains(log.UserRole));
         }
 
         private static string EscapeCsv(string value)

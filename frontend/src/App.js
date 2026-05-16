@@ -1,34 +1,34 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
-import Login from './components/Login';
-import Accueil from './components/Accueil';
-import Dashboard from './components/dashboard/DashboardV1'; 
-import Controles from './components/Controles';
-import GestionActifs from './components/GestionActifs';
-import GestionUtilisateursAdmins from './components/Admin/GestionUtilisateursAdmins';
-import GestionSocietes from './components/Admin/GestionSocietes';
-import GestionHoldings from './components/Admin/GestionHoldings';
-import DashboardAdmin from './components/Admin/DashboardAdmin';
-import GestionRoles from './components/Admin/GestionRoles';
-import GestionTracabilite from './components/Admin/GestionTracabilite';
+import Login from './pages/public/Login';
+import Accueil from './pages/public/Accueil';
+import Dashboard from './pages/dashboard/DashboardV1';
+import Controles from './pages/modules/Controles';
+import GestionActifs from './pages/modules/GestionActifs';
+import GestionUtilisateursAdmins from './pages/admin/GestionUtilisateursAdmins';
+import GestionSocietes from './pages/admin/GestionSocietes';
+import GestionHoldings from './pages/admin/GestionHoldings';
+import DashboardAdmin from './pages/admin/DashboardAdmin';
+import GestionRoles from './pages/admin/GestionRoles';
+import GestionTracabilite from './pages/admin/GestionTracabilite';
 import PrivateAdminRoute from './components/PrivateAdminRoute';
 import PrivateRoute from './components/PrivateRoute';
 import RequireModulePermission from './components/RequireModulePermission';
-import Progression from './components/Progression';
-import ClauseDashboard from './components/ClausesDashboard';
-import ClauseDetail from './components/ClauseDetail';
-import CartographieProcessus from './components/CartographieProcessus';
-import Documentation from './components/Documentation';
-import GestionRisque from './components/GestionRisque';
-import RiskModuleLayout from './components/risques/RiskModuleLayout';
-import RiskStudiesPage from './components/risques/RiskStudiesPage';
-import RiskStudyDetailPage from './components/risques/RiskStudyDetailPage';
-import RiskWorkshopPage from './components/risques/RiskWorkshopPage';
-import Audits from './components/Audits';
-import Sensibilisation from './components/sensibilisation';
-import GestionIncidents from './components/GestionIncidents';
-import SuperAdminSpace from './components/SuperAdminSpace';
-import GestionUtilisateurs from './components/Admin/GestionUtilisateurs';
+import Progression from './pages/modules/Progression';
+import ClauseDashboard from './pages/modules/ClausesDashboard';
+import ClauseDetail from './pages/modules/ClauseDetail';
+import CartographieProcessus from './pages/modules/CartographieProcessus';
+import Documentation from './pages/modules/Documentation';
+import GestionRisque from './pages/modules/GestionRisque';
+import RiskModuleLayout from './pages/risques/RiskModuleLayout';
+import RiskStudiesPage from './pages/risques/RiskStudiesPage';
+import RiskStudyDetailPage from './pages/risques/RiskStudyDetailPage';
+import RiskWorkshopPage from './pages/risques/RiskWorkshopPage';
+import Audits from './pages/modules/Audits';
+import Sensibilisation from './pages/modules/Sensibilisation';
+import GestionIncidents from './pages/modules/GestionIncidents';
+import SuperAdminSpace from './pages/superadmin/SuperAdminSpace';
+import GestionUtilisateurs from './pages/admin/GestionUtilisateurs';
 
 const SUPER_ADMIN_ROLES = ['Super Admin'];
 const ADMIN_SCOPE_ROLES = ['Super Admin', 'Admin Societe'];
@@ -120,6 +120,14 @@ export default function App() {
         />
         <Route
           path="/admin/roles"
+          element={(
+            <PrivateAdminRoute allowedRoles={ADMIN_SCOPE_ROLES}>
+              {withModuleRead('roles', <GestionRoles />)}
+            </PrivateAdminRoute>
+          )}
+        />
+        <Route
+          path="/admin/roles/permissions/:userId"
           element={(
             <PrivateAdminRoute allowedRoles={ADMIN_SCOPE_ROLES}>
               {withModuleRead('roles', <GestionRoles />)}

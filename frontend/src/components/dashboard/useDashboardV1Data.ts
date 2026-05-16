@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import axiosInstance from "../../api/axiosInstance";
+import axiosInstance from "../../services/api/axiosInstance";
 import { getAllAudits, getAllNCs, getAllSimulations } from "../../api/audits";
 import { getGlobalStats, getDashboard as getClausesDashboard } from "../../api/clauses";
 import { getCycles, getCycle } from "../../api/pdca";
-import { getRiskStudies } from "../../api/risques";
+import { getRiskStudies } from "../../features/risques/services/risques";
 import { getDashboard as getTrainingDashboard, getFormations } from "../../api/sensibilisation";
-import { getEffectiveWorkshopStatus, getStudyProgress, getWorkshopProgress } from "../risques/riskModel";
+import { getEffectiveWorkshopStatus, getStudyProgress, getWorkshopProgress } from "../../features/risques/riskModel";
 
 const safeArray = (value: any): any[] => (Array.isArray(value) ? value : []);
 const toNum = (value: any): number => {
@@ -16,6 +16,11 @@ const average = (values: number[]): number =>
   values.length ? values.reduce((sum, n) => sum + n, 0) / values.length : 0;
 const pct = (value: number, total: number): number => (total > 0 ? (value / total) * 100 : 0);
 const normalize = (value: any): string => String(value ?? "").trim().toLowerCase();
+const normalizeToken = (value: any): string =>
+  normalize(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s_-]/g, "");
 const getErrorStatus = (reason: any): number | null => {
   const status = Number(reason?.response?.status);
   return Number.isFinite(status) ? status : null;
@@ -40,13 +45,65 @@ function parseDate(...values: any[]): Date | null {
   return null;
 }
 
-function normalizeControlStatus(raw: any): "conforme" | "nc_majeure" | "nc_mineure" | "remarque" | "non_evalue" {
-  const status = normalize(raw);
-  if (status === "1" || status.includes("conforme")) return "conforme";
-  if (status === "4" || status.includes("majeure")) return "nc_majeure";
-  if (status === "3" || status.includes("mineure")) return "nc_mineure";
-  if (status === "2" || status.includes("remarque")) return "remarque";
+function normalizeControlStatus(raw: any): "conforme" | "nc_majeure" | "nc_mineure" | "non_conforme" | "remarque" | "non_evalue" {
+  const status = normalizeToken(raw);
+  if (!status) return "non_evalue";
+  if (status === "4" || status.includes("ncmajeure") || status.includes("majeure")) return "nc_majeure";
+  if (status === "3" || status.includes("ncmineure") || status.includes("mineure")) return "nc_mineure";
+  if (status === "2" || status.includes("remarque") || status.includes("observation")) return "remarque";
+  if (status.includes("nonconforme") || status.includes("notcompliant")) return "non_conforme";
+  if (status === "1" || status === "conforme" || status.includes("compliant") || status.includes("conforme")) return "conforme";
   return "non_evalue";
+}
+
+function isApprovedDocumentStatus(raw: any): boolean {
+  const status = normalizeToken(raw);
+  if (!status) return false;
+  if (status.includes("nonapprouve") || status.includes("notapproved") || status.includes("reject")) return false;
+  return status.includes("approuve") || status.includes("approve") || status.includes("valide");
+}
+
+function isValidationDocumentStatus(raw: any): boolean {
+  const status = normalizeToken(raw);
+  return status.includes("validation") || status.includes("avalider");
+}
+
+function isReviewDocumentStatus(raw: any): boolean {
+  const status = normalizeToken(raw);
+  return status.includes("arevoir") || status.includes("review");
+}
+
+function isDraftDocumentStatus(raw: any): boolean {
+  const status = normalizeToken(raw);
+  return status.includes("brouillon") || status.includes("draft");
+}
+
+function computeClauseSubConformity(clauseDashboard: any[]) {
+  let totalSubClauses = 0;
+  let conformes = 0;
+  let nonConformes = 0;
+
+  clauseDashboard.forEach((entry: any) => {
+    const clause = entry?.clause ?? entry?.Clause ?? {};
+    const subClauses = safeArray(clause?.subClauses ?? clause?.SubClauses);
+    const subConformities = entry?.subConformities ?? entry?.SubConformities ?? {};
+    const conformityById = new Map<string, any>(Object.entries(subConformities).map(([id, value]) => [String(id), value]));
+
+    totalSubClauses += subClauses.length;
+
+    subClauses.forEach((sub: any) => {
+      const subId = String(sub?.id ?? sub?.Id ?? "");
+      if (!subId) return;
+      const conformity = conformityById.get(subId);
+      if (!conformity) return;
+      const status = normalizeToken(conformity?.status ?? conformity?.Status);
+
+      if (status === "conforme") conformes += 1;
+      else if (status.includes("nonconforme")) nonConformes += 1;
+    });
+  });
+
+  return { totalSubClauses, conformes, nonConformes };
 }
 
 function normalizeAuditStatus(raw: any): "planned" | "in_progress" | "completed" {
@@ -386,7 +443,12 @@ function isCurrentWeek(date: Date | null, now: Date): boolean {
   return inUtcRange(date, weekStart, weekEnd);
 }
 
-export function useDashboardV1Data() {
+type DashboardV1Options = {
+  canPersistSnapshots?: boolean;
+};
+
+export function useDashboardV1Data(options?: DashboardV1Options) {
+  const canPersistSnapshots = options?.canPersistSnapshots ?? false;
   const [state, setState] = useState({
     data: null as any,
     loading: true,
@@ -526,7 +588,6 @@ export function useDashboardV1Data() {
       let controlsNcMineure = 0;
       let controlsNcMajeure = 0;
       let controlsNonConforme = 0;
-      let controlsNonEvalue = 0;
       let controlsActionsRetard = 0;
       let controlsInProgressActions = 0;
 
@@ -559,10 +620,10 @@ export function useDashboardV1Data() {
           controlsNcMajeure += 1;
           controlsNonConforme += 1;
           bucket.score += 1;
+        } else if (status === "non_conforme") {
+          controlsNonConforme += 1;
         } else if (status === "remarque") {
           controlsNonConforme += 1;
-        } else {
-          controlsNonEvalue += 1;
         }
 
         if (hasPlanData && planStatus === "in_progress") {
@@ -580,11 +641,11 @@ export function useDashboardV1Data() {
       let docsDraft = 0;
 
       documents.forEach((doc) => {
-        const status = normalize(doc?.status ?? doc?.Status);
-        if (status.includes("approuve") || status.includes("approve")) docsApproved += 1;
-        else if (status.includes("validation")) docsValidation += 1;
-        else if (status.includes("revoir") || status.includes("review")) docsReview += 1;
-        else if (status.includes("brouillon") || status.includes("draft")) docsDraft += 1;
+        const status = doc?.status ?? doc?.Status;
+        if (isApprovedDocumentStatus(status)) docsApproved += 1;
+        else if (isValidationDocumentStatus(status)) docsValidation += 1;
+        else if (isReviewDocumentStatus(status)) docsReview += 1;
+        else if (isDraftDocumentStatus(status)) docsDraft += 1;
       });
 
       let assetPrimaires = 0;
@@ -611,6 +672,16 @@ export function useDashboardV1Data() {
       const clampedAssetPrimaires = Math.min(assetPrimaires, totalAssets);
       const clampedAssetSupports = Math.min(assetSupports, Math.max(totalAssets - clampedAssetPrimaires, 0));
       const assetsToReview = Math.max(totalAssets - clampedAssetPrimaires - clampedAssetSupports, 0);
+      const clauseSubConformity = computeClauseSubConformity(clauseDashboard);
+      const clausesConformityRate = clauseSubConformity.totalSubClauses
+        ? Math.round(pct(clauseSubConformity.conformes, clauseSubConformity.totalSubClauses))
+        : Math.round(toNum(clauseStats?.averageConformity));
+      const clausesConformesCount = clauseSubConformity.totalSubClauses
+        ? clauseSubConformity.conformes
+        : toNum(clauseStats?.conformeClauses);
+      const clausesNonConformesCount = clauseSubConformity.totalSubClauses
+        ? clauseSubConformity.nonConformes
+        : toNum(clauseStats?.nonConformeClauses);
 
       const pdca = computePdcaRate(cyclePayload);
 
@@ -654,7 +725,8 @@ export function useDashboardV1Data() {
         (incident) => normalizeIncidentStatus(incident?.statut ?? incident?.Status) === "resolved"
       ).length;
 
-      const controlsConformityRate = Math.round(pct(controlsConforme, Math.max(controls.length - controlsNonEvalue, 1)));
+      // Conformite stricte: 100% uniquement si tous les controles du perimetre sont conformes.
+      const controlsConformityRate = Math.round(pct(controlsConforme, controls.length));
       const docsConformityRate = Math.round(pct(docsApproved, documents.length));
       const assetsConformityRate = totalAssets
         ? Math.round(((clampedAssetSupports + clampedAssetPrimaires) / totalAssets) * 100)
@@ -662,7 +734,7 @@ export function useDashboardV1Data() {
 
       const globalConformity = Math.round(
         average([
-          toNum(clauseStats?.averageConformity),
+          clausesConformityRate,
           controlsConformityRate,
           docsConformityRate,
           assetsConformityRate,
@@ -724,7 +796,7 @@ export function useDashboardV1Data() {
         .map(({ sortTs, ...incident }) => incident);
 
       const conformityByDomain = [
-        { name: "Clauses", value: Math.round(toNum(clauseStats?.averageConformity)) },
+        { name: "Clauses", value: clausesConformityRate },
         { name: "Controles", value: controlsConformityRate },
         { name: "Documentation", value: docsConformityRate },
         { name: "Actifs", value: assetsConformityRate },
@@ -1079,23 +1151,23 @@ export function useDashboardV1Data() {
         const createdAt = parseDate(doc?.createdAt, doc?.CreatedAt);
         const updatedAt = parseDate(doc?.updatedAt, doc?.UpdatedAt, doc?.approvedAt, doc?.ApprovedAt);
         const approvedAt = parseDate(doc?.approvedAt, doc?.ApprovedAt);
-        const statusToken = normalize(doc?.status ?? doc?.Status);
-        const completedAt = statusToken.includes("approuve") || statusToken.includes("approve") ? updatedAt : null;
+        const statusToken = doc?.status ?? doc?.Status;
+        const completedAt = isApprovedDocumentStatus(statusToken) ? updatedAt : null;
         addActivity("Documentation", createdAt, completedAt);
         trackQuality({
           owner: cleanOwner(doc?.author, doc?.Author, doc?.approver, doc?.Approver),
           dueDate: null,
-          statusKnown: statusToken.length > 0,
+          statusKnown: normalize(statusToken).length > 0,
           dueApplicable: false,
         });
 
-        if (statusToken.includes("approuve") || statusToken.includes("approve")) {
+        if (isApprovedDocumentStatus(statusToken)) {
           docApprovalSlaDays.push(daysBetween(createdAt, approvedAt ?? updatedAt));
         }
 
         const validationDate = updatedAt ?? createdAt;
         const validationAgeDays = daysBetween(validationDate, now);
-        const isValidation = statusToken.includes("validation");
+        const isValidation = isValidationDocumentStatus(statusToken);
         const isAgedValidation = isValidation && validationAgeDays !== null && validationAgeDays > docValidationDelayThresholdDays;
 
         if (isAgedValidation) {
@@ -1263,17 +1335,19 @@ export function useDashboardV1Data() {
         },
       };
 
-      await axiosInstance
-        .post("/api/dashboard/snapshots/upsert", {
-          monthStartUtc: monthStartCurrent.toISOString(),
-          globalConformity,
-          incidentsCount: incidentsCurrentMonth,
-          auditsCompleted: auditsCompletedCurrentMonth,
-          pdcaCompleted: pdcaCompletedCurrentMonth,
-        })
-        .catch(() => {
-          // Silent fallback: dashboard remains fully functional even when snapshot save is unavailable.
-        });
+      if (canPersistSnapshots) {
+        await axiosInstance
+          .post("/api/dashboard/snapshots/upsert", {
+            monthStartUtc: monthStartCurrent.toISOString(),
+            globalConformity,
+            incidentsCount: incidentsCurrentMonth,
+            auditsCompleted: auditsCompletedCurrentMonth,
+            pdcaCompleted: pdcaCompletedCurrentMonth,
+          })
+          .catch(() => {
+            // Silent fallback: dashboard remains fully functional even when snapshot save is unavailable.
+          });
+      }
 
       const data = {
         overview: {
@@ -1349,13 +1423,13 @@ export function useDashboardV1Data() {
           },
         },
         clauses: {
-          conformiteGlobale: Math.round(toNum(clauseStats?.averageConformity)),
-          clausesConformes: toNum(clauseStats?.conformeClauses),
+          conformiteGlobale: clausesConformityRate,
+          clausesConformes: clausesConformesCount,
           plansAction: toNum(clauseStats?.totalActions),
           actionsRetard: toNum(clauseStats?.delayedActions),
           totalClauses: toNum(clauseStats?.totalClauses),
           inProgressActions: toNum(clauseStats?.inProgressActions),
-          nonConformeClauses: toNum(clauseStats?.nonConformeClauses),
+          nonConformeClauses: clausesNonConformesCount,
           table: clausesTable,
         },
         controls: {
@@ -1448,7 +1522,7 @@ export function useDashboardV1Data() {
         warnings: [],
       });
     }
-  }, []);
+  }, [canPersistSnapshots]);
 
   useEffect(() => {
     loadData(false);
@@ -1464,4 +1538,3 @@ export function useDashboardV1Data() {
     [state, refresh]
   );
 }
-

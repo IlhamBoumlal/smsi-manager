@@ -14,11 +14,29 @@ namespace backend.Infrastructure.Services
         {
             PropertyNameCaseInsensitive = true
         };
-        private readonly IWebHostEnvironment _env;
-        public ClauseService(AppDbContext db, IWebHostEnvironment env)
-        { _db = db; _env = env; }
-
         public ClauseService(AppDbContext db) => _db = db;
+
+        private static List<ConformityStatus> ResolveEffectiveConformities(IEnumerable<ConformityStatus> source, int? societeId)
+        {
+            return source
+                .GroupBy(cs => cs.IsoClauseId)
+                .Select(group =>
+                {
+                    if (societeId.HasValue)
+                    {
+                        // Priorite au statut de la societe active, sinon fallback global (SocieteId null).
+                        return group
+                            .OrderByDescending(cs => cs.SocieteId == societeId.Value)
+                            .ThenByDescending(cs => cs.UpdatedAt)
+                            .First();
+                    }
+
+                    return group
+                        .OrderByDescending(cs => cs.UpdatedAt)
+                        .First();
+                })
+                .ToList();
+        }
 
         // ── MAPPERS ───────────────────────────────────────────────────────────
 
@@ -334,10 +352,11 @@ namespace backend.Infrastructure.Services
                 .OrderBy(c => c.Number)
                 .ToListAsync();
 
-            var conformities = await _db.ConformityStatuses
+            var rawConformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
                 .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
                 .ToListAsync();
+            var conformities = ResolveEffectiveConformities(rawConformities, societeId);
 
             var actionPlans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
@@ -379,10 +398,11 @@ namespace backend.Infrastructure.Services
 
         public async Task<GlobalStatsDto> GetGlobalStatsAsync(string userId, int? societeId)
         {
-            var conformities = await _db.ConformityStatuses
+            var rawConformities = await _db.ConformityStatuses
                 .Where(cs => cs.UserId == userId)
                 .Where(cs => societeId.HasValue ? cs.SocieteId == societeId.Value || cs.SocieteId == null : cs.SocieteId == null)
                 .ToListAsync();
+            var conformities = ResolveEffectiveConformities(rawConformities, societeId);
 
             var plans = await _db.ActionPlans
                 .Where(ap => ap.UserId == userId)
@@ -390,8 +410,16 @@ namespace backend.Infrastructure.Services
                 .ToListAsync();
 
             var totalClauses = await _db.IsoClauses.CountAsync(c => c.ParentId == null);
-            var totalSubClauses = await _db.IsoClauses.CountAsync(c => c.ParentId != null);
-            var conformeSubClauses = conformities.Count(c => c.Status == "conforme");
+            var subClauseIds = await _db.IsoClauses
+                .Where(c => c.ParentId != null)
+                .Select(c => c.Id)
+                .ToListAsync();
+            var subClauseIdSet = subClauseIds.ToHashSet();
+            var totalSubClauses = subClauseIdSet.Count;
+            var scopedConformities = conformities
+                .Where(c => subClauseIdSet.Contains(c.IsoClauseId))
+                .ToList();
+            var conformeSubClauses = scopedConformities.Count(c => string.Equals(c.Status, "conforme", StringComparison.OrdinalIgnoreCase));
             var averageConformity = totalSubClauses > 0
                 ? Math.Round((double)conformeSubClauses / totalSubClauses * 100, 1)
                 : 0;
@@ -401,9 +429,9 @@ namespace backend.Infrastructure.Services
             {
                 TotalClauses = totalClauses,
                 AverageConformity = averageConformity,
-                ConformeClauses = conformities.Count(c => c.Status == "conforme"),
+                ConformeClauses = conformeSubClauses,
                 PartialClauses = 0,
-                NonConformeClauses = conformities.Count(c => c.Status == "non-conforme"),
+                NonConformeClauses = scopedConformities.Count(c => string.Equals(c.Status, "non-conforme", StringComparison.OrdinalIgnoreCase)),
                 TotalActions = plans.Count,
                 CompletedActions = plans.Count(p => p.Statut == "terminee"),
                 InProgressActions = plans.Count(p => p.Statut == "en-cours"),

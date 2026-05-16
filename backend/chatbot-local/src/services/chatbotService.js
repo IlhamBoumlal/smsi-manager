@@ -104,6 +104,20 @@ function normalizeSearchText(value) {
     .trim();
 }
 
+const CONTROLE_CONFORME_QUESTION_PATTERN = /\b(quel|quels|quelle|quelles|qui|liste|donne|montre|affiche|identifie|citer)\b/;
+
+function isConformeControlsQuestion(message) {
+  const raw = String(message ?? "");
+  const normalized = normalizeSearchText(raw);
+  if (!normalized) return false;
+
+  const hasControlSignal = normalized.includes("controle");
+  const hasConformeSignal = normalized.includes("conforme");
+  if (!hasControlSignal || !hasConformeSignal) return false;
+
+  return raw.includes("?") || CONTROLE_CONFORME_QUESTION_PATTERN.test(normalized);
+}
+
 function hasIso27001Signal(message) {
   const normalized = normalizeSearchText(message);
   return normalized.includes("iso 27001") || normalized.includes("iso27001");
@@ -233,6 +247,18 @@ export function buildSmsiReferenceNotes(message, options = {}) {
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function toBoolean(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const token = normalizeToken(value);
+    if (!token) return fallback;
+    if (token === "true" || token === "1" || token === "oui" || token === "yes") return true;
+    if (token === "false" || token === "0" || token === "non" || token === "no") return false;
+  }
+  return fallback;
 }
 
 function toNullableNumber(value) {
@@ -641,12 +667,18 @@ function summarizeControles(controles) {
   const nonMisEnOeuvre = [];
   const soaNonApplicables = [];
   const actionsEnRetard = [];
+  const controlesConformes = [];
 
   for (const control of items) {
     const status = normalizeControlStatus(readValue(control, "statut", "Statut"));
-    const applicable = Boolean(readValue(control, "applicable", "Applicable"));
-    const code = readValue(control, "code", "Code");
-    const titre = readValue(control, "titre", "Titre");
+    const applicable = toBoolean(readValue(control, "applicable", "Applicable"), false);
+    const code =
+      readValue(control, "code", "Code", "reference", "Reference", "ref", "Ref") || null;
+    const titre =
+      readValue(control, "titre", "Titre", "title", "Title", "nom", "Nom", "name", "Name") ||
+      null;
+    const domaine = readValue(control, "domaine", "Domaine") || null;
+    const id = readValue(control, "id", "Id") || null;
     const priorite = readValue(control, "priorite", "Priorite");
     const responsable = readValue(control, "responsablePlan", "ResponsablePlan");
     const dueDate = readValue(control, "dateEcheance", "DateEcheance");
@@ -655,7 +687,16 @@ function summarizeControles(controles) {
     if (applicable) overview.applicables += 1;
     else overview.nonApplicables += 1;
 
-    if (status === "conforme") overview.conformes += 1;
+    if (status === "conforme") {
+      overview.conformes += 1;
+      controlesConformes.push({
+        id,
+        code,
+        titre,
+        domaine,
+        applicable,
+      });
+    }
     else if (status === "nc_mineure") {
       overview.ncMineures += 1;
       overview.nonConformes += 1;
@@ -700,8 +741,15 @@ function summarizeControles(controles) {
     }
   }
 
+  controlesConformes.sort((a, b) => {
+    const aKey = normalizeSearchText(`${a.code || ""} ${a.titre || ""}`);
+    const bKey = normalizeSearchText(`${b.code || ""} ${b.titre || ""}`);
+    return aKey.localeCompare(bKey);
+  });
+
   return {
     ...overview,
+    topConformes: limitItems(controlesConformes),
     nonMisEnOeuvre: limitItems(nonMisEnOeuvre),
     actionsEnRetard: limitItems(actionsEnRetard),
     soa: {
@@ -710,6 +758,42 @@ function summarizeControles(controles) {
       topControlesNonApplicables: limitItems(soaNonApplicables),
     },
   };
+}
+
+function formatConformeControlLabel(control) {
+  const code = String(readValue(control, "code", "Code") || "").trim();
+  const titre = String(readValue(control, "titre", "Titre") || "").trim();
+  if (code && titre) return `${code} - ${titre}`;
+  if (code) return code;
+  if (titre) return titre;
+  const id = String(readValue(control, "id", "Id") || "").trim();
+  return id ? `Controle ${id}` : "Controle conforme";
+}
+
+function buildDirectConformeControlsAnswer(message, appSummary) {
+  if (!isConformeControlsQuestion(message)) return null;
+
+  const controlsSummary = readValue(appSummary, "controles");
+  if (!controlsSummary || typeof controlsSummary !== "object") return null;
+
+  const totalConformes = toNumber(readValue(controlsSummary, "conformes"), 0);
+  const topConformes = toArray(readValue(controlsSummary, "topConformes"));
+
+  if (totalConformes <= 0) {
+    return "Selon les donnees actuelles, vous n'avez aucun controle conforme.";
+  }
+
+  if (topConformes.length === 0) {
+    return `Selon les donnees actuelles, vous avez ${totalConformes} controle(s) conforme(s), mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = topConformes.map(
+    (control, index) => `${index + 1}. ${formatConformeControlLabel(control)}`
+  );
+  const totalLine =
+    totalConformes > topConformes.length ? `\nTotal controles conformes: ${totalConformes}.` : "";
+
+  return `Voici les controles conformes identifies :\n${lines.join("\n")}${totalLine}`;
 }
 
 function summarizeRisques(studies) {
@@ -1236,6 +1320,7 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
       "Mode APP_DATA_ANALYSIS: base ta reponse sur les donnees reelles de l'application.",
       unavailableSources,
       "- Si une information est absente, indique clairement: 'Information indisponible dans les donnees actuelles'.",
+      "- Si la question porte sur les controles conformes, utilise prioritairement 'controles.topConformes' et 'controles.conformes' du contexte JSON.",
       "- Structure la reponse en sections claires: constats, impacts, recommandations.",
     ].join("\n");
   }
@@ -1506,6 +1591,7 @@ async function prepareConversationExecution({ message, history, token, permissio
     messages,
     context,
     llmOptions,
+    appSummary: appContext?.summary || null,
     trace: {
       message,
       mode: intent.mode,
@@ -1822,6 +1908,17 @@ export async function generateAssistantReply({
   });
   logChatTrace(execution.trace);
 
+  const directAnswer = buildDirectConformeControlsAnswer(message, execution.appSummary);
+  if (directAnswer) {
+    execution.trace.finalResponseLength = String(directAnswer).length;
+    execution.trace.directAnswer = "controles_conformes";
+    logChatTrace(execution.trace);
+    return {
+      answer: directAnswer,
+      context: execution.context,
+    };
+  }
+
   let answer = "";
   try {
     answer = await callOllama(execution.messages, execution.llmOptions);
@@ -1860,6 +1957,36 @@ export async function streamAssistantReply({
     lastMethod,
   });
   logChatTrace(execution.trace);
+
+  const directAnswer = buildDirectConformeControlsAnswer(message, execution.appSummary);
+  if (directAnswer) {
+    const directStartedAt = Date.now();
+    onFirstToken?.({
+      elapsedMs: 0,
+      timeoutMs: OLLAMA_FIRST_TOKEN_TIMEOUT_MS,
+    });
+    onToken?.(directAnswer);
+    execution.trace.finalResponseLength = String(directAnswer).length;
+    execution.trace.directAnswer = "controles_conformes";
+    logChatTrace(execution.trace);
+
+    return {
+      answer: directAnswer,
+      context: execution.context,
+      metrics: {
+        firstTokenMs: 0,
+        totalMs: Date.now() - directStartedAt,
+        firstTokenTimeoutMs: OLLAMA_FIRST_TOKEN_TIMEOUT_MS,
+        numPredict: 0,
+        doneReason: "direct_answer",
+        evalCount: null,
+        promptEvalCount: null,
+        evalDuration: null,
+        promptEvalDuration: null,
+        totalDuration: null,
+      },
+    };
+  }
 
   let streamed = null;
   try {

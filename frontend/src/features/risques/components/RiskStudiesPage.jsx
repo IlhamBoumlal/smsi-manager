@@ -16,16 +16,16 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRiskStudies } from "./RiskStudiesContext";
+import { useRiskStudies } from "../../../hooks/useRiskStudies";
 import {
   ANSSI_BASE,
   MITRE_TACTICS,
   getEffectiveWorkshopStatus,
   getStudyProgress,
   WORKSHOP_META,
-} from "./riskModel";
+} from "../riskModel";
 import { RiskCard, RiskKpiTile, RiskModal, RiskPageHeader, RiskProgressBar, RiskSectionHeader, RiskStatusBadge } from "./RiskUi";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../hooks/useAuth";
 
 function StudyCreateModal({ open, onClose, onSubmit }) {
   const [form, setForm] = useState({ name: "", organization: "", description: "", perimeter: "", author: "" });

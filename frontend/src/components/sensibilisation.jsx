@@ -23,6 +23,7 @@ const DEPARTMENTS = [
   'Infrastructure, Cloud & Security',
   'Administration',
 ];
+const PAGE_FONT = "'Sora', 'Inter', 'Segoe UI', sans-serif";
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function Toast({ msg, type, onClose }) {
   }, [onClose]);
   return (
     <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium border
-      ${type === 'success' ? 'bg-white text-gray-800 border-gray-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+      ${type === 'success' ? 'bg-white text-slate-800 border-slate-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
       {type === 'success' ? <Check className="w-4 h-4 text-emerald-600" /> : <X className="w-4 h-4 text-red-500" />}
       {msg}
     </div>
@@ -56,7 +57,7 @@ function Badge({ status }) {
     'Preuve enregistrée': 'bg-gray-900 text-white',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${styles[status] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium ${styles[status] || 'bg-gray-100 text-slate-600'}`}>
       {status}
     </span>
   );
@@ -69,7 +70,7 @@ function ProgressBar({ value, total }) {
       <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] text-gray-400 font-mono">{total > 0 ? `${value}/${total} · ${pct}%` : '0/— · —'}</span>
+      <span className="text-[10px] text-slate-400 font-mono">{total > 0 ? `${value}/${total} · ${pct}%` : '0/— · —'}</span>
     </div>
   );
 }
@@ -107,7 +108,7 @@ function Toggle({ checked, onChange }) {
 
 function SectionDivider({ children }) {
   return (
-    <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest pb-2 border-b border-gray-100 mt-5 mb-3.5 font-mono first:mt-0">
+    <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest pb-2 border-b border-slate-100 mt-5 mb-3.5 font-mono first:mt-0">
       {children}
     </div>
   );
@@ -123,15 +124,15 @@ function KpiStrip({ data, loading }) {
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 4 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 12, marginBottom: 4 }}>
       {kpis.map((k, i) => (
         <div key={i} style={{
           background: k.highlight ? 'linear-gradient(135deg,#1D4ED8,#1e40af)' : '#fff',
           borderRadius: 14, padding: '20px 22px',
-          boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.06)',
+          boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(15,23,42,.06),0 0 0 1px rgba(148,163,184,.18)',
           animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 80}ms both`,
         }}>
-          <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: PAGE_FONT, letterSpacing: '-1.5px' }}>{k.value}</div>
           <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
           <div style={{ fontSize: 11.5, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
           {k.highlight && typeof data?.tauxMoyen === 'number' && (
@@ -153,14 +154,16 @@ const MODULES = [
 
 function ActionBar({ active, onChange }) {
   return (
-    <div className="flex gap-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 w-fit">
+    <div className="flex flex-wrap gap-2">
       {MODULES.map(m => {
         const Icon = m.icon;
         const isActive = active === m.id;
         return (
           <button key={m.id} onClick={() => onChange(m.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all
-              ${isActive ? 'bg-blue-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}>
+            className={`inline-flex items-center gap-2 h-11 px-6 rounded-full border text-[15px] font-semibold transition-all
+              ${isActive
+                ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-600/30'
+                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'}`}>
             <Icon className="w-4 h-4" />{m.label}
           </button>
         );
@@ -173,8 +176,6 @@ function ActionBar({ active, onChange }) {
 function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canWrite, canDelete, canExport }) {
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [filterType,   setFilterType]   = useState('');
-  const [filterDept,   setFilterDept]   = useState('');
   const [notifying,    setNotifying]    = useState(null);
   const [deleting,     setDeleting]     = useState(null);
   const [confirmId,    setConfirmId]    = useState(null);
@@ -182,10 +183,15 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
   const filtered = formations.filter(f => {
     const matchSearch = f.title.toLowerCase().includes(search.toLowerCase());
     const matchStatus = !filterStatus || f.status === filterStatus;
-    const matchType   = !filterType   || f.type === filterType;
-    const matchDept   = !filterDept   || f.departement === filterDept || f.departement === 'Tous';
-    return matchSearch && matchStatus && matchType && matchDept;
+    return matchSearch && matchStatus;
   });
+
+  const statusTabs = [
+    { value: '',          label: 'Tous',       icon: Search,    tone: 'all' },
+    { value: 'Planifiée', label: 'Planifiées', icon: BookOpen,  tone: 'neutral' },
+    { value: 'En cours',  label: 'En cours',   icon: RefreshCw, tone: 'info' },
+    { value: 'Terminée',  label: 'Terminées',  icon: Check,     tone: 'success' },
+  ];
 
   const handleNotify = async (f) => {
     if (!canWrite) {
@@ -224,122 +230,177 @@ function ListView({ formations, loading, onView, onNew, onToast, onRefresh, canW
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest font-mono mb-1">ISO 27001 · Clause 7.2 &amp; 7.3</div>
-          <h1 className="text-[22px] font-medium text-gray-900">Sensibilisation et formation</h1>
-        </div>
+      <div className="flex justify-end mb-6">
         {canWrite && (
           <button onClick={onNew}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-[13px] rounded-xl shadow-sm shadow-blue-600/25 hover:bg-blue-700 transition-colors">
             <Plus className="w-3.5 h-3.5" /> Nouvelle formation
           </button>
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white text-gray-700 focus:outline-none focus:border-gray-400">
-          <option value="">Tous les statuts</option>
-          <option>Planifiée</option><option>En cours</option><option>Terminée</option>
-        </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white text-gray-700 focus:outline-none focus:border-gray-400">
-          <option value="">Tous les types</option>
-          <option>Présentiel</option><option>Distanciel</option><option>E-learning</option>
-        </select>
-        <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white text-gray-700 focus:outline-none focus:border-gray-400">
-          <option value="">Tous les départements</option>
-          {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
-        </select>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher une formation…"
-            className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white text-gray-700 focus:outline-none focus:border-gray-400 min-w-[200px]" />
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {statusTabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = filterStatus === tab.value;
+            const count = tab.value ? formations.filter(f => f.status === tab.value).length : formations.length;
+
+            let tone = 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400';
+            if (tab.tone === 'info') tone = 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100';
+            if (tab.tone === 'success') tone = 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100';
+
+            return (
+              <button
+                key={tab.label}
+                onClick={() => setFilterStatus(tab.value)}
+                className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full border text-[13px] font-semibold transition-all ${
+                  isActive
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-600/30'
+                    : tone
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+                <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full border text-[11px] font-bold ${
+                  isActive
+                    ? 'bg-white/20 border-white/30 text-white'
+                    : 'bg-white/80 border-current/25'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {canExport && (
+              <button
+                onClick={() => onToast('Export généré')}
+                className="inline-flex items-center gap-1.5 px-3.5 h-10 border border-slate-300 text-[13px] font-semibold text-slate-700 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Exporter
+              </button>
+            )}
+            <button
+              onClick={onRefresh}
+              className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all"
+              title="Actualiser"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+              <span className="text-[13px] leading-none font-semibold">Actualiser</span>
+            </button>
+          </div>
         </div>
-        <div className="flex-1" />
-        {canExport && (
-          <button onClick={() => onToast('Export généré')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-xs text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-            <Download className="w-3.5 h-3.5" /> Exporter pour audit
-          </button>
-        )}
+
+        <div className="mt-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher une formation..."
+              className="w-full h-12 pl-12 pr-4 border border-slate-300 rounded-xl text-[14px] bg-slate-50/30 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? <Spinner /> : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-gray-100">
+            <table className="w-full min-w-[980px] text-[13px]">
+              <thead className="bg-slate-50/80 border-b border-slate-200">
+                <tr>
                   {['Intitulé', 'Type', 'Date', 'Durée', 'Formateur', 'Participation', 'Statut', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[11px] font-medium text-gray-400 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(f => (
-                  <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{f.title}</div>
-                      <div className="text-[11px] text-gray-400 mt-0.5">{f.departement} · {f.participants} participants</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.type}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap font-mono text-[12px]">
-                      {new Date(f.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.duree}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{f.formateur.split('–')[0].trim()}</td>
-                    <td className="px-4 py-3"><ProgressBar value={f.presents} total={f.participants} /></td>
-                    <td className="px-4 py-3 whitespace-nowrap"><Badge status={f.status} /></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => onView(f.id)}
-                          className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
-                          Voir
-                        </button>
-                        {canWrite && (
-                          <button
-                            onClick={() => handleNotify(f)}
-                            disabled={notifying === f.id}
-                            className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
-                            {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
+                {filtered.map((f, idx) => {
+                  const typeTone = f.type === 'Présentiel'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : f.type === 'Distanciel'
+                      ? 'bg-violet-50 text-violet-700 border-violet-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200';
+
+                  return (
+                    <tr key={f.id} className={`border-b border-slate-100 transition-colors last:border-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/80`}>
+                      <td className="px-5 py-3.5">
+                        <div className="font-semibold text-slate-900">{f.title}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{f.departement} · {f.participants} participants</div>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[11px] font-semibold ${typeTone}`}>
+                          {f.type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap font-mono text-[12px]">
+                        {new Date(f.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">{f.duree}</td>
+                      <td className="px-5 py-3.5 text-slate-600 whitespace-nowrap">{f.formateur.split('–')[0].trim()}</td>
+                      <td className="px-5 py-3.5"><ProgressBar value={f.presents} total={f.participants} /></td>
+                      <td className="px-5 py-3.5 whitespace-nowrap"><Badge status={f.status} /></td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => onView(f.id)}
+                            className="px-2.5 py-1 border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                            Voir
                           </button>
-                        )}
-                        {canDelete && (
-                          confirmId === f.id ? (
-                            <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                              <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
-                              <button
-                                onClick={() => handleDelete(f.id)}
-                                disabled={deleting === f.id}
-                                className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
-                                {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
-                              </button>
-                              <span className="text-red-300">·</span>
-                              <button onClick={() => setConfirmId(null)}
-                                className="text-[11px] text-gray-500 hover:text-gray-700 px-1">
-                                Non
-                              </button>
-                            </div>
-                          ) : (
+                          {canWrite && (
                             <button
-                              onClick={() => setConfirmId(f.id)}
-                              disabled={deleting === f.id}
-                              className="p-1.5 border border-gray-200 text-gray-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                              title="Supprimer">
-                              <Trash2 className="w-3.5 h-3.5" />
+                              onClick={() => handleNotify(f)}
+                              disabled={notifying === f.id}
+                              className="px-2.5 py-1 border border-slate-200 bg-white text-[11px] font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
+                              {notifying === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Notifier'}
                             </button>
-                          )
-                        )}
+                          )}
+                          {canDelete && (
+                            confirmId === f.id ? (
+                              <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+                                <span className="text-[10px] text-red-600 whitespace-nowrap">Confirmer ?</span>
+                                <button
+                                  onClick={() => handleDelete(f.id)}
+                                  disabled={deleting === f.id}
+                                  className="text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 px-1">
+                                  {deleting === f.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Oui'}
+                                </button>
+                                <span className="text-red-300">·</span>
+                                <button onClick={() => setConfirmId(null)}
+                                  className="text-[11px] text-slate-500 hover:text-slate-700 px-1">
+                                  Non
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmId(f.id)}
+                                disabled={deleting === f.id}
+                                className="p-1.5 border border-slate-200 text-slate-400 rounded-lg hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                title="Supprimer">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-14">
+                      <div className="flex flex-col items-center justify-center text-center px-6">
+                        <div className="w-12 h-12 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center mb-3">
+                          <BookOpen className="w-6 h-6 text-slate-300" />
+                        </div>
+                        <p className="text-[17px] font-semibold text-slate-500">Aucune formation trouvée</p>
+                        <p className="text-sm text-slate-400 mt-1">Ajustez les filtres ou créez une nouvelle formation.</p>
                       </div>
                     </td>
                   </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-10 text-gray-400 text-sm">Aucune formation trouvée</td></tr>
                 )}
               </tbody>
             </table>
@@ -402,33 +463,33 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest font-mono mb-1">Sensibilisation · Nouvelle</div>
-          <h1 className="text-[22px] font-medium text-gray-900">Planifier une formation</h1>
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.22em] font-mono mb-1">Sensibilisation · Nouvelle</div>
+          <h1 className="text-[22px] font-semibold text-slate-900">Planifier une formation</h1>
         </div>
         <button onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+          className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-[13px] text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Retour
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         {/* Infos générales */}
         <SectionDivider>Informations générales</SectionDivider>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2 flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Nom de la formation <span className="text-red-500">*</span></label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Nom de la formation <span className="text-red-500">*</span></label>
             <input value={form.title} onChange={e => set('title', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
           <div className="md:col-span-2 flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Description</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Description</label>
             <textarea rows={2} value={form.description} onChange={e => set('description', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 resize-y focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 resize-y focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
           <div className="md:col-span-2 flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Objectif pédagogique</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Objectif pédagogique</label>
             <input value={form.objectif} onChange={e => set('objectif', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
         </div>
 
@@ -436,24 +497,24 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
         <SectionDivider>Planification</SectionDivider>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
             <input type="date" value={form.date} onChange={e => set('date', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Heure de début</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Heure de début</label>
             <input type="time" value={form.heure} onChange={e => set('heure', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Durée <span className="text-red-500">*</span></label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Durée <span className="text-red-500">*</span></label>
             <select value={form.duree} onChange={e => set('duree', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400">
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
               {['30 min', '1h', '1h30', '2h', '3h', '4h', 'Journée complète'].map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Mode de formation</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Mode de formation</label>
             <div className="flex gap-4 flex-wrap pt-1">
               {['Présentiel', 'Distanciel', 'E-learning'].map(m => (
                 <label key={m} className="flex items-center gap-2 text-[13px] cursor-pointer">
@@ -467,18 +528,18 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
         {/* Participants */}
         <SectionDivider>Participants</SectionDivider>
         
-        <div className="bg-gray-50 rounded-xl p-4 mb-2">
-          <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-3">Participants spécifiques (avec email pour notifications)</div>
+        <div className="bg-slate-50 rounded-xl p-4 mb-2">
+          <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-3">Participants spécifiques (avec email pour notifications)</div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
             <input placeholder="Nom complet" value={partInput.fullName}
               onChange={e => setPartInput(p => ({ ...p, fullName: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
             <input placeholder="Email" type="email" value={partInput.email}
               onChange={e => setPartInput(p => ({ ...p, email: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
             <select value={partInput.department}
               onChange={e => setPartInput(p => ({ ...p, department: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400">
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
               <option value="">Département…</option>
               {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
             </select>
@@ -490,9 +551,9 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
           {form.participants.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {form.participants.map((p, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-1 text-[12px]">
-                  {p.fullName} <span className="text-gray-400">·</span> {p.email}
-                  <button onClick={() => removeParticipant(i)} className="text-gray-400 hover:text-red-500 text-base leading-none">×</button>
+                <span key={i} className="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3 py-1 text-[12px]">
+                  {p.fullName} <span className="text-slate-400">·</span> {p.email}
+                  <button onClick={() => removeParticipant(i)} className="text-slate-400 hover:text-red-500 text-base leading-none">×</button>
                 </span>
               ))}
             </div>
@@ -503,7 +564,7 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
         <SectionDivider>Formateur</SectionDivider>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Type</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Type</label>
             <div className="flex gap-4 flex-wrap pt-1">
               {['Interne', 'Externe'].map(t => (
                 <label key={t} className="flex items-center gap-2 text-[13px] cursor-pointer">
@@ -513,23 +574,23 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Nom du formateur</label>
+            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Nom du formateur</label>
             <input value={form.formateur} onChange={e => set('formateur', e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
           </div>
         </div>
 
         {/* Notifications */}
         <SectionDivider>Notifications automatiques (FluentEmail · Gmail SMTP)</SectionDivider>
-        <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+        <div className="bg-slate-50 rounded-xl p-4 flex flex-col gap-3">
           {[
             { key: 'notifInvit',  title: 'Invitation par email aux participants',     sub: 'Envoyée immédiatement après la planification' },
             { key: 'notifRappel', title: 'Rappel automatique 48h avant la formation', sub: 'Envoyé automatiquement via le service de fond' },
           ].map(n => (
             <div key={n.key} className="flex items-center justify-between">
               <div>
-                <div className="text-[13px] font-medium text-gray-900">{n.title}</div>
-                <div className="text-[11px] text-gray-400 mt-0.5">{n.sub}</div>
+                <div className="text-[13px] font-medium text-slate-900">{n.title}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{n.sub}</div>
               </div>
               <Toggle checked={form[n.key]} onChange={v => set(n.key, v)} />
             </div>
@@ -539,14 +600,14 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
         {/* LMS */}
         <SectionDivider>Lien externe</SectionDivider>
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Lien LMS / Drive…</label>
+          <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Lien LMS / Drive…</label>
           <input type="url" value={form.lmsLink} onChange={e => set('lmsLink', e.target.value)}
             placeholder="https://…"
-            className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-900 focus:outline-none focus:border-gray-400" />
+            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
         </div>
 
-        <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-gray-100">
-          <button onClick={onBack} className="px-4 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
+        <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-slate-100">
+          <button onClick={onBack} className="px-4 py-2 border border-slate-200 text-[13px] text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
           <button onClick={handleSubmit} disabled={submitting || !form.title || !form.date || !canWrite}
             className="px-4 py-2 bg-gray-900 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity disabled:opacity-50 flex items-center gap-2">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -650,7 +711,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
   };
 
   if (loading) return <Spinner />;
-  if (!formation) return <div className="text-gray-400 text-center py-10">Formation introuvable.</div>;
+  if (!formation) return <div className="text-slate-400 text-center py-10">Formation introuvable.</div>;
 
   const pct          = formation.participants > 0 ? Math.round((formation.presents / formation.participants) * 100) : 0;
   const circumference = 2 * Math.PI * 32;
@@ -660,19 +721,19 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
     <div>
       <div className="flex items-start justify-between mb-6">
         <div>
-          <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest font-mono mb-1">
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.22em] font-mono mb-1">
             Formation · #{formation.reference} · Preuve ISO 27001
           </div>
-          <h1 className="text-[22px] font-medium text-gray-900">{formation.title}</h1>
+          <h1 className="text-[22px] font-semibold text-slate-900">{formation.title}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onBack}
-            className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+            className="px-3 py-2 border border-slate-200 text-[13px] text-slate-600 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5">
             <ArrowLeft className="w-4 h-4" /> Retour
           </button>
           {canWrite && (
             <button onClick={handleNotify}
-              className="px-3 py-2 border border-gray-200 text-[13px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+              className="px-3 py-2 border border-slate-200 text-[13px] text-slate-600 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5">
               <SendIcon className="w-4 h-4" /> Notifier
             </button>
           )}
@@ -682,7 +743,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
         {/* Colonne gauche */}
         <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">
               <Badge status={formation.status} />
               {formation.status === 'Terminée' && <Badge status="Preuve enregistrée" />}
@@ -696,8 +757,8 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
               { label: 'Objectif',     value: formation.objectif, muted: true },
             ].map(row => (
               <div key={row.label} className="flex gap-3 mb-2 text-[13px] items-baseline">
-                <span className="text-gray-400 text-[12px] min-w-[110px]">{row.label}</span>
-                <span className={row.muted ? 'text-gray-500' : 'text-gray-900'}>{row.value}</span>
+                <span className="text-slate-400 text-[12px] min-w-[110px]">{row.label}</span>
+                <span className={row.muted ? 'text-slate-500' : 'text-slate-900'}>{row.value}</span>
               </div>
             ))}
 
@@ -709,7 +770,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                   <circle cx="40" cy="40" r="32" fill="none" stroke="#059669" strokeWidth="8"
                     strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-[18px] font-medium font-mono text-gray-900">{pct}%</div>
+                <div className="absolute inset-0 flex items-center justify-center text-[18px] font-medium font-mono text-slate-900">{pct}%</div>
               </div>
               <div className="flex flex-col gap-1.5">
                 {[
@@ -718,7 +779,7 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                 ].map(s => (
                   <div key={s.label} className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                    <span className="text-[12px] text-gray-600">{s.label} : <strong>{s.count}</strong></span>
+                    <span className="text-[12px] text-slate-600">{s.label} : <strong>{s.count}</strong></span>
                   </div>
                 ))}
               </div>
@@ -735,26 +796,26 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
         {/* Colonne droite */}
         <div className="flex flex-col gap-4">
           {/* Participants */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="text-[14px] font-medium text-gray-900 mb-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="text-[14px] font-medium text-slate-900 mb-4">
               Participants ({formation.participants})
             </div>
             {formation.participantsList.length === 0
-              ? <p className="text-[12px] text-gray-400">Aucun participant renseigné.</p>
+              ? <p className="text-[12px] text-slate-400">Aucun participant renseigné.</p>
               : formation.participantsList.map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                <div key={p.id} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-2.5">
                     <Avatar initials={p.initials} color={p.color} />
                     <div>
-                      <div className="text-[13px] font-medium text-gray-900">{p.name}</div>
-                      <div className="text-[11px] text-gray-400">{p.dept}</div>
+                      <div className="text-[13px] font-medium text-slate-900">{p.name}</div>
+                      <div className="text-[11px] text-slate-400">{p.dept}</div>
                     </div>
                   </div>
                   <select
                     value={p.status}
                     onChange={e => handleStatusChange(p.id, e.target.value)}
                     disabled={!canEdit}
-                    className="text-[11px] border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-700 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="text-[11px] border border-slate-200 rounded-full px-2 py-1 bg-white text-slate-700 focus:outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                     <option>Invité</option><option>Présent</option>
                   </select>
                 </div>
@@ -763,9 +824,9 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
           </div>
 
           {/* Documents */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[14px] font-medium text-gray-900">Documents</span>
+              <span className="text-[14px] font-medium text-slate-900">Documents</span>
               <div className="flex items-center gap-2">
                 {uploading && <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />}
                 <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.pptx" onChange={handleFileUpload} />
@@ -773,28 +834,28 @@ function DetailView({ formationId, onBack, onToast, canWrite, canEdit, canDelete
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="px-2.5 py-1 border border-gray-200 text-[11px] text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50">
+                    className="px-2.5 py-1 border border-slate-200 text-[11px] text-slate-600 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1 disabled:opacity-50">
                     <Upload className="w-3 h-3" /> Ajouter
                   </button>
                 )}
               </div>
             </div>
             {formation.docs.length === 0
-              ? <p className="text-[12px] text-gray-400">Aucun document joint.</p>
+              ? <p className="text-[12px] text-slate-400">Aucun document joint.</p>
               : formation.docs.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                <div key={doc.id} className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold
                     ${doc.type === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
                     {doc.type === 'pdf' ? 'PDF' : '↗'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium text-gray-900 truncate">{doc.name}</div>
-                    <div className="text-[11px] text-gray-400">{doc.meta}</div>
+                    <div className="text-[12px] font-medium text-slate-900 truncate">{doc.name}</div>
+                    <div className="text-[11px] text-slate-400">{doc.meta}</div>
                   </div>
                   <div className="flex items-center gap-1">
                     {canExport && (
                       <button onClick={() => handleDownload(doc)}
-                        className="px-2 py-1 border border-gray-200 text-[11px] text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">
+                        className="px-2 py-1 border border-slate-200 text-[11px] text-slate-500 rounded-lg hover:bg-slate-50 transition-colors">
                         ↓
                       </button>
                     )}
@@ -917,37 +978,33 @@ export default function Sensibilisation() {
   // Vérification d'accès
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#f8f9fb] flex items-center justify-center px-4">
         <div className="text-center">
           <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
-          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion de la sensibilisation.</p>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Accès non autorisé</h2>
+          <p className="text-slate-500">Vous n'avez pas les permissions nécessaires pour accéder à la gestion de la sensibilisation.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50" style={{ fontFamily: "'Inter','DM Sans',system-ui,sans-serif" }}>
+    <div className="min-h-screen w-full bg-[#f8f9fb]" style={{ fontFamily: PAGE_FONT }}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-9 pb-16 sm:px-8">
 
         {/* Page header */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+        <div className="mb-7">
+          <div className="flex flex-wrap items-center gap-4 mb-3">
             <div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: PAGE_FONT, letterSpacing: '-0.8px' }}>
                 Sensibilisation et formation
               </h1>
-              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13.5, color: '#64748b', margin: 0, lineHeight: 1.6 }}>
                 Clause 7.2 &amp; 7.3 · Gestion des formations SMSI
               </p>
             </div>
-            <button onClick={handleRefresh}
-              className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-              <RefreshCw className="w-4 h-4 text-gray-400" />
-            </button>
           </div>
         </div>
 

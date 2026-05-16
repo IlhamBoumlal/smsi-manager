@@ -10,17 +10,17 @@ import {
   Save,
   UserRound,
 } from "lucide-react";
-import { useRiskStudies } from "./RiskStudiesContext";
+import { useRiskStudies } from "../../../hooks/useRiskStudies";
 import {
   WORKSHOP_META,
   getEffectiveWorkshopStatus,
   getStudyProgress,
   getWorkshopProgress,
   isWorkshopBlocked,
-} from "./riskModel";
-import { printWorkshopLivrable } from "./riskExport";
+} from "../riskModel";
+import { printWorkshopLivrable } from "../riskExport";
 import { RiskCallout, RiskCard, RiskKpiTile, RiskPageHeader, RiskProgressBar, RiskStatusBadge } from "./RiskUi";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../hooks/useAuth";
 
 function countItems(value) {
   return Array.isArray(value) ? value.length : 0;

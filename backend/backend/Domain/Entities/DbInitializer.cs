@@ -50,6 +50,8 @@ namespace backend.Application.Services
                 await dbContext.Database.EnsureCreatedAsync();
             }
 
+            await EnsureSchemaCompatibilityHotfixesAsync(dbContext);
+
             await EnsureFinalRolesAsync(roleManager);
             await EnsureRbacCatalogAsync(dbContext);
             await EnsureBaselineRolePermissionsAsync(dbContext, roleManager);
@@ -460,7 +462,7 @@ namespace backend.Application.Services
                 },
                 [AppRoles.AdminSociete] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["dashboard"] = [readAction],
+                    ["dashboard"] = [readAction, createAction, editAction, deleteAction, exportAction],
                     ["cartographie"] = [readAction],
                     ["pdca"] = [readAction],
                     ["clauses"] = [readAction],
@@ -478,7 +480,7 @@ namespace backend.Application.Services
                 },
                 [AppRoles.Rssi] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["dashboard"] = [readAction, exportAction],
+                    ["dashboard"] = [readAction, createAction, editAction, deleteAction, exportAction],
                     ["cartographie"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
                     ["pdca"] = [readAction, createAction, editAction, deleteAction, exportAction],
                     ["clauses"] = [readAction, createAction, editAction, deleteAction, exportAction],
@@ -657,6 +659,64 @@ namespace backend.Application.Services
             var details = string.Join(", ", result.Errors.Select(e => e.Description));
             throw new InvalidOperationException($"{operation} a échoué: {details}");
         }
+
+        /// <summary>
+        /// Hotfixes de compatibilité schéma pour des bases locales partiellement migrées.
+        /// Ces réparations sont idempotentes et ne s'exécutent que si les objets manquent.
+        /// </summary>
+        private static async Task EnsureSchemaCompatibilityHotfixesAsync(AppDbContext dbContext)
+        {
+            const string sql = """
+IF OBJECT_ID(N'[ActionPlans]', N'U') IS NOT NULL
+AND COL_LENGTH(N'ActionPlans', N'GuidId') IS NULL
+BEGIN
+    ALTER TABLE [ActionPlans]
+    ADD [GuidId] uniqueidentifier NOT NULL
+        CONSTRAINT [DF_ActionPlans_GuidId] DEFAULT NEWID();
+END
+
+IF OBJECT_ID(N'[ProcessusClauses]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ProcessusClauses] (
+        [Id] uniqueidentifier NOT NULL,
+        [ProcessusId] uniqueidentifier NOT NULL,
+        [ClauseId] int NOT NULL,
+        [SocieteId] int NULL,
+        [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProcessusClauses_CreatedAt] DEFAULT SYSUTCDATETIME(),
+        [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProcessusClauses_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+        [Justification] nvarchar(max) NULL,
+        CONSTRAINT [PK_ProcessusClauses] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ProcessusClauses_Processus_ProcessusId] FOREIGN KEY ([ProcessusId]) REFERENCES [Processus]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ProcessusClauses_IsoClauses_ClauseId] FOREIGN KEY ([ClauseId]) REFERENCES [IsoClauses]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ProcessusClauses_Societes_SocieteId] FOREIGN KEY ([SocieteId]) REFERENCES [Societes]([Id]) ON DELETE SET NULL
+    );
+
+    CREATE UNIQUE INDEX [IX_ProcessusClauses_ProcessusId_ClauseId] ON [ProcessusClauses]([ProcessusId], [ClauseId]);
+    CREATE INDEX [IX_ProcessusClauses_SocieteId] ON [ProcessusClauses]([SocieteId]);
+END
+
+IF OBJECT_ID(N'[ProcessusControles]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ProcessusControles] (
+        [Id] uniqueidentifier NOT NULL,
+        [ProcessusId] uniqueidentifier NOT NULL,
+        [ControleId] uniqueidentifier NOT NULL,
+        [SocieteId] int NULL,
+        [CreatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProcessusControles_CreatedAt] DEFAULT SYSUTCDATETIME(),
+        [UpdatedAt] datetime2 NOT NULL CONSTRAINT [DF_ProcessusControles_UpdatedAt] DEFAULT SYSUTCDATETIME(),
+        [Justification] nvarchar(max) NULL,
+        CONSTRAINT [PK_ProcessusControles] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ProcessusControles_Processus_ProcessusId] FOREIGN KEY ([ProcessusId]) REFERENCES [Processus]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ProcessusControles_controles_ControleId] FOREIGN KEY ([ControleId]) REFERENCES [controles]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ProcessusControles_Societes_SocieteId] FOREIGN KEY ([SocieteId]) REFERENCES [Societes]([Id]) ON DELETE SET NULL
+    );
+
+    CREATE UNIQUE INDEX [IX_ProcessusControles_ProcessusId_ControleId] ON [ProcessusControles]([ProcessusId], [ControleId]);
+    CREATE INDEX [IX_ProcessusControles_SocieteId] ON [ProcessusControles]([SocieteId]);
+END
+""";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
     }
 }
-

@@ -1,6 +1,7 @@
 using backend.Application.Dashboard.Queries.GetGlobalDashboard;
 using backend.Application.DTOs.Dashboard;
 using backend.Application.Security;
+using backend.API.Middleware;
 using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,7 @@ namespace backend.API.Controllers
     [RequirePermission("dashboard")]
     public class DashboardController : ControllerBase
     {
+        private const string TraceActionOverrideItemKey = UserActivityTraceMiddleware.ActionOverrideItemKey;
         private readonly IMediator _mediator;
         private readonly AppDbContext _context;
 
@@ -90,6 +92,11 @@ namespace backend.API.Controllers
             var snapshot = await _context.DashboardMonthlySnapshots
                 .SingleOrDefaultAsync(x => x.SocieteId == CurrentSocieteId.Value && x.MonthStartUtc == monthStartUtc);
 
+            var isCreate = snapshot is null;
+            HttpContext.Items[TraceActionOverrideItemKey] = isCreate
+                ? PermissionCatalog.Actions.Create
+                : PermissionCatalog.Actions.Edit;
+
             if (snapshot is null)
             {
                 snapshot = new Domain.Entities.DashboardMonthlySnapshot
@@ -128,6 +135,28 @@ namespace backend.API.Controllers
                 CreatedAt = snapshot.CreatedAt,
                 UpdatedAt = snapshot.UpdatedAt,
             });
+        }
+
+        [HttpDelete("snapshots/{id:guid}")]
+        public async Task<IActionResult> DeleteSnapshot(Guid id)
+        {
+            if (!CurrentSocieteId.HasValue)
+            {
+                return Forbid();
+            }
+
+            var snapshot = await _context.DashboardMonthlySnapshots
+                .SingleOrDefaultAsync(x => x.Id == id && x.SocieteId == CurrentSocieteId.Value);
+
+            if (snapshot is null)
+            {
+                return NotFound();
+            }
+
+            HttpContext.Items[TraceActionOverrideItemKey] = PermissionCatalog.Actions.Delete;
+            _context.DashboardMonthlySnapshots.Remove(snapshot);
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
     }
 }

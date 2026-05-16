@@ -1,5 +1,5 @@
-import axiosInstance from "./axiosInstance";
-import { createEmptyStudy, normalizeLegacyStudy, nowDate, uid } from "../components/risques/riskModel";
+import axiosInstance from "../../../api/axiosInstance";
+import { createEmptyStudy, normalizeLegacyStudy, nowDate, uid } from "../riskModel";
 
 function pick(source, ...keys) {
   for (const key of keys) {
@@ -120,4 +120,3 @@ export async function getRiskOwners() {
     email: String(pick(item, "email", "Email") || "").trim(),
   })).filter((item) => item.id);
 }
-

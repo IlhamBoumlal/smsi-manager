@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -70,6 +70,7 @@ const MODULES = [
   { code: "sensibilisation", label: "Sensibilisation" },
   { code: "audit", label: "Audits" },
   { code: "chatbot", label: "Chatbot" },
+  { code: "tracabilite", label: "Tracabilite" },
   { code: "users", label: "Utilisateurs" },
   { code: "roles", label: "Roles et permissions" },
 ];
@@ -385,6 +386,7 @@ export default function GestionRoles() {
   const [savingRole, setSavingRole] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const savingRef = useRef(false);
 
   const [selectedRoleKey, setSelectedRoleKey] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -607,7 +609,11 @@ export default function GestionRoles() {
 
   const saveOverridesForMatrix = useCallback(
     async (nextMatrix, successText = "Permissions mises a jour.") => {
-      if (!selectedUser || !canManageSelectedUser) return;
+      if (!selectedUser || !canManageSelectedUser || savingRef.current) return;
+
+      const targetUserId = String(selectedUser.id);
+      const targetRoleCode = selectedRoleCode;
+      savingRef.current = true;
 
       setSaving(true);
       setError("");
@@ -628,29 +634,33 @@ export default function GestionRoles() {
           });
         });
 
-        const data = await apiFetch(`/api/user/${selectedUser.id}/permissions/overrides`, {
+        const data = await apiFetch(`/api/user/${targetUserId}/permissions/overrides`, {
           method: "PUT",
           body: JSON.stringify({ overrides }),
         });
 
-        setMatrix(buildMatrixFromPermissions(data, selectedRoleCode));
+        setMatrix(buildMatrixFromPermissions(data, targetRoleCode));
         setGrantedCountByUser((prev) => ({
           ...prev,
-          [String(selectedUser.id)]: countGrantedPermissions(data),
+          [targetUserId]: countGrantedPermissions(data),
         }));
         setSuccessMessage(successText);
       } catch (err) {
-        setError(err.message || "Erreur lors de la sauvegarde.");
+        const saveError = err.message || "Erreur lors de la sauvegarde.";
+        setError(saveError);
+        await loadPermissions(targetUserId, targetRoleCode);
+        setError(saveError);
       } finally {
+        savingRef.current = false;
         setSaving(false);
       }
     },
-    [canManageSelectedUser, selectedRoleCode, selectedUser],
+    [canManageSelectedUser, loadPermissions, selectedRoleCode, selectedUser],
   );
 
   const applyMatrixMutation = useCallback(
     (mutator, successText) => {
-      if (!canManageSelectedUser || saving) return;
+      if (!canManageSelectedUser || savingRef.current || saving) return;
       setSuccessMessage("");
 
       setMatrix((prev) => {

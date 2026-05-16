@@ -15,6 +15,8 @@ const PATH_TO_AXE = {
   "/documentation": "documentation",
   "/risques":       "risques",
   "/audits":        "audits",
+  "/sensibilisation": "sensibilisation",
+  "/incidents":     "incidents",
   "/admin/stats":   "admin-stats",
   "/admin/utilisateurs": "admin-users",
   "/admin/roles": "admin-roles",

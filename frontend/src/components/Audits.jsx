@@ -145,6 +145,7 @@ const ISO_THEMES = [
 
 const ALL_CONTROLS = ISO_THEMES.flatMap(t => t.controls.map(c => ({ ...c, theme: t })));
 const TOTAL_CONTROLS = ALL_CONTROLS.length;
+const PAGE_FONT = "'Sora', 'Inter', 'Segoe UI', sans-serif";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -174,9 +175,9 @@ const PBar = ({ value, max=100 }) => {
       <div className="w-full bg-gray-200 rounded-full overflow-hidden h-2">
         <div className={`${barColor} h-2 rounded-full transition-all duration-500`} style={{width:`${pct}%`}}/>
       </div>
-      <div className="flex justify-between text-xs text-gray-400 font-medium">
+      <div className="flex justify-between text-xs text-slate-400 font-medium">
         <span>{value}/{max}</span>
-        <span className="font-bold text-gray-600">{pct}%</span>
+        <span className="font-bold text-slate-600">{pct}%</span>
       </div>
     </div>
   );
@@ -185,25 +186,25 @@ const PBar = ({ value, max=100 }) => {
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 const Card = ({ children, className='', padding=true, onClick }) => (
   <div onClick={onClick}
-    className={`bg-white rounded-2xl border border-gray-200 shadow-sm ${onClick?'cursor-pointer hover:shadow-md hover:border-indigo-300 hover:-translate-y-0.5 transition-all duration-200':''} ${padding?'p-5':''} ${className}`}>
+    className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${onClick?'cursor-pointer hover:shadow-[0_16px_34px_rgba(15,23,42,0.10)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200':''} ${padding?'p-5':''} ${className}`}>
     {children}
   </div>
 );
 
 const Btn = ({ children, onClick, variant='primary', size='md', disabled=false, loading=false, icon:Icon, className='' }) => {
   const V = {
-    primary: 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700',
-    outline: 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400',
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm shadow-blue-600/20',
+    outline: 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400',
     danger:  'bg-red-600 hover:bg-red-700 text-white border-red-700',
     success: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700',
     warning: 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600',
-    ghost:   'bg-transparent border-transparent text-gray-500 hover:bg-gray-100',
-    save:    'bg-indigo-700 hover:bg-indigo-800 text-white border-indigo-800',
+    ghost:   'bg-transparent border-transparent text-slate-500 hover:bg-slate-100',
+    save:    'bg-blue-700 hover:bg-blue-800 text-white border-blue-800 shadow-sm shadow-blue-700/20',
   };
   const S = { xs:'px-2.5 py-1.5 text-xs gap-1', sm:'px-3.5 py-2 text-xs gap-1.5', md:'px-5 py-2.5 text-sm gap-2', lg:'px-6 py-3 text-sm gap-2' };
   return (
     <button onClick={disabled||loading?undefined:onClick} disabled={disabled||loading}
-      className={`inline-flex items-center justify-center font-semibold rounded-xl border-2 transition-all duration-200 focus:outline-none ${V[variant]||V.primary} ${S[size]} ${disabled||loading?'opacity-50 cursor-not-allowed':'active:scale-[0.98]'} ${className}`}>
+      className={`inline-flex items-center justify-center font-semibold rounded-xl border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-100 ${V[variant]||V.primary} ${S[size]} ${disabled||loading?'opacity-50 cursor-not-allowed':'active:scale-[0.98]'} ${className}`}>
       {loading?<Loader2 className="w-4 h-4 animate-spin"/>:Icon&&<Icon className={size==='xs'?'w-3.5 h-3.5':'w-4 h-4'}/>}
       {children}
     </button>
@@ -212,27 +213,27 @@ const Btn = ({ children, onClick, variant='primary', size='md', disabled=false, 
 
 const Inp = ({ label, error, icon:Icon, required, hint, ...props }) => (
   <div className="space-y-1.5">
-    {label && <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">{Icon&&<Icon className="w-3.5 h-3.5 text-gray-400"/>}{label}{required&&<span className="text-red-500">*</span>}</label>}
-    <input className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all ${error?'border-red-400':'border-gray-200'}`} {...props}/>
-    {(hint||error) && <p className={`text-xs ${error?'text-red-600':'text-gray-400'}`}>{error||hint}</p>}
+    {label && <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">{Icon&&<Icon className="w-3.5 h-3.5 text-slate-400"/>}{label}{required&&<span className="text-red-500">*</span>}</label>}
+    <input className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all ${error?'border-red-400':'border-slate-300'}`} {...props}/>
+    {(hint||error) && <p className={`text-xs ${error?'text-red-600':'text-slate-400'}`}>{error||hint}</p>}
   </div>
 );
 
 const Sel = ({ label, options, value, onChange, placeholder='Sélectionner...', icon:Icon, required, hint }) => (
   <div className="space-y-1.5">
-    {label && <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">{Icon&&<Icon className="w-3.5 h-3.5 text-gray-400"/>}{label}{required&&<span className="text-red-500">*</span>}</label>}
-    <select value={value} onChange={e=>onChange(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 appearance-none cursor-pointer">
+    {label && <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">{Icon&&<Icon className="w-3.5 h-3.5 text-slate-400"/>}{label}{required&&<span className="text-red-500">*</span>}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 appearance-none cursor-pointer">
       <option value="">{placeholder}</option>
       {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
-    {hint && <p className="text-xs text-gray-400">{hint}</p>}
+    {hint && <p className="text-xs text-slate-400">{hint}</p>}
   </div>
 );
 
 const Tex = ({ label, required, rows=3, ...props }) => (
   <div className="space-y-1.5">
-    {label && <label className="text-xs font-semibold text-gray-700">{label}{required&&<span className="text-red-500 ml-1">*</span>}</label>}
-    <textarea rows={rows} className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none" {...props}/>
+    {label && <label className="text-xs font-semibold text-slate-700">{label}{required&&<span className="text-red-500 ml-1">*</span>}</label>}
+    <textarea rows={rows} className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 resize-none" {...props}/>
   </div>
 );
 
@@ -276,29 +277,40 @@ const MODULES = [
 ];
 
 const ACC_ACTIVE = {
-  indigo:  'bg-blue-700 text-white border-blue-800',
-  purple:  'bg-purple-600 text-white border-purple-700',
-  emerald: 'bg-emerald-600 text-white border-emerald-700',
-  red:     'bg-red-600 text-white border-red-700',
-  amber:   'bg-amber-500 text-white border-amber-600',
+  indigo:  'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/30',
+  purple:  'bg-purple-600 text-white border-purple-600',
+  emerald: 'bg-emerald-600 text-white border-emerald-600',
+  red:     'bg-red-600 text-white border-red-600',
+  amber:   'bg-amber-500 text-white border-amber-500',
 };
 
-function ActionBar({ active, onChange }) {
+function ActionBar({ active, onChange, onRefresh }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {MODULES.map(m => {
           const Icon = m.icon;
           const isActive = active === m.id;
           return (
             <button key={m.id} onClick={()=>onChange(m.id)} title={m.desc}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-semibold text-sm transition-all duration-200 whitespace-nowrap flex-shrink-0 ${isActive ? ACC_ACTIVE[m.accent] : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+              className={`inline-flex items-center gap-2 h-11 px-6 rounded-full border text-[15px] font-semibold transition-all duration-200 whitespace-nowrap ${
+                isActive
+                  ? ACC_ACTIVE[m.accent]
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400'
+              }`}>
               <Icon className="w-4 h-4"/>{m.label}
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-gray-400 mt-2.5 pl-1 italic">{MODULES.find(m=>m.id===active)?.desc}</p>
+      <button
+        onClick={onRefresh}
+        className="inline-flex items-center gap-2 h-11 px-6 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all sm:ml-auto"
+        title="Actualiser"
+      >
+        <RefreshCw className="w-4 h-4 text-slate-600"/>
+        <span className="text-[15px] leading-none font-semibold">Actualiser</span>
+      </button>
     </div>
   );
 }
@@ -334,21 +346,18 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
   const openEdit = (a) => { setForm({...a}); setEditId(a.id); setShowForm(true); };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start gap-3 p-3.5 bg-gray-50 border border-gray-200 rounded-xl">
-        <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"/>
-        <p className="text-xs text-gray-600">Ce module est réservé aux <strong>audits</strong> externes.</p>
-      </div>
-
-      <div className="flex justify-end">
-        {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit</Btn>}
-      </div>
+    <div className="space-y-4">
+      {canWrite && !showForm && (
+        <div className="flex justify-end">
+          <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit</Btn>
+        </div>
+      )}
 
       {showForm && (
         <Card className="border border-indigo-200">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileCheck className="w-5 h-5 text-indigo-500"/>{editId?'Modifier l\'audit':'Planifier un audit externe'}</h3>
-            <button onClick={()=>{ setShowForm(false); setEditId(null); }} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-400"/></button>
+            <h3 className="font-bold text-slate-900 flex items-center gap-2"><FileCheck className="w-5 h-5 text-indigo-500"/>{editId?'Modifier l\'audit':'Planifier un audit externe'}</h3>
+            <button onClick={()=>{ setShowForm(false); setEditId(null); }} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-slate-500"/></button>
           </div>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -373,7 +382,7 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
             <Inp label="Périmètre / Scope" value={form.scope} onChange={e=>set('scope',e.target.value)} icon={Target}/>
             <Tex label="Objectifs de l'audit" rows={3} placeholder="Décrire les objectifs, critères et livrables attendus…" value={form.objectives} onChange={e=>set('objectives',e.target.value)}/>
           </div>
-          <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
+          <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
             <Btn variant="outline" icon={X} onClick={()=>{ setShowForm(false); setEditId(null); }}>Annuler</Btn>
             <Btn icon={CheckCircle2} onClick={handleSave} loading={saving}>{editId?'Enregistrer':'Planifier'}</Btn>
           </div>
@@ -385,30 +394,30 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
           {audits.length===0 && (
             <Card className="text-center py-14 border border-dashed border-gray-300">
               <FileCheck className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-              <p className="font-semibold text-gray-500">Aucun audit externe planifié</p>
-              <p className="text-sm text-gray-400 mt-1">Cliquez sur « Planifier un audit externe » pour commencer</p>
+              <p className="font-semibold text-slate-500">Aucun audit externe planifié</p>
+              <p className="text-sm text-slate-400 mt-1">Cliquez sur « Planifier un audit externe » pour commencer</p>
             </Card>
           )}
           {audits.map(a => {
             const sc = STATUS_CFG[a.status] || STATUS_CFG.planned;
             return (
-              <Card key={a.id} className="border border-gray-200">
+              <Card key={a.id} className="border border-slate-200">
                 <div className="flex items-start gap-4">
                   <TypeBadge type={a.type} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <StatusBadge cfg={sc}/>
                     </div>
-                    <h3 className="font-bold text-gray-900 text-sm mb-1">{a.title}</h3>
-                    <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                    <h3 className="font-bold text-slate-900 text-sm mb-1">{a.title}</h3>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                       <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{a.auditor}</span>
                       <span className="flex items-center gap-1"><Building2 className="w-3 h-3"/>{a.org}</span>
                       <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{a.startDate}{a.endDate&&a.endDate!==a.startDate?` → ${a.endDate}`:''}</span>
                     </div>
-                    {a.scope && <p className="text-xs text-gray-400 mt-1">{a.scope}</p>}
+                    {a.scope && <p className="text-xs text-slate-400 mt-1">{a.scope}</p>}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    {canEdit && <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-gray-400 hover:text-indigo-600"/></button>}
+                    {canEdit && <button onClick={()=>openEdit(a)} className="p-2 hover:bg-indigo-50 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400 hover:text-indigo-600"/></button>}
                     {canDelete && <button onClick={()=>onDelete(a.id)} className="p-2 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
@@ -461,29 +470,29 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
         <button onClick={()=>setView('list')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-colors">
           <ArrowRight className="w-3.5 h-3.5 rotate-180"/>Retour à l'historique
         </button>
-        <Card className="border border-gray-200">
+        <Card className="border border-slate-200">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div>
-              <h3 className="font-bold text-gray-900 text-lg">{viewingSim.name}</h3>
-              <p className="text-xs text-gray-400">{viewingSim.author} · {viewingSim.date}</p>
+              <h3 className="font-bold text-slate-900 text-lg">{viewingSim.name}</h3>
+              <p className="text-xs text-slate-400">{viewingSim.author} · {viewingSim.date}</p>
             </div>
             <div className="text-2xl font-extrabold text-indigo-600">{viewingSim.score}%</div>
           </div>
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-gray-700">{viewingSim.totalAnswered}</div><div className="text-xs text-gray-500 mt-1">Répondus</div></div>
-            <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-emerald-600">{viewingSim.oui}</div><div className="text-xs text-gray-500 mt-1">Oui ✓</div></div>
-            <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-red-500">{viewingSim.non}</div><div className="text-xs text-gray-500 mt-1">Non ✗</div></div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-slate-700">{viewingSim.totalAnswered}</div><div className="text-xs text-slate-500 mt-1">Répondus</div></div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-emerald-600">{viewingSim.oui}</div><div className="text-xs text-slate-500 mt-1">Oui ✓</div></div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-red-500">{viewingSim.non}</div><div className="text-xs text-slate-500 mt-1">Non ✗</div></div>
           </div>
           <PBar value={viewingSim.oui} max={TOTAL_CONTROLS}/>
           {viewingSim.non > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-bold text-gray-700 mb-2">Points à améliorer ({viewingSim.non}) :</p>
+              <p className="text-xs font-bold text-slate-700 mb-2">Points à améliorer ({viewingSim.non}) :</p>
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {ALL_CONTROLS.filter(c=>viewingSim.answers[c.id]==='no').map(c=>(
                   <div key={c.id} className="flex items-center gap-2.5 p-2.5 bg-red-50 border border-red-100 rounded-xl">
                     <span className="text-[11px] font-extrabold font-mono flex-shrink-0" style={{color:c.theme.colorHex}}>{c.id}</span>
-                    <span className="text-xs text-gray-700">{c.name}</span>
-                    {viewingSim.comments[c.id] && <span className="text-[10px] text-gray-400 ml-auto italic truncate max-w-32">{viewingSim.comments[c.id]}</span>}
+                    <span className="text-xs text-slate-700">{c.name}</span>
+                    {viewingSim.comments[c.id] && <span className="text-[10px] text-slate-400 ml-auto italic truncate max-w-32">{viewingSim.comments[c.id]}</span>}
                   </div>
                 ))}
               </div>
@@ -498,9 +507,9 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-gray-400"/>
-          <h3 className="font-bold text-gray-900">Historique des simulations</h3>
-          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full border border-gray-200">{simHistory.length}</span>
+          <History className="w-5 h-5 text-slate-400"/>
+          <h3 className="font-bold text-slate-900">Historique des simulations</h3>
+          <span className="px-2 py-0.5 bg-gray-100 text-slate-600 text-xs font-bold rounded-full border border-slate-200">{simHistory.length}</span>
         </div>
         {canWrite && <Btn icon={Plus} onClick={()=>setView('setup')}>Nouvelle simulation</Btn>}
       </div>
@@ -508,8 +517,8 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
       {simHistory.length === 0 && (
         <Card className="text-center py-14 border border-dashed border-gray-300">
           <Sparkles className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-          <p className="font-semibold text-gray-500">Aucune simulation enregistrée</p>
-          <p className="text-sm text-gray-400 mt-1">Lancez votre première simulation pour alimenter l'historique</p>
+          <p className="font-semibold text-slate-500">Aucune simulation enregistrée</p>
+          <p className="text-sm text-slate-400 mt-1">Lancez votre première simulation pour alimenter l'historique</p>
         </Card>
       )}
 
@@ -517,15 +526,15 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
         {simHistory.map(sim => {
           const scoreColor = sim.score >= 70 ? 'text-emerald-600' : sim.score >= 40 ? 'text-amber-500' : 'text-red-500';
           return (
-            <Card key={sim.id} onClick={()=>{ setViewingSim(sim); setView('history-detail'); }} className="border border-gray-200 hover:border-indigo-300">
+            <Card key={sim.id} onClick={()=>{ setViewingSim(sim); setView('history-detail'); }} className="border border-slate-200 hover:border-indigo-300">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center border border-gray-200 bg-gray-50 flex-shrink-0">
+                <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center border border-slate-200 bg-slate-50 flex-shrink-0">
                   <span className={`text-xl font-extrabold leading-none ${scoreColor}`}>{sim.score}%</span>
-                  <span className="text-[9px] font-semibold text-gray-400 mt-0.5">Score</span>
+                  <span className="text-[9px] font-semibold text-slate-400 mt-0.5">Score</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-gray-900 text-sm">{sim.name}</h4>
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
+                  <h4 className="font-bold text-slate-900 text-sm">{sim.name}</h4>
+                  <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
                     {sim.author && <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{sim.author}</span>}
                     <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{sim.date}</span>
                     <span className="text-emerald-600 font-semibold">{sim.oui} Oui</span>
@@ -550,15 +559,15 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
       <button onClick={()=>setView('list')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-colors">
         <ArrowRight className="w-3.5 h-3.5 rotate-180"/>Retour
       </button>
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-3">
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
         <Sparkles className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5"/>
         <div>
-          <p className="text-sm font-bold text-gray-800">Mode entraînement — Simulation ISO 27001:2022</p>
-          <p className="text-xs text-gray-500 mt-1">Répondez par <strong>Oui</strong> ou <strong>Non</strong> à chaque question. Les résultats sont sauvegardés dans l'historique.</p>
+          <p className="text-sm font-bold text-slate-800">Mode entraînement — Simulation ISO 27001:2022</p>
+          <p className="text-xs text-slate-500 mt-1">Répondez par <strong>Oui</strong> ou <strong>Non</strong> à chaque question. Les résultats sont sauvegardés dans l'historique.</p>
         </div>
       </div>
-      <Card className="border border-gray-200">
-        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500"/>Nouvelle simulation</h3>
+      <Card className="border border-slate-200">
+        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500"/>Nouvelle simulation</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Inp label="Nom de la simulation" placeholder="Ex : Entraînement pré-certification" value={simName} onChange={e=>setSimName(e.target.value)} required/>
           <Inp label="Auteur" placeholder="Votre nom" value={simAuthor} onChange={e=>setSimAuthor(e.target.value)}/>
@@ -575,9 +584,9 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
 
   if (view === 'results') return (
     <div className="space-y-4">
-      <Card className="border border-gray-200">
+      <Card className="border border-slate-200">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div><h3 className="font-bold text-gray-900 text-lg">{simName}</h3><p className="text-xs text-gray-400">{simAuthor} · {simDate}</p></div>
+          <div><h3 className="font-bold text-slate-900 text-lg">{simName}</h3><p className="text-xs text-slate-400">{simAuthor} · {simDate}</p></div>
           <div className="flex gap-2">
             {savedToast && (
               <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200">
@@ -589,36 +598,36 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4 mb-5">
-          <div className="text-center p-4 bg-gray-50 rounded-xl border border-indigo-200">
+          <div className="text-center p-4 bg-slate-50 rounded-xl border border-indigo-200">
             <div className="text-3xl font-extrabold text-indigo-600">{score}%</div>
-            <div className="text-xs text-gray-500 mt-1">Score de conformité</div>
+            <div className="text-xs text-slate-500 mt-1">Score de conformité</div>
           </div>
-          <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-3xl font-extrabold text-emerald-600">{totalOui}</div>
-            <div className="text-xs text-gray-500 mt-1">Réponses Oui ✓</div>
+            <div className="text-xs text-slate-500 mt-1">Réponses Oui ✓</div>
           </div>
-          <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
             <div className="text-3xl font-extrabold text-red-500">{totalNon}</div>
-            <div className="text-xs text-gray-500 mt-1">Réponses Non ✗</div>
+            <div className="text-xs text-slate-500 mt-1">Réponses Non ✗</div>
           </div>
         </div>
         <PBar value={totalOui} max={TOTAL_CONTROLS}/>
         {totalNon>0 && (
           <div className="mt-5">
-            <p className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-red-500"/>Points à travailler ({totalNon} contrôles) :</p>
+            <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-red-500"/>Points à travailler ({totalNon} contrôles) :</p>
             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
               {ALL_CONTROLS.filter(c=>answers[c.id]==='no').map(c=>(
                 <div key={c.id} className="flex items-center gap-2.5 p-2.5 bg-red-50 border border-red-100 rounded-xl">
                   <span className="text-[11px] font-extrabold font-mono flex-shrink-0" style={{color:c.theme.colorHex}}>{c.id}</span>
-                  <span className="text-xs text-gray-700">{c.name}</span>
-                  {comments[c.id] && <span className="text-[10px] text-gray-400 ml-auto italic truncate max-w-32">{comments[c.id]}</span>}
+                  <span className="text-xs text-slate-700">{c.name}</span>
+                  {comments[c.id] && <span className="text-[10px] text-slate-400 ml-auto italic truncate max-w-32">{comments[c.id]}</span>}
                 </div>
               ))}
             </div>
           </div>
         )}
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl mt-4">
-          <p className="text-xs text-gray-500 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0"/>Les contrôles répondus <strong>Non</strong> doivent être documentés lors du vrai audit. Utilisez le module <strong>Post-Audit</strong> pour la vérification officielle C/NC.</p>
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl mt-4">
+          <p className="text-xs text-slate-500 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0"/>Les contrôles répondus <strong>Non</strong> doivent être documentés lors du vrai audit. Utilisez le module <strong>Post-Audit</strong> pour la vérification officielle C/NC.</p>
         </div>
       </Card>
     </div>
@@ -626,9 +635,9 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200">
+      <Card className="border border-slate-200">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div><span className="font-bold text-gray-900">{simName}</span>{simAuthor&&<span className="text-xs text-gray-400 ml-2">{simAuthor}</span>}</div>
+          <div><span className="font-bold text-slate-900">{simName}</span>{simAuthor&&<span className="text-xs text-slate-400 ml-2">{simAuthor}</span>}</div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex gap-3 text-xs font-bold">
               <span className="text-emerald-600">{totalOui} Oui</span>
@@ -650,7 +659,7 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
       </Card>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+        <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-slate-600 border-slate-200 hover:border-gray-400'}`}>
           Tout ({TOTAL_CONTROLS})
         </button>
         {ISO_THEMES.map(t=>{
@@ -671,14 +680,14 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
           const ans = answers[ctrl.id];
           const isExp = expandedId===ctrl.id;
           return (
-            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${ans==='yes'?'border-emerald-300 bg-emerald-50/30':ans==='no'?'border-red-300 bg-red-50/30':'border-gray-200 bg-white'}`}>
+            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${ans==='yes'?'border-emerald-300 bg-emerald-50/30':ans==='no'?'border-red-300 bg-red-50/30':'border-slate-200 bg-white'}`}>
               <div className="flex items-center gap-3 p-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border" style={{background:ctrl.theme.bgHex,borderColor:ctrl.theme.colorHex+'40'}}>
                   <span className="text-[10px] font-extrabold leading-none text-center" style={{color:ctrl.theme.colorHex}}>{ctrl.id}</span>
                 </div>
                 <button className="flex-1 text-left min-w-0" onClick={()=>setExpandedId(isExp?null:ctrl.id)}>
-                  <p className="text-sm font-semibold text-gray-800">{ctrl.name}</p>
-                  <p className="text-xs text-gray-400">{ctrl.theme.shortName}</p>
+                  <p className="text-sm font-semibold text-slate-800">{ctrl.name}</p>
+                  <p className="text-xs text-slate-400">{ctrl.theme.shortName}</p>
                 </button>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={()=>{ setAnswers(p=>({...p,[ctrl.id]:'yes'})); setExpandedId(null); }}
@@ -690,13 +699,13 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
                     ✗ Non
                   </button>
                   <button onClick={()=>setExpandedId(isExp?null:ctrl.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                    {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
+                    {isExp?<ChevronUp className="w-4 h-4 text-slate-500"/>:<ChevronDown className="w-4 h-4 text-slate-500"/>}
                   </button>
                 </div>
               </div>
               {isExp && (
-                <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-3">
-                  <p className="text-sm text-gray-600 leading-relaxed italic bg-gray-50 rounded-xl p-3 border border-gray-100">«&nbsp;{ctrl.question}&nbsp;»</p>
+                <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
+                  <p className="text-sm text-slate-600 leading-relaxed italic bg-slate-50 rounded-xl p-3 border border-slate-100">«&nbsp;{ctrl.question}&nbsp;»</p>
                   <Tex rows={2} placeholder="Commentaire facultatif (justification, preuves…)" value={comments[ctrl.id]||''} onChange={e=>setComments(p=>({...p,[ctrl.id]:e.target.value}))}/>
                 </div>
               )}
@@ -810,8 +819,8 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   if(view==='list') return (
     <div className="space-y-5">
       <div className="flex items-start gap-3">
-        <div className="flex-1 p-3.5 bg-gray-50 border border-gray-200 rounded-xl">
-          <p className="text-xs text-gray-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
+        <div className="flex-1 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <p className="text-xs text-slate-600 flex items-start gap-2"><Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-400"/> Evaluez chaque contrôle ISO 27001:2022 comme <strong>Conforme (C)</strong> ou <strong>Non-Conforme (NC)</strong>.</p>
         </div>
       </div>
       <div className="flex justify-end">
@@ -820,21 +829,21 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
       {mergedAudits.length===0 && (
         <Card className="text-center py-14 border border-dashed border-gray-300">
           <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-          <p className="font-semibold text-gray-500">Aucun audit créé</p>
+          <p className="font-semibold text-slate-500">Aucun audit créé</p>
         </Card>
       )}
       {mergedAudits.map(a=>{
         const sc = STATUS_CFG[a.status]||STATUS_CFG['in-progress'];
         return (
-          <Card key={a.id} onClick={()=>openVerify(a)} className="border border-gray-200 hover:border-emerald-400 cursor-pointer">
+          <Card key={a.id} onClick={()=>openVerify(a)} className="border border-slate-200 hover:border-emerald-400 cursor-pointer">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <StatusBadge cfg={sc}/>
                   <TypeBadge type={a.type} />
                 </div>
-                <h3 className="font-bold text-gray-900 text-sm">{a.name}</h3>
-                <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
+                <h3 className="font-bold text-slate-900 text-sm">{a.name}</h3>
+                <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
                   <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{a.auditor}</span>
                   <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{a.date}</span>
                   <span className="flex items-center gap-1"><Target className="w-3 h-3"/>{a.scope}</span>
@@ -849,10 +858,10 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
   );
 
   if(view==='create') return (
-    <Card className="border border-gray-200">
+    <Card className="border border-slate-200">
       <div className="flex items-center justify-between mb-5">
-        <h3 className="font-bold text-gray-900 flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-600"/>Créer un audit</h3>
-        <button onClick={()=>setView('list')} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-400"/></button>
+        <h3 className="font-bold text-slate-900 flex items-center gap-2"><Plus className="w-5 h-5 text-emerald-600"/>Créer un audit</h3>
+        <button onClick={()=>setView('list')} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-slate-500"/></button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Inp label="Nom de l'audit" placeholder="Ex : Audit interne Q1 2026" value={auditForm.name} onChange={e=>setAF('name',e.target.value)} error={auditErrors.name} required icon={FileText}/>
@@ -868,7 +877,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
           ]}/>
         <Sel label="Statut" value={auditForm.status} onChange={v=>setAF('status',v)} options={Object.entries(STATUS_CFG).map(([k,v])=>({value:k,label:v.label}))}/>
       </div>
-      <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
+      <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
         <Btn variant="outline" icon={X} onClick={()=>setView('list')}>Annuler</Btn>
         <Btn variant="success" icon={CheckCircle2} onClick={handleCreateAudit}>Créer et démarrer</Btn>
       </div>
@@ -877,18 +886,18 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
 
   if(view==='verify') return (
     <div className="space-y-4">
-      <Card className="border border-gray-200">
+      <Card className="border border-slate-200">
         <button onClick={()=>setView('list')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-colors mb-3">
           <ArrowRight className="w-3.5 h-3.5 rotate-180"/>Retour à la liste
         </button>
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
           <div>
-            <h3 className="font-bold text-gray-900 text-base">{selectedAudit?.name}</h3>
-            <p className="text-xs text-gray-400">{selectedAudit?.auditor} · {selectedAudit?.date} · {selectedAudit?.scope}</p>
+            <h3 className="font-bold text-slate-900 text-base">{selectedAudit?.name}</h3>
+            <p className="text-xs text-slate-400">{selectedAudit?.auditor} · {selectedAudit?.date} · {selectedAudit?.scope}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex gap-4 text-sm font-bold">
-              <span className="text-gray-600">{auditedCount}/{TOTAL_CONTROLS}</span>
+              <span className="text-slate-600">{auditedCount}/{TOTAL_CONTROLS}</span>
               <span className="text-emerald-600">{conformeCount} C</span>
               <span className="text-red-500">{ncCount} NC</span>
             </div>
@@ -905,16 +914,16 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
       </Card>
 
       <div className="grid grid-cols-3 gap-3">
-        {[{label:'Audités',value:auditedCount,val:'text-gray-700'},{label:'Conformes (C)',value:conformeCount,val:'text-emerald-600'},{label:'Non-conformes (NC)',value:ncCount,val:'text-red-500'}].map(s=>(
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4 text-center">
+        {[{label:'Audités',value:auditedCount,val:'text-slate-700'},{label:'Conformes (C)',value:conformeCount,val:'text-emerald-600'},{label:'Non-conformes (NC)',value:ncCount,val:'text-red-500'}].map(s=>(
+          <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
             <div className={`text-2xl font-extrabold ${s.val}`}>{s.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+        <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-slate-600 border-slate-200 hover:border-gray-400'}`}>
           Tous ({TOTAL_CONTROLS})
         </button>
         {ISO_THEMES.map(t=>{
@@ -936,14 +945,14 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
           const isExp = expandedId===ctrl.id;
           const nc = ncForms[ctrl.id]||{};
           return (
-            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${st==='C'?'border-emerald-300 bg-emerald-50/20':st==='NC'?'border-red-300 bg-red-50/20':'border-gray-200 bg-white'}`}>
+            <div key={ctrl.id} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${st==='C'?'border-emerald-300 bg-emerald-50/20':st==='NC'?'border-red-300 bg-red-50/20':'border-slate-200 bg-white'}`}>
               <div className="flex items-center gap-3 p-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border" style={{background:ctrl.theme.bgHex,borderColor:ctrl.theme.colorHex+'40'}}>
                   <span className="text-[10px] font-extrabold" style={{color:ctrl.theme.colorHex}}>{ctrl.id}</span>
                 </div>
                 <button className="flex-1 text-left min-w-0" onClick={()=>setExpandedId(isExp?null:ctrl.id)}>
-                  <p className="text-sm font-semibold text-gray-800">{ctrl.name}</p>
-                  <p className="text-xs text-gray-400">{ctrl.theme.shortName}</p>
+                  <p className="text-sm font-semibold text-slate-800">{ctrl.name}</p>
+                  <p className="text-xs text-slate-400">{ctrl.theme.shortName}</p>
                 </button>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={()=>{ setStatuses(p=>({...p,[ctrl.id]:'C'})); if(expandedId===ctrl.id) setExpandedId(null); }}
@@ -955,13 +964,13 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
                     ✗ NC
                   </button>
                   <button onClick={()=>setExpandedId(isExp?null:ctrl.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                    {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
+                    {isExp?<ChevronUp className="w-4 h-4 text-slate-500"/>:<ChevronDown className="w-4 h-4 text-slate-500"/>}
                   </button>
                 </div>
               </div>
               {isExp && (
-                <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-3">
-                  <p className="text-sm text-gray-600 italic bg-gray-50 rounded-xl p-3 border border-gray-100 leading-relaxed">«&nbsp;{ctrl.question}&nbsp;»</p>
+                <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
+                  <p className="text-sm text-slate-600 italic bg-slate-50 rounded-xl p-3 border border-slate-100 leading-relaxed">«&nbsp;{ctrl.question}&nbsp;»</p>
                   <Tex rows={2} placeholder="Commentaire d'audit (constat, preuves observées…)" value={comments[ctrl.id]||''} onChange={e=>setComments(p=>({...p,[ctrl.id]:e.target.value}))}/>
                   {st==='NC' && (
                     <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
@@ -983,32 +992,32 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite }) {
       </div>
 
       {soaGenerated && (
-        <Card className="border border-gray-200">
+        <Card className="border border-slate-200">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-gray-900 flex items-center gap-2"><BookOpen className="w-5 h-5 text-amber-500"/>SoA Post-Audit — {selectedAudit?.name}</h4>
+            <h4 className="font-bold text-slate-900 flex items-center gap-2"><BookOpen className="w-5 h-5 text-amber-500"/>SoA Post-Audit — {selectedAudit?.name}</h4>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">{conformeCount}/{TOTAL_CONTROLS} conformes</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">Code</th>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">Contrôle</th>
-                  <th className="text-center px-3 py-3 font-bold text-gray-500 uppercase">Statut</th>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">Commentaire</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">Code</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">Contrôle</th>
+                  <th className="text-center px-3 py-3 font-bold text-slate-500 uppercase">Statut</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">Commentaire</th>
                 </tr>
               </thead>
               <tbody>
                 {ALL_CONTROLS.map((c,i)=>(
-                  <tr key={c.id} className={`border-b border-gray-50 ${statuses[c.id]==='NC'?'bg-red-50/60':statuses[c.id]==='C'?'bg-emerald-50/30':i%2===0?'bg-white':'bg-gray-50/30'}`}>
+                  <tr key={c.id} className={`border-b border-slate-100 ${statuses[c.id]==='NC'?'bg-red-50/60':statuses[c.id]==='C'?'bg-emerald-50/30':i%2===0?'bg-white':'bg-slate-50/30'}`}>
                     <td className="px-3 py-2.5 font-mono font-extrabold" style={{color:c.theme.colorHex}}>{c.id}</td>
-                    <td className="px-3 py-2.5 font-semibold text-gray-800">{c.name}</td>
+                    <td className="px-3 py-2.5 font-semibold text-slate-800">{c.name}</td>
                     <td className="px-3 py-2.5 text-center">
                       {statuses[c.id]==='C'  && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 rounded-full"><Check className="w-3 h-3"/>Conforme</span>}
                       {statuses[c.id]==='NC' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 font-bold border border-red-200 rounded-full"><X className="w-3 h-3"/>NC</span>}
                       {!statuses[c.id]       && <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-gray-400 max-w-xs">{comments[c.id]||'—'}</td>
+                    <td className="px-3 py-2.5 text-slate-400 max-w-xs">{comments[c.id]||'—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1064,9 +1073,9 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         {[{label:'Ouvertes',value:openCount,val:'text-red-500'},{label:'En cours',value:inProgCount,val:'text-amber-500'},{label:'Résolues',value:resolvedCount,val:'text-emerald-600'}].map(s=>(
-          <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4 text-center">
+          <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
             <div className={`text-2xl font-extrabold ${s.val}`}>{s.value}</div>
-            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            <div className="text-xs text-slate-500 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
@@ -1074,12 +1083,12 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-40">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300"/>
-          <input className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Rechercher NC…" value={search} onChange={e=>setSearch(e.target.value)}/>
+          <input className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Rechercher NC…" value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
-        <select className="text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-600" value={filterAudit} onChange={e=>setFilterAudit(e.target.value)}>
+        <select className="text-sm px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-600" value={filterAudit} onChange={e=>setFilterAudit(e.target.value)}>
           {auditOptions.map(opt=><option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
-        <select className="text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-white text-gray-600" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+        <select className="text-sm px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-slate-600" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
           <option value="">Tous les statuts</option>
           {Object.entries(NC_STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -1089,8 +1098,8 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
       {showForm && (
         <Card className="border border-red-200">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500"/>Nouvelle non-conformité</h3>
-            <button onClick={()=>{setShowForm(false);setForm(EMPTY);}} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-400"/></button>
+            <h3 className="font-bold text-slate-900 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-500"/>Nouvelle non-conformité</h3>
+            <button onClick={()=>{setShowForm(false);setForm(EMPTY);}} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-slate-500"/></button>
           </div>
           <div className="space-y-4">
             <Inp label="Titre" placeholder="Ex : Absence de politique de sécurité formalisée" value={form.title} onChange={e=>set('title',e.target.value)} error={errors.title} required icon={AlertTriangle}/>
@@ -1106,7 +1115,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
               <Inp label="Échéance" type="date" value={form.deadline} onChange={e=>set('deadline',e.target.value)}/>
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
+          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
             <Btn variant="outline" icon={X} onClick={()=>{setShowForm(false);setForm(EMPTY);}}>Annuler</Btn>
             <Btn variant="danger" icon={Plus} onClick={handleSave} loading={saving}>Créer la NC</Btn>
           </div>
@@ -1116,8 +1125,8 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
       {filtered.length===0 && !showForm && (
         <Card className="text-center py-12 border border-dashed border-gray-300">
           <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-          <p className="font-semibold text-gray-500">Aucune non-conformité</p>
-          <p className="text-sm text-gray-400 mt-1">Les NC créées depuis le Post-Audit ou ici apparaîtront dans cette liste</p>
+          <p className="font-semibold text-slate-500">Aucune non-conformité</p>
+          <p className="text-sm text-slate-400 mt-1">Les NC créées depuis le Post-Audit ou ici apparaîtront dans cette liste</p>
         </Card>
       )}
 
@@ -1128,52 +1137,52 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
         const actions = nc.correctiveActions||[];
         const doneActions = actions.filter(a=>a.status==='completed').length;
         return (
-          <div key={nc.id} className={`bg-white rounded-2xl border border-gray-200 shadow-sm border-l-4 ${sm.leftBorder} p-5`}>
+          <div key={nc.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm border-l-4 ${sm.leftBorder} p-5`}>
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      {nc.auditName && <span className="text-xs bg-gray-100 border border-gray-200 text-gray-600 px-2 py-0.5 rounded-md font-medium">{nc.auditName}</span>}
+                      {nc.auditName && <span className="text-xs bg-gray-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-medium">{nc.auditName}</span>}
                       {ctrl && <span className="text-xs font-mono font-extrabold px-2 py-0.5 rounded-md border" style={{color:ctrl.theme.colorHex,background:ctrl.theme.bgHex,borderColor:ctrl.theme.colorHex+'40'}}>{ctrl.id}</span>}
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${sm.bg} ${sm.border} ${sm.color}`}>{sm.label}</span>
                     </div>
-                    <h4 className="font-bold text-gray-900 text-sm">{nc.title}</h4>
+                    <h4 className="font-bold text-slate-900 text-sm">{nc.title}</h4>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
                     <button onClick={()=>setExpandedNC(isExp?null:nc.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                      {isExp?<ChevronUp className="w-4 h-4 text-gray-400"/>:<ChevronDown className="w-4 h-4 text-gray-400"/>}
+                      {isExp?<ChevronUp className="w-4 h-4 text-slate-500"/>:<ChevronDown className="w-4 h-4 text-slate-500"/>}
                     </button>
                     {canDelete && <button onClick={()=>onDelete(nc.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-gray-300 hover:text-red-500"/></button>}
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 leading-relaxed">{nc.description}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{nc.description}</p>
                 {(nc.actor||nc.deadline) && (
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-slate-400 flex-wrap">
                     {nc.actor && <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{nc.actor}</span>}
                     {nc.deadline && <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>Échéance : {nc.deadline}</span>}
                     {actions.length>0 && <span className="flex items-center gap-1 text-indigo-600 font-semibold"><CheckCircle2 className="w-3 h-3"/>{doneActions}/{actions.length} actions</span>}
                   </div>
                 )}
                 {isExp && (
-                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
                     <div className="flex gap-2 flex-wrap">
                       {Object.entries(NC_STATUS_CFG).map(([k,v])=>(
                         <button key={k} onClick={()=>onUpdate(nc.id,{...nc,status:k})}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${nc.status===k?`${v.bg} ${v.border} ${v.color}`:'bg-white border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${nc.status===k?`${v.bg} ${v.border} ${v.color}`:'bg-white border-slate-200 text-slate-500 hover:border-gray-400'}`}>
                           {v.label}
                         </button>
                       ))}
                     </div>
-                    {nc.correctiveAction && <p className="text-sm text-gray-600"><span className="font-semibold">Action corrective :</span> {nc.correctiveAction}</p>}
+                    {nc.correctiveAction && <p className="text-sm text-slate-600"><span className="font-semibold">Action corrective :</span> {nc.correctiveAction}</p>}
                     {actions.map(act=>(
-                      <div key={act.id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-3">
+                      <div key={act.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
                         <button onClick={()=>onUpdate(nc.id,{...nc,correctiveActions:actions.map(a=>a.id===act.id?{...a,status:a.status==='completed'?'pending':'completed'}:a)})} className="mt-0.5 flex-shrink-0">
-                          {act.status==='completed'?<CheckCircle2 className="w-4 h-4 text-emerald-500"/>:<CircleIcon className="w-4 h-4 text-gray-400 hover:text-indigo-400"/>}
+                          {act.status==='completed'?<CheckCircle2 className="w-4 h-4 text-emerald-500"/>:<CircleIcon className="w-4 h-4 text-slate-400 hover:text-indigo-400"/>}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium ${act.status==='completed'?'line-through text-gray-400':'text-gray-800'}`}>{act.description}</p>
-                          <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                          <p className={`text-sm font-medium ${act.status==='completed'?'line-through text-slate-400':'text-slate-800'}`}>{act.description}</p>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
                             {act.responsible&&<span>{act.responsible}</span>}
                             {act.deadline&&<span>→ {act.deadline}</span>}
                           </div>
@@ -1181,7 +1190,7 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
                       </div>
                     ))}
                     {showActionFor===nc.id ? (
-                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                         <Tex rows={2} placeholder="Décrire l'action corrective…" value={newAction.description} onChange={e=>setNewAction(p=>({...p,description:e.target.value}))}/>
                         <div className="grid grid-cols-2 gap-2">
                           <Inp placeholder="Responsable" value={newAction.responsible} onChange={e=>setNewAction(p=>({...p,responsible:e.target.value}))}/>
@@ -1245,60 +1254,60 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200">
+      <Card className="border border-slate-200">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="font-extrabold text-gray-900 text-base flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500"/>Statement of Applicability (SoA)</h3>
-            <p className="text-xs text-gray-400 mt-0.5">ISO/IEC 27001:2022 · Clause 6.1.3d · Mis à jour depuis les NC enregistrées</p>
+            <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2"><BookOpen className="w-5 h-5 text-indigo-500"/>Statement of Applicability (SoA)</h3>
+            <p className="text-xs text-slate-400 mt-0.5">ISO/IEC 27001:2022 · Clause 6.1.3d · Mis à jour depuis les NC enregistrées</p>
           </div>
           {canExport && <Btn variant="outline" size="sm" icon={Download} onClick={()=>onToast('Export SoA CSV en cours…','success')}>Exporter SoA</Btn>}
         </div>
         <div className="mb-4">
-          <label className="text-xs font-semibold text-gray-600 mb-1 block">Filtrer par audit</label>
-          <select className="text-sm px-3 py-2 border border-gray-200 rounded-xl bg-white text-gray-600" value={filterAudit} onChange={e=>setFilterAudit(e.target.value)}>
+          <label className="text-xs font-semibold text-slate-600 mb-1 block">Filtrer par audit</label>
+          <select className="text-sm px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-600" value={filterAudit} onChange={e=>setFilterAudit(e.target.value)}>
             {auditOptions.map(opt=><option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-gray-700">{TOTAL_CONTROLS}</div><div className="text-xs text-gray-500 mt-1">Total</div></div>
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-emerald-600">{conformes}</div><div className="text-xs text-gray-500 mt-1">Conformes</div></div>
-          <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-200"><div className="text-2xl font-extrabold text-red-500">{nonConformes}</div><div className="text-xs text-gray-500 mt-1">Non-conformes</div></div>
+          <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-slate-700">{TOTAL_CONTROLS}</div><div className="text-xs text-slate-500 mt-1">Total</div></div>
+          <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-emerald-600">{conformes}</div><div className="text-xs text-slate-500 mt-1">Conformes</div></div>
+          <div className="text-center p-3 bg-slate-50 rounded-xl border border-slate-200"><div className="text-2xl font-extrabold text-red-500">{nonConformes}</div><div className="text-xs text-slate-500 mt-1">Non-conformes</div></div>
         </div>
         <PBar value={conformes} max={TOTAL_CONTROLS}/>
       </Card>
 
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-slate-200">
         {[{id:'soa',label:'SoA — Tableau d\'applicabilité',icon:BookOpen},{id:'gaps',label:`Analyse des écarts (${gaps.length})`,icon:GitBranch}].map(t=>{
           const TI=t.icon;
-          return <button key={t.id} onClick={()=>setActiveTab(t.id)} className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab===t.id?'border-indigo-500 text-indigo-600':'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}><TI className="w-4 h-4"/>{t.label}</button>;
+          return <button key={t.id} onClick={()=>setActiveTab(t.id)} className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${activeTab===t.id?'border-indigo-500 text-indigo-600':'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}><TI className="w-4 h-4"/>{t.label}</button>;
         })}
       </div>
 
       {activeTab==='soa' && (
         <div className="space-y-3">
           <div className="flex gap-2 overflow-x-auto pb-1">
-            <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-gray-600 border-gray-200'}`}>Tous</button>
+            <button onClick={()=>setThemeFilter(null)} className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${!themeFilter?'bg-gray-800 text-white border-gray-800':'bg-white text-slate-600 border-slate-200'}`}>Tous</button>
             {ISO_THEMES.map(t=>{
               const isSel=themeFilter===t.id;
               return <button key={t.id} onClick={()=>setThemeFilter(isSel?null:t.id)} className="px-4 py-2 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap" style={isSel?{background:t.colorHex,borderColor:t.colorHex,color:'white'}:{background:'white',color:t.colorHex,borderColor:t.colorHex+'60'}}>{t.shortName}</button>;
             })}
           </div>
-          <div className="rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 overflow-hidden">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">Code</th>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">Contrôle</th>
-                  <th className="text-center px-3 py-3 font-bold text-gray-500 uppercase">Applicable</th>
-                  <th className="text-center px-3 py-3 font-bold text-gray-500 uppercase">Statut</th>
-                  <th className="text-left px-3 py-3 font-bold text-gray-500 uppercase">NC liée</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">Code</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">Contrôle</th>
+                  <th className="text-center px-3 py-3 font-bold text-slate-500 uppercase">Applicable</th>
+                  <th className="text-center px-3 py-3 font-bold text-slate-500 uppercase">Statut</th>
+                  <th className="text-left px-3 py-3 font-bold text-slate-500 uppercase">NC liée</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c,i)=>(
-                  <tr key={c.id} className={`border-b border-gray-50 ${c.status==='non_conforme'?'bg-red-50/50':i%2===0?'bg-white':'bg-gray-50/30'}`}>
+                  <tr key={c.id} className={`border-b border-slate-100 ${c.status==='non_conforme'?'bg-red-50/50':i%2===0?'bg-white':'bg-slate-50/30'}`}>
                     <td className="px-3 py-2.5 font-mono font-extrabold" style={{color:c.theme.colorHex}}>{c.id}</td>
-                    <td className="px-3 py-2.5"><p className="font-semibold text-gray-800">{c.name}</p><p className="text-gray-400">{c.theme.shortName}</p></td>
+                    <td className="px-3 py-2.5"><p className="font-semibold text-slate-800">{c.name}</p><p className="text-slate-400">{c.theme.shortName}</p></td>
                     <td className="px-3 py-2.5 text-center"><CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto"/></td>
                     <td className="px-3 py-2.5 text-center">
                       {c.status==='conforme'
@@ -1319,34 +1328,34 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
           {gaps.length===0 && (
             <Card className="text-center py-12 border border-dashed border-gray-300">
               <GitBranch className="w-12 h-12 mx-auto mb-3 text-gray-200"/>
-              <p className="font-semibold text-gray-500">Aucun écart enregistré</p>
-              <p className="text-sm text-gray-400 mt-1">Les NC créées dans le Post-Audit alimentent automatiquement cette analyse</p>
+              <p className="font-semibold text-slate-500">Aucun écart enregistré</p>
+              <p className="text-sm text-slate-400 mt-1">Les NC créées dans le Post-Audit alimentent automatiquement cette analyse</p>
             </Card>
           )}
           {gaps.length>0 && (
-            <div className="rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 overflow-hidden">
               <table className="w-full text-xs">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="text-left px-3 py-3 font-bold text-gray-500">Contrôle</th>
-                    <th className="text-left px-3 py-3 font-bold text-gray-500">Non-conformité</th>
-                    <th className="text-center px-3 py-3 font-bold text-gray-500">Statut NC</th>
-                    <th className="text-left px-3 py-3 font-bold text-gray-500">Responsable</th>
-                    <th className="text-left px-3 py-3 font-bold text-gray-500">Échéance</th>
+                    <th className="text-left px-3 py-3 font-bold text-slate-500">Contrôle</th>
+                    <th className="text-left px-3 py-3 font-bold text-slate-500">Non-conformité</th>
+                    <th className="text-center px-3 py-3 font-bold text-slate-500">Statut NC</th>
+                    <th className="text-left px-3 py-3 font-bold text-slate-500">Responsable</th>
+                    <th className="text-left px-3 py-3 font-bold text-slate-500">Échéance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gaps.map((g,i)=>{
                     const sm=NC_STATUS_CFG[g.status]||NC_STATUS_CFG.open;
                     return (
-                      <tr key={g.id||i} className={`border-b border-gray-50 ${i%2===0?'bg-white':'bg-gray-50/30'}`}>
+                      <tr key={g.id||i} className={`border-b border-slate-100 ${i%2===0?'bg-white':'bg-slate-50/30'}`}>
                         <td className="px-3 py-2.5">
-                          {g.ctrl?<><span className="font-mono font-extrabold" style={{color:g.ctrl.theme.colorHex}}>{g.ctrl.id}</span><span className="ml-1.5 text-gray-600 font-medium">{g.ctrl.name}</span></>:<span className="text-gray-400">—</span>}
+                          {g.ctrl?<><span className="font-mono font-extrabold" style={{color:g.ctrl.theme.colorHex}}>{g.ctrl.id}</span><span className="ml-1.5 text-slate-600 font-medium">{g.ctrl.name}</span></>:<span className="text-slate-400">—</span>}
                         </td>
-                        <td className="px-3 py-2.5 font-semibold text-gray-800 max-w-xs"><span className="truncate block">{g.title}</span></td>
+                        <td className="px-3 py-2.5 font-semibold text-slate-800 max-w-xs"><span className="truncate block">{g.title}</span></td>
                         <td className="px-3 py-2.5 text-center"><span className={`inline-flex px-2 py-0.5 rounded-full border text-xs font-bold ${sm.bg} ${sm.border} ${sm.color}`}>{sm.label}</span></td>
-                        <td className="px-3 py-2.5 text-gray-500">{g.actor||g.responsible||'—'}</td>
-                        <td className="px-3 py-2.5 text-gray-500">{g.deadline||'—'}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{g.actor||g.responsible||'—'}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{g.deadline||'—'}</td>
                       </tr>
                     );
                   })}
@@ -1500,49 +1509,46 @@ export function Audits() {
 
   if (!hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb] px-4">
         <div className="text-center">
           <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Accès non autorisé</h2>
-          <p className="text-gray-500">Vous n'avez pas les permissions nécessaires pour accéder aux audits.</p>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Accès non autorisé</h2>
+          <p className="text-slate-500">Vous n'avez pas les permissions nécessaires pour accéder aux audits.</p>
         </div>
       </div>
     );
   }
 
   if(loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb]">
       <div className="text-center">
         <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-200"><Loader2 className="w-8 h-8 animate-spin text-indigo-600"/></div>
-        <p className="font-semibold text-gray-700">Chargement…</p>
-        <p className="text-sm text-gray-400 mt-1">ISO 27001:2022 · SMSI</p>
+        <p className="font-semibold text-slate-700">Chargement…</p>
+        <p className="text-sm text-slate-400 mt-1">ISO 27001:2022 · SMSI</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen w-full bg-gray-50" style={{fontFamily:"'Inter','DM Sans',system-ui,sans-serif"}}>
+    <div className="min-h-screen w-full bg-[#f8f9fb]" style={{ fontFamily: PAGE_FONT }}>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
 
-      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '36px 36px 60px', width: '100%' }}>
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 12 }}>
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-9 pb-16 sm:px-8">
+        <div className="mb-7">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
             <div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: "'Sora', sans-serif", letterSpacing: '-0.8px' }}>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, fontFamily: PAGE_FONT, letterSpacing: '-0.8px' }}>
                 Audit ISO 27001:2022
               </h1>
-              <p style={{ fontSize: 13.5, color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13.5, color: '#64748b', margin: 0, lineHeight: 1.6 }}>
                 4 thèmes · {TOTAL_CONTROLS} contrôles · SMSI
               </p>
             </div>
-            <button onClick={load} className="p-2.5 rounded-xl border border-gray-200 hover:border-gray-300 transition-all" title="Rafraîchir">
-              <RefreshCw className="w-4 h-4 text-gray-400"/>
-            </button>
           </div>
         </div>
 
         <div className="space-y-5">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
             {[
               { label: 'Audits planifiés', value: stats.total,     sub: `${stats.completed} terminés`,                   highlight: true },
               { label: 'Planifiés',        value: stats.planned,   sub: 'À venir' },
@@ -1554,10 +1560,10 @@ export function Audits() {
               <div key={i} style={{
                 background: k.highlight ? 'linear-gradient(135deg, #1D4ED8 0%, #1e40af 100%)' : '#fff',
                 borderRadius: 14, padding: '18px 20px',
-                boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06)',
+                boxShadow: k.highlight ? '0 8px 24px rgba(29,78,216,.35)' : '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(148,163,184,.18)',
                 animation: `slideUp .5s cubic-bezier(.4,0,.2,1) ${i * 60}ms both`,
               }}>
-                <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: "'Sora','Inter',sans-serif", letterSpacing: '-1.5px' }}>{k.value}</div>
+                <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: k.highlight ? '#fff' : '#111827', fontFamily: PAGE_FONT, letterSpacing: '-1.5px' }}>{k.value}</div>
                 <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, color: k.highlight ? 'rgba(255,255,255,.9)' : '#374151' }}>{k.label}</div>
                 <div style={{ fontSize: 11, marginTop: 2, color: k.highlight ? 'rgba(255,255,255,.6)' : '#9CA3AF' }}>{k.sub}</div>
                 {k.highlight && (
@@ -1569,7 +1575,7 @@ export function Audits() {
             ))}
           </div>
 
-          <ActionBar active={module} onChange={setModule}/>
+          <ActionBar active={module} onChange={setModule} onRefresh={load}/>
 
           {module==='plan'     && <PlanModule audits={audits} saving={saving} onSave={handleSavePlan} onDelete={handleDeletePlan} canWrite={canWrite(moduleCode)} canEdit={canEdit(moduleCode)} canDelete={canDelete(moduleCode)}/>}
           {module==='simulate' && <SimulateModule simHistory={simHistory} onSaveSimulation={handleSaveSimulation} canWrite={canWrite(moduleCode)}/>}

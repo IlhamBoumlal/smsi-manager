@@ -66,6 +66,11 @@ namespace backend.Application.Users.Commands.UpdateUser
             user.SocieteId = assignedSocieteId;
             user.PrimaryRoleKey = primaryRoleKey;
             user.IsActive = req.IsActive;
+            if (req.IsActive)
+            {
+                user.LockoutEnd = null;
+                user.AccessFailedCount = 0;
+            }
 
             var updateResult = await _userRepo.UpdateAsync(user);
             if (!updateResult.Succeeded)

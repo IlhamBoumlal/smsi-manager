@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../hooks/useAuth";
 import {
   createRiskStudy,
   deleteRiskStudy,
@@ -7,8 +7,8 @@ import {
   getRiskOwners,
   getRiskStudies,
   updateRiskStudy,
-} from "../../api/risques";
-import { createEmptyStudy, isWorkshopBlocked, normalizeLegacyStudy, nowDate, uid } from "./riskModel";
+} from "../services/risques";
+import { createEmptyStudy, isWorkshopBlocked, normalizeLegacyStudy, nowDate, uid } from "../riskModel";
 
 const RiskStudiesContext = createContext(null);
 
@@ -266,4 +266,3 @@ export function useRiskStudies() {
   if (!ctx) throw new Error("useRiskStudies must be used within RiskStudiesProvider");
   return ctx;
 }
-
