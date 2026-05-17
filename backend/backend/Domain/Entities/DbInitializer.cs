@@ -1,7 +1,11 @@
 using backend.Application.Security;
+using backend.Domain.Entities;
+using backend.Domain.Enumerations;
 using backend.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace backend.Application.Services
 {
@@ -55,6 +59,10 @@ namespace backend.Application.Services
             await EnsureFinalRolesAsync(roleManager);
             await EnsureRbacCatalogAsync(dbContext);
             await EnsureBaselineRolePermissionsAsync(dbContext, roleManager);
+
+            // ✅ AJOUT : Initialisation des contrôles ISO 27001 depuis le fichier JSON
+            await SeedControlesAsync(serviceProvider);
+
             if (cleanupLegacySeedAccounts)
             {
                 await RemoveLegacySeedAccountsAsync(userManager);
@@ -660,10 +668,6 @@ namespace backend.Application.Services
             throw new InvalidOperationException($"{operation} a échoué: {details}");
         }
 
-        /// <summary>
-        /// Hotfixes de compatibilité schéma pour des bases locales partiellement migrées.
-        /// Ces réparations sont idempotentes et ne s'exécutent que si les objets manquent.
-        /// </summary>
         private static async Task EnsureSchemaCompatibilityHotfixesAsync(AppDbContext dbContext)
         {
             const string sql = """
@@ -717,6 +721,149 @@ END
 """;
 
             await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        // =====================================================================
+        //  INITIALISATION DES CONTRÔLES ISO 27001 À PARTIR D'UN FICHIER JSON
+        // =====================================================================
+
+        public static async Task SeedControlesAsync(IServiceProvider serviceProvider)
+        {
+            var dbContext = serviceProvider.GetRequiredService<AppDbContext>();
+
+            if (await dbContext.Controles.AnyAsync())
+            {
+                Console.WriteLine("ℹ️  Contrôles déjà présents — seed ignoré.");
+                return;
+            }
+
+            var candidatePaths = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "controles.json"),
+                Path.Combine(AppContext.BaseDirectory, "Infrastructure", "SeedData", "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "controles.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Infrastructure", "SeedData", "controles.json"),
+            };
+
+            var jsonPath = candidatePaths.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(jsonPath))
+            {
+                Console.WriteLine("⚠️  Fichier controles.json non trouvé.");
+                return;
+            }
+
+            Console.WriteLine($"📄 Fichier trouvé : {jsonPath}");
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter() }
+                };
+
+                var jsonContent = await File.ReadAllTextAsync(jsonPath);
+                var dtos = JsonSerializer.Deserialize<List<ControleSeedDto>>(jsonContent, options);
+
+                if (dtos is null || dtos.Count == 0)
+                {
+                    Console.WriteLine("⚠️  Aucune donnée trouvée dans controles.json.");
+                    return;
+                }
+
+                var controles = new List<Controle>();
+
+                foreach (var dto in dtos)
+                {
+                    // Mapping DomaineControle
+                    var domaine = dto.Domaine?.Trim() switch
+                    {
+                        "Organisationnel" => DomaineControle.Organisationnel,
+                        "Personnes" => DomaineControle.Personnes,
+                        "Physique" => DomaineControle.Physique,
+                        "Technologique" => DomaineControle.Technologique,
+                        _ => DomaineControle.Organisationnel
+                    };
+
+                    // Mapping Statut
+                    if (!Enum.TryParse<Statut>(dto.Statut, true, out var statut))
+                    {
+                        Console.WriteLine($"⚠️ Statut invalide pour {dto.Code}: {dto.Statut}, utilisation de NonEvalue");
+                        statut = Statut.NonEvalue;
+                    }
+
+                    // Mapping StatutPlan (nullable)
+                    StatutPlan? statutPlan = null;
+                    if (!string.IsNullOrWhiteSpace(dto.StatutPlan))
+                    {
+                        if (!Enum.TryParse<StatutPlan>(dto.StatutPlan, true, out var sp))
+                            Console.WriteLine($"⚠️ StatutPlan invalide pour {dto.Code}: {dto.StatutPlan}, laissé null");
+                        else
+                            statutPlan = sp;
+                    }
+
+                    var controle = new Controle
+                    {
+                        Id = dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
+                        Code = dto.Code,
+                        Titre = dto.Titre,
+                        Description = dto.Description,
+                        Domaine = domaine,
+                        Applicable = dto.Applicable,
+                        RaisonsApplicabilite = dto.RaisonsApplicabilite?.Any() == true
+                            ? JsonSerializer.Serialize(dto.RaisonsApplicabilite)
+                            : null,
+                        RaisonExclusion = dto.RaisonExclusion,
+                        Statut = statut,
+                        JustificationConformite = dto.JustificationConformite,
+                        Remarque = dto.Remarque,
+                        Preuves = dto.Preuves,
+                        Steps = dto.Steps?.Any() == true ? JsonSerializer.Serialize(dto.Steps) : null,
+                        Priorite = dto.Priorite,
+                        StatutPlan = statutPlan,
+                        ResponsablePlan = dto.ResponsablePlan,
+                        DateEcheance = dto.DateEcheance,
+                        DateMiseAJour = dto.DateMiseAJour ?? DateTime.UtcNow,
+                        DernierModificateurId = dto.DernierModificateurId,
+                        DernierModificateurNom = dto.DernierModificateurNom,
+                    };
+
+                    controles.Add(controle);
+                }
+
+                await dbContext.Controles.AddRangeAsync(controles);
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine($"✅ {controles.Count} contrôles ISO 27001 insérés.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Erreur seed contrôles : {ex.Message}");
+                Console.WriteLine($"   Stack trace : {ex.StackTrace}");
+            }
+        }
+
+        private class ControleSeedDto
+        {
+            public Guid Id { get; set; }
+            public string Code { get; set; } = string.Empty;
+            public string Titre { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public string Domaine { get; set; } = string.Empty;
+            public bool Applicable { get; set; }
+            public List<string>? RaisonsApplicabilite { get; set; }
+            public string? RaisonExclusion { get; set; }
+            public string Statut { get; set; } = "NonEvalue";
+            public string? JustificationConformite { get; set; }
+            public string? Remarque { get; set; }
+            public string? Preuves { get; set; }
+            public List<string>? Steps { get; set; }
+            public string? Priorite { get; set; }
+            public string? StatutPlan { get; set; }
+            public string? ResponsablePlan { get; set; }
+            public DateTime? DateEcheance { get; set; }
+            public DateTime? DateMiseAJour { get; set; }
+            public string? DernierModificateurId { get; set; }
+            public string? DernierModificateurNom { get; set; }
         }
     }
 }
