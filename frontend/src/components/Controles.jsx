@@ -884,7 +884,9 @@ export default function Controles() {
         <div style={{ display: 'grid', gap: 16 }}>
           {loading && (
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+              <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid #E6EEF9' }}>
+                <span style={{ fontSize: 20, fontWeight: 800, color: '#1D4ED8', fontFamily: "'Sora', sans-serif" }}>C</span>
+              </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>Chargement des contrôles...</div>
             </div>
           )}
@@ -1396,5 +1398,6 @@ const btnSecondary = {
   flex: 1, padding: '13px 20px', borderRadius: 12,
   border: `1px solid ${T.gray200}`, background: '#fff',
   fontWeight: 600, fontSize: 14, cursor: 'pointer',
+  
   fontFamily: T.font, color: T.gray700,
 };

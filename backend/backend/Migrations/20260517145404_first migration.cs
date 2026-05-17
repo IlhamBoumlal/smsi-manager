@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace backend.Migrations
 {
     /// <inheritdoc />
-    public partial class intiMigr : Migration
+    public partial class firstmigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -196,6 +196,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
+                    GuidId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     IsoClauseId = table.Column<int>(type: "int", nullable: false),
                     SocieteId = table.Column<int>(type: "int", nullable: true),
                     SubClauseId = table.Column<int>(type: "int", nullable: true),
@@ -263,6 +264,7 @@ namespace backend.Migrations
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     NomComplet = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     SocieteId = table.Column<int>(type: "int", nullable: true),
+                    PrimaryRoleKey = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, defaultValue: "CONSULTANT"),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -283,11 +285,14 @@ namespace backend.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                    table.CheckConstraint("CK_AspNetUsers_PrimaryRoleKey_Allowed_Active", "[IsActive] = 0 OR [PrimaryRoleKey] IN ('SUPER_ADMIN','ADMIN_SOCIETE','RSSI','CONSULTANT','AUDITEUR')");
+                    table.CheckConstraint("CK_AspNetUsers_SocieteByPrimaryRole_Active", "[IsActive] = 0 OR (([PrimaryRoleKey] = 'SUPER_ADMIN' AND [SocieteId] IS NULL) OR ([PrimaryRoleKey] <> 'SUPER_ADMIN' AND [SocieteId] IS NOT NULL))");
                     table.ForeignKey(
                         name: "FK_AspNetUsers_Societes_SocieteId",
                         column: x => x.SocieteId,
                         principalTable: "Societes",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -321,6 +326,43 @@ namespace backend.Migrations
                         principalTable: "Societes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CompanyRolePermissionOverrides",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: false),
+                    RoleKey = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    ModuleId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    ActionId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    IsGranted = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CompanyRolePermissionOverrides", x => x.Id);
+                    table.CheckConstraint("CK_CompanyRolePermissionOverrides_RoleKey", "[RoleKey] IN ('SUPER_ADMIN','ADMIN_SOCIETE','RSSI','CONSULTANT','AUDITEUR')");
+                    table.ForeignKey(
+                        name: "FK_CompanyRolePermissionOverrides_Actions_ActionId",
+                        column: x => x.ActionId,
+                        principalTable: "Actions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CompanyRolePermissionOverrides_Modules_ModuleId",
+                        column: x => x.ModuleId,
+                        principalTable: "Modules",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CompanyRolePermissionOverrides_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -425,6 +467,31 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DashboardMonthlySnapshots",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
+                    MonthStartUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    GlobalConformity = table.Column<int>(type: "int", nullable: false),
+                    IncidentsCount = table.Column<int>(type: "int", nullable: false),
+                    AuditsCompleted = table.Column<int>(type: "int", nullable: false),
+                    PdcaCompleted = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DashboardMonthlySnapshots", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DashboardMonthlySnapshots_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Formations",
                 columns: table => new
                 {
@@ -469,6 +536,9 @@ namespace backend.Migrations
                     Priorite = table.Column<int>(type: "int", nullable: true),
                     Statut = table.Column<int>(type: "int", nullable: true),
                     Resolution = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ClosedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     SocieteId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
@@ -555,12 +625,47 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserActivityLogs",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: true),
+                    UserFullName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    UserEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    UserRole = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ModuleCode = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    ActionCode = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
+                    HttpMethod = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Path = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
+                    QueryString = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: true),
+                    TargetType = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    TargetId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    StatusCode = table.Column<int>(type: "int", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IpAddress = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
+                    UserAgent = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserActivityLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserActivityLogs_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PlanSteps",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ActionPlanId = table.Column<int>(type: "int", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValue: "todo"),
@@ -577,6 +682,12 @@ namespace backend.Migrations
                         principalTable: "ActionPlans",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PlanSteps_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -680,6 +791,7 @@ namespace backend.Migrations
                     Approver = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Clause = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Controle = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Processus = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     FilePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     OriginalFileName = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -757,11 +869,55 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserPermissionOverrides",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: false),
+                    ModuleId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    ActionId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    IsGranted = table.Column<bool>(type: "bit", nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserPermissionOverrides", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserPermissionOverrides_Actions_ActionId",
+                        column: x => x.ActionId,
+                        principalTable: "Actions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserPermissionOverrides_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserPermissionOverrides_Modules_ModuleId",
+                        column: x => x.ModuleId,
+                        principalTable: "Modules",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserPermissionOverrides_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AuditControlStatuses",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AuditId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     ControlId = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
                     Statut = table.Column<string>(type: "nvarchar(5)", maxLength: 5, nullable: false),
                     Comment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
@@ -775,6 +931,12 @@ namespace backend.Migrations
                         principalTable: "Audits",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AuditControlStatuses_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -819,6 +981,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ControleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     DateModification = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ModificateurId = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ModificateurNom = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -829,6 +992,12 @@ namespace backend.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ControleHistoriques", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ControleHistoriques_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_ControleHistoriques_controles_ControleId",
                         column: x => x.ControleId,
@@ -843,6 +1012,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     FormationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     FileName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     FileType = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     StoragePath = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -858,6 +1028,12 @@ namespace backend.Migrations
                         principalTable: "Formations",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FormationDocuments_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -866,6 +1042,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     FormationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     RecipientCount = table.Column<int>(type: "int", nullable: false),
                     SentAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -879,6 +1056,12 @@ namespace backend.Migrations
                         principalTable: "Formations",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FormationNotifications_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -887,6 +1070,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     FormationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     FullName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Initials = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -903,6 +1087,12 @@ namespace backend.Migrations
                         principalTable: "Formations",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FormationParticipants_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -911,6 +1101,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CycleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Key = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Label = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Order = table.Column<int>(type: "int", nullable: false),
@@ -926,6 +1117,12 @@ namespace backend.Migrations
                         principalTable: "PdcaCycles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Phases_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -958,6 +1155,76 @@ namespace backend.Migrations
                         principalTable: "Societes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProcessusClauses",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProcessusId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ClauseId = table.Column<int>(type: "int", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Justification = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProcessusClauses", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProcessusClauses_IsoClauses_ClauseId",
+                        column: x => x.ClauseId,
+                        principalTable: "IsoClauses",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProcessusClauses_Processus_ProcessusId",
+                        column: x => x.ProcessusId,
+                        principalTable: "Processus",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProcessusClauses_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProcessusControles",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProcessusId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ControleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Justification = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProcessusControles", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProcessusControles_Processus_ProcessusId",
+                        column: x => x.ProcessusId,
+                        principalTable: "Processus",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProcessusControles_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ProcessusControles_controles_ControleId",
+                        column: x => x.ControleId,
+                        principalTable: "controles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -1013,6 +1280,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     NonConformiteId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     Responsible = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     Deadline = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -1027,6 +1295,12 @@ namespace backend.Migrations
                         principalTable: "NonConformites",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ActionsCorrectives_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -1035,6 +1309,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     PhaseId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -1048,6 +1323,12 @@ namespace backend.Migrations
                         principalTable: "Phases",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Sections_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -1056,6 +1337,7 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     SectionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SocieteId = table.Column<int>(type: "int", nullable: true),
                     Text = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -1070,6 +1352,12 @@ namespace backend.Migrations
                         principalTable: "Sections",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PdcaItems_Societes_SocieteId",
+                        column: x => x.SocieteId,
+                        principalTable: "Societes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateIndex(
@@ -1104,6 +1392,11 @@ namespace backend.Migrations
                 column: "NonConformiteId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ActionsCorrectives_SocieteId",
+                table: "ActionsCorrectives",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
                 column: "RoleId");
@@ -1136,9 +1429,9 @@ namespace backend.Migrations
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_SocieteId",
+                name: "IX_AspNetUsers_PrimaryRoleKey_IsActive",
                 table: "AspNetUsers",
-                column: "SocieteId");
+                columns: new[] { "PrimaryRoleKey", "IsActive" });
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
@@ -1148,9 +1441,28 @@ namespace backend.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "UX_AspNetUsers_SingleActiveAdminPerSociete",
+                table: "AspNetUsers",
+                column: "SocieteId",
+                unique: true,
+                filter: "[PrimaryRoleKey] = 'ADMIN_SOCIETE' AND [IsActive] = 1 AND [SocieteId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_AspNetUsers_SingleActiveSuperAdmin",
+                table: "AspNetUsers",
+                column: "PrimaryRoleKey",
+                unique: true,
+                filter: "[PrimaryRoleKey] = 'SUPER_ADMIN' AND [IsActive] = 1");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AuditControlStatuses_AuditId",
                 table: "AuditControlStatuses",
                 column: "AuditId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditControlStatuses_SocieteId",
+                table: "AuditControlStatuses",
+                column: "SocieteId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Audits_SocieteId",
@@ -1161,6 +1473,27 @@ namespace backend.Migrations
                 name: "IX_Audits_SocieteId_UpdatedAt",
                 table: "Audits",
                 columns: new[] { "SocieteId", "UpdatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CompanyRolePermissionOverrides_ActionId",
+                table: "CompanyRolePermissionOverrides",
+                column: "ActionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CompanyRolePermissionOverrides_ModuleId",
+                table: "CompanyRolePermissionOverrides",
+                column: "ModuleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CompanyRolePermissionOverrides_SocieteId_RoleKey",
+                table: "CompanyRolePermissionOverrides",
+                columns: new[] { "SocieteId", "RoleKey" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CompanyRolePermissionOverrides_SocieteId_RoleKey_ModuleId_ActionId",
+                table: "CompanyRolePermissionOverrides",
+                columns: new[] { "SocieteId", "RoleKey", "ModuleId", "ActionId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ConformityProofs_IsoClauseId_UserId",
@@ -1188,6 +1521,11 @@ namespace backend.Migrations
                 column: "ControleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ControleHistoriques_SocieteId",
+                table: "ControleHistoriques",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_controles_Code",
                 table: "controles",
                 column: "Code");
@@ -1196,6 +1534,23 @@ namespace backend.Migrations
                 name: "IX_controles_SocieteId",
                 table: "controles",
                 column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DashboardMonthlySnapshots_MonthStartUtc",
+                table: "DashboardMonthlySnapshots",
+                column: "MonthStartUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DashboardMonthlySnapshots_SocieteId",
+                table: "DashboardMonthlySnapshots",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DashboardMonthlySnapshots_SocieteId_MonthStartUtc",
+                table: "DashboardMonthlySnapshots",
+                columns: new[] { "SocieteId", "MonthStartUtc" },
+                unique: true,
+                filter: "[SocieteId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DocumentationDocuments_ApprovedByUserId",
@@ -1221,6 +1576,11 @@ namespace backend.Migrations
                 name: "IX_DocumentationDocuments_SocieteId_FileHash",
                 table: "DocumentationDocuments",
                 columns: new[] { "SocieteId", "FileHash" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DocumentationDocuments_SocieteId_Processus",
+                table: "DocumentationDocuments",
+                columns: new[] { "SocieteId", "Processus" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_DocumentationDocuments_SocieteId_Status",
@@ -1273,14 +1633,29 @@ namespace backend.Migrations
                 column: "FormationId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FormationDocuments_SocieteId",
+                table: "FormationDocuments",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FormationNotifications_FormationId",
                 table: "FormationNotifications",
                 column: "FormationId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FormationNotifications_SocieteId",
+                table: "FormationNotifications",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FormationParticipants_FormationId",
                 table: "FormationParticipants",
                 column: "FormationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FormationParticipants_SocieteId",
+                table: "FormationParticipants",
+                column: "SocieteId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Formations_SocieteId",
@@ -1334,6 +1709,11 @@ namespace backend.Migrations
                 column: "SectionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PdcaItems_SocieteId",
+                table: "PdcaItems",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Permissions_ActionId",
                 table: "Permissions",
                 column: "ActionId");
@@ -1360,6 +1740,11 @@ namespace backend.Migrations
                 column: "CycleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Phases_SocieteId",
+                table: "Phases",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PlanSteps_ActionPlanId",
                 table: "PlanSteps",
                 column: "ActionPlanId");
@@ -1370,6 +1755,11 @@ namespace backend.Migrations
                 column: "Echeance");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PlanSteps_SocieteId",
+                table: "PlanSteps",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PlanSteps_Status",
                 table: "PlanSteps",
                 column: "Status");
@@ -1377,6 +1767,38 @@ namespace backend.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Processus_SocieteId",
                 table: "Processus",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusClauses_ClauseId",
+                table: "ProcessusClauses",
+                column: "ClauseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusClauses_ProcessusId_ClauseId",
+                table: "ProcessusClauses",
+                columns: new[] { "ProcessusId", "ClauseId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusClauses_SocieteId",
+                table: "ProcessusClauses",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusControles_ControleId",
+                table: "ProcessusControles",
+                column: "ControleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusControles_ProcessusId_ControleId",
+                table: "ProcessusControles",
+                columns: new[] { "ProcessusId", "ControleId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProcessusControles_SocieteId",
+                table: "ProcessusControles",
                 column: "SocieteId");
 
             migrationBuilder.CreateIndex(
@@ -1405,6 +1827,11 @@ namespace backend.Migrations
                 column: "PhaseId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sections_SocieteId",
+                table: "Sections",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SimulationAudits_SocieteId",
                 table: "SimulationAudits",
                 column: "SocieteId");
@@ -1418,6 +1845,57 @@ namespace backend.Migrations
                 name: "IX_Societes_HoldingId",
                 table: "Societes",
                 column: "HoldingId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_CreatedAt",
+                table: "UserActivityLogs",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_SocieteId",
+                table: "UserActivityLogs",
+                column: "SocieteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_SocieteId_ActionCode",
+                table: "UserActivityLogs",
+                columns: new[] { "SocieteId", "ActionCode" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_SocieteId_CreatedAt",
+                table: "UserActivityLogs",
+                columns: new[] { "SocieteId", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_SocieteId_ModuleCode",
+                table: "UserActivityLogs",
+                columns: new[] { "SocieteId", "ModuleCode" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserActivityLogs_UserId",
+                table: "UserActivityLogs",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserPermissionOverrides_ActionId",
+                table: "UserPermissionOverrides",
+                column: "ActionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserPermissionOverrides_ModuleId",
+                table: "UserPermissionOverrides",
+                column: "ModuleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserPermissionOverrides_SocieteId_UserId",
+                table: "UserPermissionOverrides",
+                columns: new[] { "SocieteId", "UserId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserPermissionOverrides_UserId_ModuleId_ActionId",
+                table: "UserPermissionOverrides",
+                columns: new[] { "UserId", "ModuleId", "ActionId" },
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -1448,10 +1926,16 @@ namespace backend.Migrations
                 name: "AuditControlStatuses");
 
             migrationBuilder.DropTable(
+                name: "CompanyRolePermissionOverrides");
+
+            migrationBuilder.DropTable(
                 name: "ConformityStatuses");
 
             migrationBuilder.DropTable(
                 name: "ControleHistoriques");
+
+            migrationBuilder.DropTable(
+                name: "DashboardMonthlySnapshots");
 
             migrationBuilder.DropTable(
                 name: "Documents");
@@ -1481,6 +1965,12 @@ namespace backend.Migrations
                 name: "PlanSteps");
 
             migrationBuilder.DropTable(
+                name: "ProcessusClauses");
+
+            migrationBuilder.DropTable(
+                name: "ProcessusControles");
+
+            migrationBuilder.DropTable(
                 name: "Profils");
 
             migrationBuilder.DropTable(
@@ -1490,16 +1980,16 @@ namespace backend.Migrations
                 name: "SimulationAudits");
 
             migrationBuilder.DropTable(
+                name: "UserActivityLogs");
+
+            migrationBuilder.DropTable(
+                name: "UserPermissionOverrides");
+
+            migrationBuilder.DropTable(
                 name: "NonConformites");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
-
-            migrationBuilder.DropTable(
-                name: "controles");
-
-            migrationBuilder.DropTable(
-                name: "Processus");
 
             migrationBuilder.DropTable(
                 name: "ConformityProofs");
@@ -1514,13 +2004,19 @@ namespace backend.Migrations
                 name: "Sections");
 
             migrationBuilder.DropTable(
+                name: "ActionPlans");
+
+            migrationBuilder.DropTable(
+                name: "Processus");
+
+            migrationBuilder.DropTable(
+                name: "controles");
+
+            migrationBuilder.DropTable(
                 name: "Actions");
 
             migrationBuilder.DropTable(
                 name: "Modules");
-
-            migrationBuilder.DropTable(
-                name: "ActionPlans");
 
             migrationBuilder.DropTable(
                 name: "Audits");

@@ -12,8 +12,8 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260507162701_Lot1RbacMultiSociete")]
-    partial class Lot1RbacMultiSociete
+    [Migration("20260517145404_first migration")]
+    partial class firstmigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -428,6 +428,9 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("GuidId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("IsoClauseId")
                         .HasColumnType("int");
@@ -905,6 +908,53 @@ namespace backend.Migrations
                     b.ToTable("ControleHistoriques");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.DashboardMonthlySnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AuditsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("GlobalConformity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IncidentsCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("MonthStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PdcaCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MonthStartUtc");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("SocieteId", "MonthStartUtc")
+                        .IsUnique()
+                        .HasFilter("[SocieteId] IS NOT NULL");
+
+                    b.ToTable("DashboardMonthlySnapshots", (string)null);
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1018,6 +1068,9 @@ namespace backend.Migrations
                     b.Property<string>("OriginalFileName")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Processus")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int?>("SocieteId")
                         .HasColumnType("int");
 
@@ -1049,6 +1102,8 @@ namespace backend.Migrations
                     b.HasIndex("SocieteId", "Category");
 
                     b.HasIndex("SocieteId", "FileHash");
+
+                    b.HasIndex("SocieteId", "Processus");
 
                     b.HasIndex("SocieteId", "Status");
 
@@ -1329,6 +1384,12 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
 
@@ -1349,6 +1410,9 @@ namespace backend.Migrations
 
                     b.Property<string>("Titre")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -1711,6 +1775,78 @@ namespace backend.Migrations
                     b.ToTable("Processus");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusClause", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ClauseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Justification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProcessusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClauseId");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("ProcessusId", "ClauseId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessusClauses");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusControle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ControleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Justification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProcessusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ControleId");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("ProcessusId", "ControleId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessusControles");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Profil", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1895,6 +2031,102 @@ namespace backend.Migrations
                     b.HasIndex("HoldingId");
 
                     b.ToTable("Societes");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.UserActivityLog", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ActionCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("HttpMethod")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ModuleCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("QueryString")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<int>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("TargetType")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("UserEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("UserFullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("UserRole")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SocieteId", "ActionCode");
+
+                    b.HasIndex("SocieteId", "CreatedAt");
+
+                    b.HasIndex("SocieteId", "ModuleCode");
+
+                    b.ToTable("UserActivityLogs", (string)null);
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.UserPermissionOverride", b =>
@@ -2179,6 +2411,16 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.DashboardMonthlySnapshot", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Document", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Processus", "Processus")
@@ -2452,6 +2694,58 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusClause", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.IsoClause", "Clause")
+                        .WithMany()
+                        .HasForeignKey("ClauseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Processus", "Processus")
+                        .WithMany("ProcessusClauses")
+                        .HasForeignKey("ProcessusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Clause");
+
+                    b.Navigation("Processus");
+
+                    b.Navigation("Societe");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusControle", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Controle", "Controle")
+                        .WithMany()
+                        .HasForeignKey("ControleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Processus", "Processus")
+                        .WithMany("ProcessusControles")
+                        .HasForeignKey("ProcessusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Controle");
+
+                    b.Navigation("Processus");
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
                 {
                     b.HasOne("ApplicationUser", "CreatedByUser")
@@ -2511,6 +2805,17 @@ namespace backend.Migrations
                         .HasForeignKey("HoldingId");
 
                     b.Navigation("Holding");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.UserActivityLog", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Societe");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.UserPermissionOverride", b =>
@@ -2611,6 +2916,10 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Domain.Entities.Processus", b =>
                 {
                     b.Navigation("Documents");
+
+                    b.Navigation("ProcessusClauses");
+
+                    b.Navigation("ProcessusControles");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Section", b =>

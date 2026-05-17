@@ -905,6 +905,53 @@ namespace backend.Migrations
                     b.ToTable("ControleHistoriques");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.DashboardMonthlySnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AuditsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("GlobalConformity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IncidentsCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("MonthStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PdcaCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MonthStartUtc");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("SocieteId", "MonthStartUtc")
+                        .IsUnique()
+                        .HasFilter("[SocieteId] IS NOT NULL");
+
+                    b.ToTable("DashboardMonthlySnapshots", (string)null);
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1334,6 +1381,12 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
 
@@ -1354,6 +1407,9 @@ namespace backend.Migrations
 
                     b.Property<string>("Titre")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -1714,6 +1770,78 @@ namespace backend.Migrations
                     b.HasIndex("SocieteId");
 
                     b.ToTable("Processus");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusClause", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ClauseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Justification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProcessusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClauseId");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("ProcessusId", "ClauseId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessusClauses");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusControle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ControleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Justification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProcessusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SocieteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ControleId");
+
+                    b.HasIndex("SocieteId");
+
+                    b.HasIndex("ProcessusId", "ControleId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessusControles");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Profil", b =>
@@ -2280,6 +2408,16 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.DashboardMonthlySnapshot", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.Document", b =>
                 {
                     b.HasOne("backend.Domain.Entities.Processus", "Processus")
@@ -2553,6 +2691,58 @@ namespace backend.Migrations
                     b.Navigation("Societe");
                 });
 
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusClause", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.IsoClause", "Clause")
+                        .WithMany()
+                        .HasForeignKey("ClauseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Processus", "Processus")
+                        .WithMany("ProcessusClauses")
+                        .HasForeignKey("ProcessusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Clause");
+
+                    b.Navigation("Processus");
+
+                    b.Navigation("Societe");
+                });
+
+            modelBuilder.Entity("backend.Domain.Entities.ProcessusControle", b =>
+                {
+                    b.HasOne("backend.Domain.Entities.Controle", "Controle")
+                        .WithMany()
+                        .HasForeignKey("ControleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Processus", "Processus")
+                        .WithMany("ProcessusControles")
+                        .HasForeignKey("ProcessusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Domain.Entities.Societe", "Societe")
+                        .WithMany()
+                        .HasForeignKey("SocieteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Controle");
+
+                    b.Navigation("Processus");
+
+                    b.Navigation("Societe");
+                });
+
             modelBuilder.Entity("backend.Domain.Entities.RiskStudy", b =>
                 {
                     b.HasOne("ApplicationUser", "CreatedByUser")
@@ -2723,6 +2913,10 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Domain.Entities.Processus", b =>
                 {
                     b.Navigation("Documents");
+
+                    b.Navigation("ProcessusClauses");
+
+                    b.Navigation("ProcessusControles");
                 });
 
             modelBuilder.Entity("backend.Domain.Entities.Section", b =>

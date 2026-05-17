@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Upload } from 'lucide-react';
 import {
   getAllProcessus,
   createProcessus,
@@ -730,7 +731,7 @@ export default function CartographieProcessus() {
                     style={{ "--ac": meta.color }}
                     onClick={() => setDocModal({ open:true, form:EMPTY_DOC, targetProcId: activeProc.id })}
                   >
-                    <i className="fa-solid fa-circle-plus"/> Ajouter un document
+                    <Upload size={15} color={meta.color || '#0ea5e9'} style={{ marginRight: 8 }} /> Ajouter un document
                   </button>
                 )}
               </div>
@@ -823,7 +824,7 @@ export default function CartographieProcessus() {
         <div className="cx-overlay" onClick={e => { if(e.target.classList.contains("cx-overlay")) setDocModal(m=>({...m,open:false})); }}>
           <div className="cx-modal">
             <h3>
-              <i className="fa-solid fa-file-circle-plus" style={{marginRight:9}}/>
+              <Upload size={16} color={CAT_META[procModal.form.cat]?.color || '#0ea5e9'} style={{ marginRight: 9 }} />
               Ajouter un document
             </h3>
             <Fg label="Nom du document" icon="fa-solid fa-file-signature">
@@ -929,12 +930,13 @@ function ProcCard({ proc, cat, index, isActive, onClick, onEdit, onDelete, onAdd
     real: "fa-solid fa-bolt",
     supp: "fa-solid fa-screwdriver-wrench",
   };
+  const meta = CAT_META[cat] || {};
   return (
     <div className={`cx-card cx-card-${cat} ${isActive?"cx-card-on":""}`} onClick={onClick}>
       <div className="cx-card-acts">
         {canWrite && (
           <button className="cx-act cx-act-doc" title="Ajouter un document" onClick={e=>{e.stopPropagation(); onAddDoc();}}>
-            <i className="fa-solid fa-file-circle-plus text-green-500"/>
+            <Upload size={15} color={meta.color || '#10b981'} />
           </button>
         )}
         {canEdit && (
