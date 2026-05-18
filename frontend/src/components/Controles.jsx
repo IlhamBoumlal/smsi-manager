@@ -1360,7 +1360,7 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
             disabled={!canSaveForm || saving || !canWrite(moduleCode)}
             style={{ ...btnPrimary, background: canSaveForm && !saving && canWrite(moduleCode) ? T.gradBlue : T.gray200, cursor: canSaveForm && !saving && canWrite(moduleCode) ? 'pointer' : 'not-allowed', color: canSaveForm && !saving && canWrite(moduleCode) ? '#fff' : T.gray400 }}
           >
-            {saving ? <>⏳ Sauvegarde...</> : <><Save size={16} /> Enregistrer l'évaluation</>}
+            {saving ? <> Sauvegarde...</> : <><Save size={16} /> Enregistrer l'évaluation</>}
           </button>
         </div>
       </div>
