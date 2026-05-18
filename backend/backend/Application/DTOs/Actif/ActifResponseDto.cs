@@ -1,5 +1,4 @@
 ﻿using backend.Domain.Enumerations;
-
 namespace backend.Application.DTOs.ActifDTOs
 {
     public record ActifResponseDto(
@@ -9,6 +8,6 @@ namespace backend.Application.DTOs.ActifDTOs
         TypeActif Type,
         CategorieActif Categorie,
         ClassificationActif Classification,
-        Guid? ProprietaireId
+        string? ProprietaireNom
     );
 }

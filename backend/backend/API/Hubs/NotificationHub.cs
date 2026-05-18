@@ -23,13 +23,13 @@ namespace backend.API.Hubs
                 var groupName = NormalizeEmailForGroup(userEmail);
                 await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
                 _logger.LogInformation(
-                    "✅ Utilisateur {Email} connecté — groupe: {Group} — ConnectionId: {ConnectionId}",
+                    "Utilisateur {Email} connecté — groupe: {Group} — ConnectionId: {ConnectionId}",
                     userEmail, groupName, Context.ConnectionId);
             }
             else
             {
                 _logger.LogWarning(
-                    "⚠️ Connexion SignalR sans email valide — ConnectionId: {ConnectionId}",
+                    "Connexion SignalR sans email valide — ConnectionId: {ConnectionId}",
                     Context.ConnectionId);
             }
 
@@ -50,6 +50,47 @@ namespace backend.API.Hubs
             }
 
             await base.OnDisconnectedAsync(exception);
+        }
+
+        /// <summary>
+        /// Envoie une notification à un utilisateur spécifique (par son email).
+        /// Appelé depuis le hub lui-même ou depuis un IHubContext injecté.
+        /// </summary>
+        public async Task SendNotificationToUser(string userEmail, object notification)
+        {
+            var groupName = NormalizeEmailForGroup(userEmail);
+            await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
+            _logger.LogInformation("Notification envoyée à {Email} (groupe: {Group})", userEmail, groupName);
+        }
+
+        /// <summary>
+        /// Envoie une notification à TOUS les utilisateurs connectés.
+        /// À utiliser uniquement pour les événements globaux (ex: maintenance).
+        /// </summary>
+        public async Task SendNotificationToAll(object notification)
+        {
+            await Clients.All.SendAsync("ReceiveNotification", notification);
+            _logger.LogInformation("Notification broadcast à TOUS les utilisateurs");
+        }
+
+        /// <summary>
+        /// Méthode de test : envoie une notification de test à un email donné.
+        /// </summary>
+        public async Task TestNotificationForUser(string email)
+        {
+            var testNotification = new
+            {
+                type = "Test",
+                message = $"Test de notification pour {email}",
+                titre = "Test SignalR",
+                description = "Si vous voyez ce message, la notification fonctionne !",
+                incidentId = Guid.NewGuid().ToString(),
+                priorite = "HAUTE",
+                date = DateTime.UtcNow
+            };
+
+            await SendNotificationToUser(email, testNotification);
+            _logger.LogInformation("🧪 Test notification envoyé à {Email}", email);
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────

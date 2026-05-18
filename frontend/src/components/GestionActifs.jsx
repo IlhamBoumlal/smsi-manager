@@ -66,11 +66,8 @@ const EMPTY_FORM = {
   type: '',
   categorie: '',
   classification: 'NonClasse',
-  proprietaireId: '',
+  proprietaireNom: '',
 };
-
-const ZERO_GUID = '00000000-0000-0000-0000-000000000000';
-const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const normalizeClassificationKey = (value) => {
   const key = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -81,7 +78,6 @@ const normalizeClassificationKey = (value) => {
   return 'NonClasse';
 };
 
-// ── KpiStrip avec les 4 statistiques demandées ──
 function KpiStrip({ stats }) {
   const kpis = [
     { label: "Total actifs", value: stats.total, sub: `${stats.total} actifs inventoriés`, bg: T.gradBlue, light: false },
@@ -102,7 +98,7 @@ function KpiStrip({ stats }) {
           <div style={{ fontSize: 11.5, color: k.light ? "#9CA3AF" : "rgba(255,255,255,.6)", marginTop: 2 }}>{k.sub}</div>
           {!k.light && (
             <div style={{ marginTop: 12, height: 4, borderRadius: 99, background: "rgba(255,255,255,.2)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${Math.min(100, (stats.total / (stats.total || 1)) * 100)}%`, background: "rgba(255,255,255,.8)", borderRadius: 99, transition: "width 1.2s cubic-bezier(.4,0,.2,1) .3s" }} />
+              <div style={{ height: "100%", width: "100%", background: "rgba(255,255,255,.8)", borderRadius: 99, transition: "width 1.2s cubic-bezier(.4,0,.2,1) .3s" }} />
             </div>
           )}
         </div>
@@ -111,7 +107,6 @@ function KpiStrip({ stats }) {
   );
 }
 
-// ── Dropdown filter ────────────────────────────────────────────────────────
 function DropdownFilter({ label, value, onChange, options }) {
   return (
     <label className="relative">
@@ -134,41 +129,25 @@ export default function GestionActifs() {
   const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
   const moduleCode = "actifs";
   const hasAccess = canRead(moduleCode);
-  
-  const [actifs, setActifs] = useState([]);
-  const [roles, setRoles] = useState([]);
 
+  const [actifs, setActifs] = useState([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categorieFilter, setCategorieFilter] = useState('');
   const [classificationFilter, setClassificationFilter] = useState('');
   const [viewMode, setViewMode] = useState('grid');
-
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
-
   const [form, setForm] = useState(EMPTY_FORM);
 
   const fetchAll = useCallback(async () => {
     setFetchLoading(true);
     try {
-      const [actifsResult, profilsResult] = await Promise.allSettled([
-        axiosInstance.get('/api/actifs'),
-        axiosInstance.get('/api/profils'),
-      ]);
-      if (actifsResult.status === 'fulfilled') {
-        setActifs(Array.isArray(actifsResult.value.data) ? actifsResult.value.data : []);
-      }
-      if (profilsResult.status === 'fulfilled') {
-        setRoles(Array.isArray(profilsResult.value.data)
-          ? profilsResult.value.data.map((p) => ({ id: p.id, nom: p.nom || p.name || 'Profil' }))
-          : []);
-      } else {
-        setRoles([]);
-      }
+      const response = await axiosInstance.get('/api/actifs');
+      setActifs(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error('Erreur chargement:', err);
     } finally {
@@ -178,7 +157,6 @@ export default function GestionActifs() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Fonction d'export des actifs
   const handleExport = async () => {
     if (!canExport(moduleCode)) {
       alert('Vous n\'avez pas la permission d\'exporter les actifs');
@@ -188,43 +166,29 @@ export default function GestionActifs() {
     try {
       const response = await axiosInstance.get('/api/actifs');
       const actifsData = response.data;
-      
-      const actifsEnriched = actifsData.map(actif => {
-        const proprietaire = roles.find(r => r.id === actif.proprietaireId);
-        return {
-          id: actif.id,
-          nom: actif.nom,
-          description: actif.description || '',
-          type: TypeActif[actif.type] || actif.type,
-          categorie: CategorieActif[actif.categorie] || actif.categorie,
-          classification: ClassificationActif[normalizeClassificationKey(actif.classification)] || actif.classification,
-          proprietaireNom: proprietaire ? proprietaire.nom : 'Aucun',
-          proprietaireId: actif.proprietaireId || '',
-          dateCreation: actif.dateCreation ? new Date(actif.dateCreation).toLocaleDateString('fr-FR') : '',
-          dateModification: actif.dateModification ? new Date(actif.dateModification).toLocaleDateString('fr-FR') : '',
-        };
-      });
-
-      const headers = ['ID', 'Nom', 'Description', 'Type', 'Catégorie', 'Classification', 'Propriétaire', 'Date Création', 'Date Modification'];
+      const actifsEnriched = actifsData.map(actif => ({
+        id: actif.id,
+        nom: actif.nom,
+        description: actif.description || '',
+        type: TypeActif[actif.type] || actif.type,
+        categorie: CategorieActif[actif.categorie] || actif.categorie,
+        classification: ClassificationActif[normalizeClassificationKey(actif.classification)] || actif.classification,
+        proprietaireNom: actif.proprietaireNom || 'Aucun',
+      }));
+      const headers = ['ID', 'Nom', 'Description', 'Type', 'Catégorie', 'Classification', 'Propriétaire'];
       const csvRows = [headers];
-      
       for (const actif of actifsEnriched) {
-        const row = [
+        csvRows.push([
           actif.id,
           `"${actif.nom.replace(/"/g, '""')}"`,
-          `"${(actif.description || '').replace(/"/g, '""')}"`,
+          `"${actif.description.replace(/"/g, '""')}"`,
           actif.type,
           actif.categorie,
           actif.classification,
           actif.proprietaireNom,
-          actif.dateCreation,
-          actif.dateModification,
-        ];
-        csvRows.push(row.join(','));
+        ].join(','));
       }
-      
-      const csvContent = csvRows.join('\n');
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
@@ -233,9 +197,8 @@ export default function GestionActifs() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
     } catch (err) {
-      console.error('Erreur lors de l\'export:', err);
+      console.error('Erreur export:', err);
       alert('Erreur lors de l\'export des actifs');
     } finally {
       setExportLoading(false);
@@ -245,7 +208,6 @@ export default function GestionActifs() {
   const stats = useMemo(() => {
     const secretCount = actifs.filter((a) => normalizeClassificationKey(a.classification) === 'Secret').length;
     const topSecretCount = actifs.filter((a) => normalizeClassificationKey(a.classification) === 'TopSecret').length;
-    
     return {
       total: actifs.length,
       sensibles: secretCount + topSecretCount,
@@ -274,47 +236,38 @@ export default function GestionActifs() {
   const closeModal = () => { setModal(false); reset(); };
 
   const openNew = () => {
-    if (!canWrite(moduleCode)) {
-      alert('Vous n\'avez pas la permission de créer des actifs');
-      return;
-    }
+    if (!canWrite(moduleCode)) { alert('Vous n\'avez pas la permission de créer des actifs'); return; }
     reset();
-    setForm((prev) => ({ ...prev, proprietaireId: roles[0]?.id || '' }));
     setModal(true);
   };
 
   const openEdit = (a) => {
-    if (!canEdit(moduleCode)) {
-      alert('Vous n\'avez pas la permission de modifier cet actif');
-      return;
-    }
+    if (!canEdit(moduleCode)) { alert('Vous n\'avez pas la permission de modifier cet actif'); return; }
     setEditing(a);
     setForm({
       nom: a.nom,
-      description: a.description,
+      description: a.description || '',
       type: a.type,
       categorie: a.categorie,
       classification: normalizeClassificationKey(a.classification),
-      proprietaireId: a.proprietaireId || '',
+      proprietaireNom: a.proprietaireNom || '',
     });
     setModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canWrite(moduleCode)) {
-      alert('Vous n\'avez pas la permission de créer ou modifier des actifs');
-      return;
-    }
+    if (!canWrite(moduleCode)) { alert('Vous n\'avez pas la permission de créer ou modifier des actifs'); return; }
+    if (!form.nom || String(form.nom).trim() === '') { alert('Le champ "Nom" est requis.'); return; }
     setLoading(true);
     try {
       const payload = {
-        nom: form.nom,
-        description: form.description,
-        type: form.type,
-        categorie: form.categorie,
-        classification: normalizeClassificationKey(form.classification),
-        proprietaireId: GUID_REGEX.test(form.proprietaireId) ? form.proprietaireId : ZERO_GUID,
+        Nom: form.nom,
+        Description: form.description || null,
+        Type: form.type,
+        Categorie: form.categorie,
+        Classification: normalizeClassificationKey(form.classification),
+        ProprietaireNom: form.proprietaireNom?.trim() || null,
       };
       if (editing) {
         await axiosInstance.put(`/api/actifs/${editing.id}`, payload);
@@ -332,10 +285,7 @@ export default function GestionActifs() {
   };
 
   const handleDelete = async (id) => {
-    if (!canDelete(moduleCode)) {
-      alert('Vous n\'avez pas la permission de supprimer des actifs');
-      return;
-    }
+    if (!canDelete(moduleCode)) { alert('Vous n\'avez pas la permission de supprimer des actifs'); return; }
     if (!window.confirm('Supprimer cet actif ?')) return;
     try {
       await axiosInstance.delete(`/api/actifs/${id}`);
@@ -345,17 +295,11 @@ export default function GestionActifs() {
     }
   };
 
-  const resetFilters = () => {
-    setSearch('');
-    setTypeFilter('');
-    setCategorieFilter('');
-    setClassificationFilter('');
-  };
+  const resetFilters = () => { setSearch(''); setTypeFilter(''); setCategorieFilter(''); setClassificationFilter(''); };
 
-  const getProprietaireLabel = (proprietaireId) => {
-    if (!proprietaireId || proprietaireId === ZERO_GUID) return '-';
-    const role = roles.find((r) => r.id === proprietaireId);
-    return role ? role.nom : `${proprietaireId.substring(0, 8)}...`;
+  const getProprietaireLabel = (nom) => {
+    if (!nom || String(nom).trim() === '') return '-';
+    return String(nom).trim();
   };
 
   const renderActifCard = (actif) => {
@@ -381,24 +325,18 @@ export default function GestionActifs() {
           </span>
         </div>
         <p className="mb-3 text-[11px] text-slate-500">
-          Proprietaire: <span className="font-semibold text-slate-700">{getProprietaireLabel(actif.proprietaireId)}</span>
+          Propriétaire: <span className="font-semibold text-slate-700">{getProprietaireLabel(actif.proprietaireNom)}</span>
         </p>
         <div className="flex items-center gap-2">
           {canEdit(moduleCode) && (
-            <button
-              type="button"
-              onClick={() => openEdit(actif)}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
-            >
+            <button type="button" onClick={() => openEdit(actif)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">
               <Edit size={14} /> Modifier
             </button>
           )}
           {canDelete(moduleCode) && (
-            <button
-              type="button"
-              onClick={() => handleDelete(actif.id)}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100"
-            >
+            <button type="button" onClick={() => handleDelete(actif.id)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100">
               <Trash2 size={14} /> Supprimer
             </button>
           )}
@@ -407,7 +345,6 @@ export default function GestionActifs() {
     );
   };
 
-  // Vérification d'accès
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-[#f4f6fa] flex items-center justify-center px-4">
@@ -424,110 +361,64 @@ export default function GestionActifs() {
     <div className="min-h-screen bg-[#f4f6fa]" style={{ fontFamily: T.font }}>
       <div className="mx-auto max-w-[1400px] px-9 py-9 pb-16 w-full">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <section className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900" style={{ letterSpacing: "-0.8px" }}>Gestion des actifs</h1>
-            <p className="mt-1 text-[13.5px] text-slate-500">Pilotage inventaire ISO 27001 - suivi des actifs et proprietaires.</p>
+            <p className="mt-1 text-[13.5px] text-slate-500">Pilotage inventaire ISO 27001 - suivi des actifs et propriétaires.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {canExport(moduleCode) && (
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={exportLoading}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                {exportLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
-                ) : (
-                  <Download size={18} />
-                )}
+              <button type="button" onClick={handleExport} disabled={exportLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+                {exportLoading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" /> : <Download size={18} />}
                 {exportLoading ? 'Export...' : 'Exporter CSV'}
               </button>
             )}
             {canWrite(moduleCode) && (
-              <button
-                type="button"
-                onClick={openNew}
+              <button type="button" onClick={openNew}
                 className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-xs font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:opacity-95"
-                style={{ background: T.gradBlue }}
-              >
+                style={{ background: T.gradBlue }}>
                 <Plus size={22} className="mr-2" /> Nouveau actif
               </button>
             )}
           </div>
         </section>
 
-        {/* ── Stats avec KpiStrip ── */}
         <KpiStrip stats={stats} />
 
-        {/* ── Filters ── */}
+        {/* Filters */}
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          {/* Search */}
           <div className="relative mb-4">
             <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un actif par nom ou description..."
-              className="h-12 w-full rounded-xl border border-slate-300 bg-slate-50 pl-11 pr-4 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-300 focus:outline-none"
-            />
+              className="h-12 w-full rounded-xl border border-slate-300 bg-slate-50 pl-11 pr-4 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-300 focus:outline-none" />
           </div>
-
-          {/* Dropdowns + view toggle */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <DropdownFilter
-                label="Tous les types"
-                value={typeFilter}
-                onChange={setTypeFilter}
-                options={Object.entries(TypeActif)}
-              />
-              <DropdownFilter
-                label="Toutes catégories"
-                value={categorieFilter}
-                onChange={setCategorieFilter}
-                options={Object.entries(CategorieActif)}
-              />
-              <DropdownFilter
-                label="Toutes classifications"
-                value={classificationFilter}
-                onChange={setClassificationFilter}
-                options={Object.entries(ClassificationActif)}
-              />
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-              >
+              <DropdownFilter label="Tous les types" value={typeFilter} onChange={setTypeFilter} options={Object.entries(TypeActif)} />
+              <DropdownFilter label="Toutes catégories" value={categorieFilter} onChange={setCategorieFilter} options={Object.entries(CategorieActif)} />
+              <DropdownFilter label="Toutes classifications" value={classificationFilter} onChange={setClassificationFilter} options={Object.entries(ClassificationActif)} />
+              <button type="button" onClick={resetFilters}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">
                 <SlidersHorizontal size={15} /> Réinitialiser
               </button>
             </div>
-
             <div className="inline-flex h-10 overflow-hidden rounded-xl border border-slate-300 bg-slate-50">
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                className={`inline-flex w-10 items-center justify-center ${viewMode === 'grid' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}
-                title="Vue grille"
-              >
+              <button type="button" onClick={() => setViewMode('grid')}
+                className={`inline-flex w-10 items-center justify-center ${viewMode === 'grid' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}>
                 <LayoutGrid size={17} />
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className={`inline-flex w-10 items-center justify-center ${viewMode === 'table' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}
-                title="Vue liste"
-              >
+              <button type="button" onClick={() => setViewMode('table')}
+                className={`inline-flex w-10 items-center justify-center ${viewMode === 'table' ? 'bg-[#2f62de] text-white' : 'text-slate-600'}`}>
                 <List size={17} />
               </button>
             </div>
           </div>
         </section>
 
-        {/* ── Results ── */}
+        {/* Results */}
         <section className="mt-5">
           {fetchLoading ? (
             <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-400 shadow-sm">Chargement...</div>
@@ -543,11 +434,11 @@ export default function GestionActifs() {
                 <table className="w-full min-w-[980px] text-left">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
-                      <th className="px-6 py-4 text-left">Nom</th>
-                      <th className="px-6 py-4 text-left">Type</th>
-                      <th className="px-6 py-4 text-left">Categorie</th>
-                      <th className="px-6 py-4 text-left">Classification</th>
-                      <th className="px-6 py-4 text-left">Proprietaire</th>
+                      <th className="px-6 py-4">Nom</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Categorie</th>
+                      <th className="px-6 py-4">Classification</th>
+                      <th className="px-6 py-4">Propriétaire</th>
                       <th className="px-6 py-4 text-center">Actions</th>
                     </tr>
                   </thead>
@@ -572,7 +463,7 @@ export default function GestionActifs() {
                               <Lock size={10} />{ClassificationActif[cls] || cls}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-xs font-medium text-slate-600">{getProprietaireLabel(actif.proprietaireId)}</td>
+                          <td className="px-6 py-4 text-xs font-medium text-slate-600">{getProprietaireLabel(actif.proprietaireNom)}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-2">
                               {canEdit(moduleCode) && (
@@ -598,7 +489,7 @@ export default function GestionActifs() {
         </section>
       </div>
 
-      {/* ── Modal ── */}
+      {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]">
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-[0_24px_60px_rgba(15,23,42,0.25)]">
@@ -646,12 +537,10 @@ export default function GestionActifs() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-medium text-slate-700">Proprietaire (Role)</label>
-                  <select value={form.proprietaireId} onChange={(e) => setForm({ ...form, proprietaireId: e.target.value })}
-                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-xs focus:border-blue-300 focus:outline-none">
-                    <option value="">Aucun proprietaire</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.nom || r.name}</option>)}
-                  </select>
+                  <label className="mb-2 block text-xs font-medium text-slate-700">Propriétaire</label>
+                  <input type="text" value={form.proprietaireNom} onChange={(e) => setForm({ ...form, proprietaireNom: e.target.value })}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-xs focus:border-blue-300 focus:outline-none"
+                    placeholder="Nom du propriétaire" />
                 </div>
               </div>
               <div className="flex gap-3 pt-3">

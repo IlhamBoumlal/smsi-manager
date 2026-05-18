@@ -2,7 +2,6 @@
 using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using MediatR;
-
 namespace backend.Application.Actifs.Commands.CreateActif
 {
     public class CreateActifHandler : IRequestHandler<CreateActifCommand, ActifResponseDto>
@@ -19,13 +18,13 @@ namespace backend.Application.Actifs.Commands.CreateActif
                 Type = request.Type,
                 Categorie = request.Categorie,
                 Classification = request.Classification,
-                ProprietaireId = request.ProprietaireId,
+                ProprietaireNom = request.ProprietaireNom,
                 SocieteId = request.SocieteId
             };
             var created = await _repository.CreateAsync(actif);
             return new ActifResponseDto(
                 created.Id, created.Nom, created.Description, created.Type,
-                created.Categorie, created.Classification, created.ProprietaireId);
+                created.Categorie, created.Classification, created.ProprietaireNom);
         }
     }
 }

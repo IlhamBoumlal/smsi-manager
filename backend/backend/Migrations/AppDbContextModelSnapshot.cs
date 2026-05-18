@@ -278,8 +278,8 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("ProprietaireId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("ProprietaireNom")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("SocieteId")
                         .HasColumnType("int");
