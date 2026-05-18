@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Application.DTOs.Clause;
 using backend.Application.Security;
+using backend.Domain.Interfaces;
 using backend.Infrastructure.Services;
 
 namespace backend.API.Controllers;
@@ -14,7 +15,15 @@ namespace backend.API.Controllers;
 public class ClauseFileController : ControllerBase
 {
     private readonly IClauseService _svc;
-    public ClauseFileController(IClauseService svc) => _svc = svc;
+    private readonly IDocumentationProofLinkService _documentationProofLinkService;
+
+    public ClauseFileController(
+        IClauseService svc,
+        IDocumentationProofLinkService documentationProofLinkService)
+    {
+        _svc = svc;
+        _documentationProofLinkService = documentationProofLinkService;
+    }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? User.FindFirstValue("sub") ?? "";
@@ -49,7 +58,27 @@ public class ClauseFileController : ControllerBase
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadConformityProofFileAsync(proofId, UserId, CurrentSocieteId, file, description));
+            var result = await _svc.UploadConformityProofFileAsync(proofId, UserId, CurrentSocieteId, file, description);
+            try
+            {
+                await _documentationProofLinkService.FindOrCreateFromFormFileAndLinkAsync(
+                    file,
+                    UserId,
+                    clauseReference: null,
+                    controleReference: null,
+                    processusReference: null,
+                    description: description,
+                    requestedType: null,
+                    sourceModule: "clauses",
+                    controleDomaine: null,
+                    cancellationToken: HttpContext.RequestAborted);
+            }
+            catch
+            {
+                // Ne pas bloquer l'enregistrement du fichier de preuve si la synchronisation échoue.
+            }
+
+            return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
@@ -79,7 +108,27 @@ public class ClauseFileController : ControllerBase
         if (file is null || file.Length == 0) return BadRequest("Fichier manquant.");
         try
         {
-            return Ok(await _svc.UploadActionPlanFileAsync(planGuidId, UserId, CurrentSocieteId, file, description));
+            var result = await _svc.UploadActionPlanFileAsync(planGuidId, UserId, CurrentSocieteId, file, description);
+            try
+            {
+                await _documentationProofLinkService.FindOrCreateFromFormFileAndLinkAsync(
+                    file,
+                    UserId,
+                    clauseReference: null,
+                    controleReference: null,
+                    processusReference: null,
+                    description: description,
+                    requestedType: null,
+                    sourceModule: "clauses",
+                    controleDomaine: null,
+                    cancellationToken: HttpContext.RequestAborted);
+            }
+            catch
+            {
+                // Ne pas bloquer l'enregistrement du fichier de plan d'action si la synchronisation échoue.
+            }
+
+            return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
         catch (KeyNotFoundException ex) { return NotFound(ex.Message); }
