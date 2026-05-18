@@ -70,54 +70,49 @@ namespace backend.Application.Incidents.Commands.CreateIncident
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Erreur notifications pour incident {IncidentId}", incident.Id);
+                _logger.LogError(ex, "Erreur notifications pour incident {Id}", incident.Id);
             }
 
             return incident.Id;
         }
 
-        // ── SignalR ──────────────────────────────────────────────────────────
         private async Task SendSignalRNotificationsAsync(Incident incident)
         {
             _logger.LogInformation(
                 "=== SignalR pour incident {Id} (SocieteId={SocieteId}) ===",
                 incident.Id, incident.SocieteId);
 
-            var role = await _context.Roles
-                .FirstOrDefaultAsync(r => r.Name == "RSSI");
-
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "RSSI");
             if (role == null)
             {
                 _logger.LogWarning("Rôle RSSI introuvable — SignalR annulé");
                 return;
             }
 
-            // Si SocieteId est null (import email sans société résolue) → tous les RSSI
             IQueryable<ApplicationUser> query;
 
             if (incident.SocieteId.HasValue)
             {
                 query = from user in _context.Users
-                        join userRole in _context.UserRoles on user.Id equals userRole.UserId
-                        where userRole.RoleId == role.Id
+                        join ur in _context.UserRoles on user.Id equals ur.UserId
+                        where ur.RoleId == role.Id
                            && user.SocieteId == incident.SocieteId
                         select user;
             }
             else
             {
+                // Pas de société connue → tous les RSSI
                 query = from user in _context.Users
-                        join userRole in _context.UserRoles on user.Id equals userRole.UserId
-                        where userRole.RoleId == role.Id
+                        join ur in _context.UserRoles on user.Id equals ur.UserId
+                        where ur.RoleId == role.Id
                         select user;
             }
 
-            var targets = await query.ToListAsync();
+            var targets = await query.Distinct().ToListAsync();
 
             if (!targets.Any())
             {
-                _logger.LogWarning(
-                    "Aucun RSSI trouvé pour SocieteId={SocieteId}", incident.SocieteId);
+                _logger.LogWarning("Aucun RSSI pour SocieteId={SocieteId}", incident.SocieteId);
                 return;
             }
 
@@ -135,11 +130,32 @@ namespace backend.Application.Incidents.Commands.CreateIncident
 
             foreach (var user in targets)
             {
-                if (string.IsNullOrEmpty(user.Email)) continue;
+                if (string.IsNullOrEmpty(user.Email) && string.IsNullOrEmpty(user.Id))
+                    continue;
 
                 try
                 {
-                    // Canal 1 : par userId
+                    // Canal 1 : groupe userId (nouveau, via OnConnectedAsync)
+                    if (!string.IsNullOrEmpty(user.Id))
+                    {
+                        await _hubContext.Clients
+                            .Group($"user_{user.Id}")
+                            .SendAsync("ReceiveNotification", notification);
+                    }
+
+                    // Canal 2 : groupe email (toujours fonctionnel)
+                    if (!string.IsNullOrEmpty(user.Email))
+                    {
+                        var emailGroup = user.Email.ToLower()
+                            .Replace("@", "_")
+                            .Replace(".", "_");
+
+                        await _hubContext.Clients
+                            .Group(emailGroup)
+                            .SendAsync("ReceiveNotification", notification);
+                    }
+
+                    // Canal 3 : par userId SignalR natif (si IUserIdProvider configuré)
                     if (!string.IsNullOrEmpty(user.Id))
                     {
                         await _hubContext.Clients
@@ -147,27 +163,16 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                             .SendAsync("ReceiveNotification", notification);
                     }
 
-                    // Canal 2 : par groupe email (fallback fiable)
-                    var groupName = user.Email.ToLower()
-                        .Replace("@", "_")
-                        .Replace(".", "_");
-
-                    await _hubContext.Clients
-                        .Group(groupName)
-                        .SendAsync("ReceiveNotification", notification);
-
                     _logger.LogInformation(
-                        "✅ SignalR → {Email} (userId={Id}, groupe={Group})",
-                        user.Email, user.Id, groupName);
+                        "✅ SignalR → {Email} (userId={Id})", user.Email, user.Id);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ Erreur SignalR pour {Email}", user.Email);
+                    _logger.LogError(ex, "❌ SignalR échoué pour {Email}", user.Email);
                 }
             }
         }
 
-        // ── Email ────────────────────────────────────────────────────────────
         private async Task SendEmailNotificationAsync(Incident incident)
         {
             _logger.LogInformation(
@@ -182,11 +187,11 @@ namespace backend.Application.Incidents.Commands.CreateIncident
                     incident.Titre ?? string.Empty,
                     incident.Description ?? string.Empty);
 
-                _logger.LogInformation("✅ Email envoyé à {Target}", TARGET_EMAIL);
+                _logger.LogInformation("✅ Email → {Target}", TARGET_EMAIL);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Erreur email vers {Target}", TARGET_EMAIL);
+                _logger.LogError(ex, "❌ Email échoué → {Target}", TARGET_EMAIL);
             }
         }
     }
