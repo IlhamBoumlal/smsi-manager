@@ -53,8 +53,15 @@ namespace backend.Application.Services
             {
                 await dbContext.Database.EnsureCreatedAsync();
             }
+            catch (Exception ex)
+            {
+                // Certaines bases legacy existent deja sans historique EF complet.
+                // On continue afin d'appliquer les hotfixes SQL idempotents.
+                Console.WriteLine($"⚠️ Migration EF ignoree (mode legacy): {ex.Message}");
+            }
 
             await EnsureSchemaCompatibilityHotfixesAsync(dbContext);
+            await EnsureDocumentStatusNormalizationHotfixesAsync(dbContext);
 
             await EnsureFinalRolesAsync(roleManager);
             await EnsureRbacCatalogAsync(dbContext);
@@ -679,6 +686,36 @@ BEGIN
         CONSTRAINT [DF_ActionPlans_GuidId] DEFAULT NEWID();
 END
 
+IF OBJECT_ID(N'[Actifs]', N'U') IS NOT NULL
+AND COL_LENGTH(N'Actifs', N'ProprietaireNom') IS NULL
+BEGIN
+    ALTER TABLE [Actifs]
+    ADD [ProprietaireNom] nvarchar(max) NULL;
+END
+
+IF OBJECT_ID(N'[Incidents]', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'Incidents', N'CreatedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [CreatedAt] datetime2 NOT NULL
+            CONSTRAINT [DF_Incidents_CreatedAt_Legacy] DEFAULT SYSUTCDATETIME();
+    END
+
+    IF COL_LENGTH(N'Incidents', N'UpdatedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [UpdatedAt] datetime2 NOT NULL
+            CONSTRAINT [DF_Incidents_UpdatedAt_Legacy] DEFAULT SYSUTCDATETIME();
+    END
+
+    IF COL_LENGTH(N'Incidents', N'ClosedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [ClosedAt] datetime2 NULL;
+    END
+END
+
 IF OBJECT_ID(N'[ProcessusClauses]', N'U') IS NULL
 BEGIN
     CREATE TABLE [ProcessusClauses] (
@@ -717,6 +754,47 @@ BEGIN
 
     CREATE UNIQUE INDEX [IX_ProcessusControles_ProcessusId_ControleId] ON [ProcessusControles]([ProcessusId], [ControleId]);
     CREATE INDEX [IX_ProcessusControles_SocieteId] ON [ProcessusControles]([SocieteId]);
+END
+""";
+
+            await dbContext.Database.ExecuteSqlRawAsync(sql);
+        }
+
+        private static async Task EnsureDocumentStatusNormalizationHotfixesAsync(AppDbContext dbContext)
+        {
+            const string sql = """
+IF OBJECT_ID(N'[Documents]', N'U') IS NOT NULL
+BEGIN
+    UPDATE [Documents]
+    SET [Statut] = 'brouillon'
+    WHERE [Statut] IS NULL OR LTRIM(RTRIM([Statut])) = '';
+
+    UPDATE [Documents]
+    SET [Statut] = CASE
+        WHEN LOWER(LTRIM(RTRIM([Statut]))) COLLATE Latin1_General_100_CI_AI IN ('approuve', 'approuver', 'en vigueur', 'envigueur') THEN 'approuve'
+        WHEN LOWER(LTRIM(RTRIM([Statut]))) COLLATE Latin1_General_100_CI_AI IN ('en-validation', 'en validation') THEN 'en-validation'
+        WHEN LOWER(LTRIM(RTRIM([Statut]))) COLLATE Latin1_General_100_CI_AI IN ('brouillon', 'en cours', 'encours', 'en cours de redaction') THEN 'brouillon'
+        WHEN LOWER(LTRIM(RTRIM([Statut]))) COLLATE Latin1_General_100_CI_AI IN ('a-revoir', 'a revoir', 'a reviser', 'obsolete') THEN 'a-revoir'
+        ELSE [Statut]
+    END
+    WHERE [Statut] IS NOT NULL;
+END
+
+IF OBJECT_ID(N'[DocumentationDocuments]', N'U') IS NOT NULL
+BEGIN
+    UPDATE [DocumentationDocuments]
+    SET [Status] = 'brouillon'
+    WHERE [Status] IS NULL OR LTRIM(RTRIM([Status])) = '';
+
+    UPDATE [DocumentationDocuments]
+    SET [Status] = CASE
+        WHEN LOWER(LTRIM(RTRIM([Status]))) COLLATE Latin1_General_100_CI_AI IN ('approuve', 'approuver') THEN 'approuve'
+        WHEN LOWER(LTRIM(RTRIM([Status]))) COLLATE Latin1_General_100_CI_AI IN ('en-validation', 'en validation') THEN 'en-validation'
+        WHEN LOWER(LTRIM(RTRIM([Status]))) COLLATE Latin1_General_100_CI_AI IN ('brouillon') THEN 'brouillon'
+        WHEN LOWER(LTRIM(RTRIM([Status]))) COLLATE Latin1_General_100_CI_AI IN ('a-revoir', 'a revoir', 'a reviser') THEN 'a-revoir'
+        ELSE [Status]
+    END
+    WHERE [Status] IS NOT NULL;
 END
 """;
 

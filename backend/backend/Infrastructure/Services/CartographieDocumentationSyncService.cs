@@ -35,6 +35,8 @@ namespace backend.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(processusReference))
                 return;
 
+            var clauseReference = BuildClauseReference(processus);
+            var controleReference = BuildControleReference(processus);
             var description = BuildCartographieDescription(processus, document);
 
             if (document.FichierData is { Length: > 0 } fileBytes && !string.IsNullOrWhiteSpace(document.FichierNom))
@@ -44,8 +46,8 @@ namespace backend.Infrastructure.Services
                     document.FichierNom!,
                     document.FichierType,
                     currentUserId,
-                    clauseReference: null,
-                    controleReference: null,
+                    clauseReference: clauseReference,
+                    controleReference: controleReference,
                     processusReference: processusReference,
                     description: description,
                     requestedType: ResolveDocumentationType(document.Type),
@@ -60,6 +62,8 @@ namespace backend.Infrastructure.Services
                 document,
                 currentUserId,
                 processusReference,
+                clauseReference,
+                controleReference,
                 description,
                 cancellationToken);
         }
@@ -159,6 +163,8 @@ namespace backend.Infrastructure.Services
             Document document,
             string currentUserId,
             string processusReference,
+            string? clauseReference,
+            string? controleReference,
             string description,
             CancellationToken cancellationToken)
         {
@@ -180,13 +186,19 @@ namespace backend.Infrastructure.Services
             if (existing is not null)
             {
                 var mergedProcessus = MergeCsvLinks(existing.Processus, processusReference);
+                var mergedClause = MergeCsvLinks(existing.Clause, clauseReference);
+                var mergedControle = MergeCsvLinks(existing.Controle, controleReference);
                 var changed =
                     !string.Equals(mergedProcessus ?? string.Empty, existing.Processus ?? string.Empty, StringComparison.Ordinal)
+                    || !string.Equals(mergedClause ?? string.Empty, existing.Clause ?? string.Empty, StringComparison.Ordinal)
+                    || !string.Equals(mergedControle ?? string.Empty, existing.Controle ?? string.Empty, StringComparison.Ordinal)
                     || (string.IsNullOrWhiteSpace(existing.Description) && !string.IsNullOrWhiteSpace(description));
 
                 if (!changed) return;
 
                 existing.Processus = mergedProcessus;
+                existing.Clause = mergedClause;
+                existing.Controle = mergedControle;
                 if (string.IsNullOrWhiteSpace(existing.Description))
                     existing.Description = description;
                 existing.LastModifiedByUserId = Safe(currentUserId);
@@ -210,8 +222,8 @@ namespace backend.Infrastructure.Services
                 Version = "1.0",
                 Classification = "Interne",
                 Author = author,
-                Clause = null,
-                Controle = null,
+                Clause = MergeCsvLinks(null, clauseReference),
+                Controle = MergeCsvLinks(null, controleReference),
                 Processus = processusReference,
                 Description = description,
                 CreatedByUserId = Safe(currentUserId),
@@ -255,6 +267,30 @@ namespace backend.Infrastructure.Services
             return string.IsNullOrWhiteSpace(reference)
                 ? $"{CartographieDescriptionPrefix} Processus: {processName}."
                 : $"{CartographieDescriptionPrefix} Processus: {processName}. Reference: {reference}.";
+        }
+
+        private static string? BuildClauseReference(Processus processus)
+        {
+            var values = processus.ProcessusClauses
+                .Select(pc => Safe(pc.Clause?.Number))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return values.Count == 0 ? null : string.Join(", ", values);
+        }
+
+        private static string? BuildControleReference(Processus processus)
+        {
+            var values = processus.ProcessusControles
+                .Select(pc => Safe(pc.Controle?.Code))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return values.Count == 0 ? null : string.Join(", ", values);
         }
 
         private static string ResolveDocumentationType(string? cartographieType)

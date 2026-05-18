@@ -157,12 +157,38 @@ const DOC_TYPE_ICONS = {
   "autre":      "fa-solid fa-folder",
 };
 
+const STATUS_OPTIONS = [
+  { value: "brouillon", label: "Brouillon" },
+  { value: "en-validation", label: "En validation" },
+  { value: "approuve", label: "Approuve" },
+  { value: "a-revoir", label: "A revoir" },
+];
+const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS.map((option) => [option.value, option.label]));
 const STATUS_CLASS = {
-  "en vigueur": "s-vigueur",
-  "en cours":   "s-cours",
-  "à réviser":  "s-reviser",
-  "obsolète":   "s-obsolete",
+  brouillon: "s-brouillon",
+  "en-validation": "s-validation",
+  approuve: "s-approuve",
+  "a-revoir": "s-revoir",
 };
+const normalizeStatusToken = (value) => String(value ?? "")
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+const normalizeDocumentStatus = (value) => {
+  const token = normalizeStatusToken(value);
+  if (!token) return "brouillon";
+  if (token === "brouillon") return "brouillon";
+  if (token === "en-validation" || token === "en validation") return "en-validation";
+  if (token === "approuve") return "approuve";
+  if (token === "a-revoir" || token === "a revoir" || token === "a reviser") return "a-revoir";
+  // Compatibilite avec les anciens statuts de cartographie.
+  if (token === "en vigueur" || token === "envigueur") return "approuve";
+  if (token === "en cours" || token === "encours" || token === "en cours de redaction") return "brouillon";
+  if (token === "obsolete") return "a-revoir";
+  return "brouillon";
+};
+const getStatusLabel = (value) => STATUS_LABEL[normalizeDocumentStatus(value)] ?? "Brouillon";
 
 const CAT_META = {
   mgmt: { label: "Management",  color: "#0ea5e9", gradient: "linear-gradient(90deg,#0ea5e9,#38bdf8)" },
@@ -195,7 +221,30 @@ const EMPTY_PROC = {
   clauses: [],
   controls: []
 };
-const EMPTY_DOC = { name:"", type:"procédure", ref:"", status:"en vigueur", fichier: null };
+const EMPTY_DOC = { name:"", type:"procédure", ref:"", status:"brouillon", fichier: null };
+
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const data = error?.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (typeof data?.message === "string" && data.message.trim()) return data.message;
+  if (typeof data?.title === "string" && data.title.trim()) {
+    if (data?.errors && typeof data.errors === "object") {
+      const validationMessages = Object.values(data.errors)
+        .flatMap((value) => (Array.isArray(value) ? value : [value]))
+        .map((value) => String(value).trim())
+        .filter(Boolean);
+      if (validationMessages.length > 0) {
+        return `${data.title}: ${validationMessages.join(" | ")}`;
+      }
+    }
+    return data.title;
+  }
+  if (Array.isArray(data?.errors) && data.errors.length > 0) {
+    return data.errors.join(" | ");
+  }
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  return fallbackMessage;
+};
 
 /* ═══════════════════════════════════════════════════════════
    HOOK — liaison backend
@@ -212,7 +261,7 @@ const fromApi = (p) => ({
     name:        d.nom,
     type:        d.type,
     ref:         d.reference,
-    status:      d.statut,
+    status:      normalizeDocumentStatus(d.statut),
     fichierNom:  d.fichierNom  ?? null,
     fichierType: d.fichierType ?? null,
     aFichier:    d.aFichier    ?? false,
@@ -383,6 +432,9 @@ export default function CartographieProcessus() {
       else        await createProcessus(body);
       await refresh();
       setProcModal({ open:false, editId:null, form:EMPTY_PROC });
+    } catch (error) {
+      console.error("Erreur saveProc:", error);
+      alert(getApiErrorMessage(error, "Impossible d'enregistrer le processus."));
     } finally {
       setSaving(false);
     }
@@ -394,9 +446,14 @@ export default function CartographieProcessus() {
       return;
     }
     if (!window.confirm("Supprimer ce processus et tous ses documents ?")) return;
-    await deleteProcessus(id);
-    await refresh();
-    if (activeId === id) closePanel();
+    try {
+      await deleteProcessus(id);
+      await refresh();
+      if (activeId === id) closePanel();
+    } catch (error) {
+      console.error("Erreur deleteProc:", error);
+      alert(getApiErrorMessage(error, "Impossible de supprimer le processus."));
+    }
   };
 
   /* ── CRUD Documents ── */
@@ -419,7 +476,7 @@ export default function CartographieProcessus() {
                 name:        newDoc.nom,
                 type:        newDoc.type,
                 ref:         newDoc.reference,
-                status:      newDoc.statut,
+                status:      normalizeDocumentStatus(newDoc.statut),
                 fichierNom:  newDoc.fichierNom  ?? null,
                 fichierType: newDoc.fichierType ?? null,
                 aFichier:    newDoc.aFichier    ?? false,
@@ -427,6 +484,9 @@ export default function CartographieProcessus() {
           : p
       ));
       setDocModal({ open:false, form:EMPTY_DOC, targetProcId: null });
+    } catch (error) {
+      console.error("Erreur saveDoc:", error);
+      alert(getApiErrorMessage(error, "Impossible d'ajouter le document."));
     } finally {
       setSaving(false);
     }
@@ -437,10 +497,15 @@ export default function CartographieProcessus() {
       alert("Vous n'avez pas la permission de supprimer des documents");
       return;
     }
-    await deleteDocument(pid, did);
-    setProcs(prev => prev.map(p =>
-      p.id === pid ? { ...p, docs: p.docs.filter(d => d.id !== did) } : p
-    ));
+    try {
+      await deleteDocument(pid, did);
+      setProcs(prev => prev.map(p =>
+        p.id === pid ? { ...p, docs: p.docs.filter(d => d.id !== did) } : p
+      ));
+    } catch (error) {
+      console.error("Erreur deleteDoc:", error);
+      alert(getApiErrorMessage(error, "Impossible de supprimer le document."));
+    }
   };
 
   const activeProc = procs.find(p => p.id === activeId) || null;
@@ -706,7 +771,7 @@ export default function CartographieProcessus() {
                             )}
                           </div>
                         </div>
-                        <div className={`cx-doc-st ${STATUS_CLASS[d.status]||""}`}>{d.status}</div>
+                        <div className={`cx-doc-st ${STATUS_CLASS[d.status]||""}`}>{getStatusLabel(d.status)}</div>
                         {d.aFichier && (
                           <button
                             className="cx-dl-btn"
@@ -855,10 +920,9 @@ export default function CartographieProcessus() {
             </Fg>
             <Fg label="Statut" icon="fa-solid fa-circle-check">
               <select value={docModal.form.status} onChange={e=>setDocModal(m=>({...m,form:{...m.form,status:e.target.value}}))}>
-                <option value="en vigueur">En vigueur</option>
-                <option value="en cours">En cours de rédaction</option>
-                <option value="à réviser">À réviser</option>
-                <option value="obsolète">Obsolète</option>
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </Fg>
 
@@ -1190,10 +1254,10 @@ const CSS = `
 .cx-doc-mt { font-size:10px;color:#8fb8cc;font-family:'JetBrains Mono',monospace;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
 .cx-doc-fichier-badge { display:inline-flex;align-items:center;gap:3px;background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .cx-doc-st { font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;flex-shrink:0;white-space:nowrap; }
-.s-vigueur { background:#d4edda;color:#1a7a3c;border:1px solid #b3dfc0; }
-.s-cours   { background:#d6eaf8;color:#1a4f72;border:1px solid #aed6f1; }
-.s-reviser { background:#fef9e7;color:#9a7d0a;border:1px solid #f9e79f; }
-.s-obsolete{ background:#fde8e8;color:#922b21;border:1px solid #f5b7b1; }
+.s-approuve { background:#d1fae5;color:#065f46;border:1px solid #6ee7b7; }
+.s-validation{ background:#fef3c7;color:#92400e;border:1px solid #fcd34d; }
+.s-brouillon { background:#f1f5f9;color:#334155;border:1px solid #cbd5e1; }
+.s-revoir   { background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5; }
 .cx-dl-btn { background:none;border:none;cursor:pointer;color:#0284c7;font-size:13px;padding:5px;border-radius:6px;transition:color .15s,background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
 .cx-dl-btn:hover { color:#0e6073;background:#e0f2fe; }
 .cx-del-btn { background:none;border:none;cursor:pointer;color:#8fb8cc;font-size:13px;padding:5px;border-radius:6px;transition:color .15s,background .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
@@ -1233,3 +1297,4 @@ const CSS = `
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#aed6f1;border-radius:99px; }
 `;
+

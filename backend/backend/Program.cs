@@ -134,7 +134,7 @@ var emailConfig = builder.Configuration.GetSection("Email");
 var smtpServer = emailConfig["SmtpServer"] ?? "smtp.gmail.com";
 var smtpPort = int.Parse(emailConfig["SmtpPort"] ?? "587");
 var smtpUser = emailConfig["SmtpUser"];
-var smtpPass = emailConfig["SmtpPass"];  // Note: c'est "SmtpPass" dans votre JSON
+var smtpPass = (emailConfig["SmtpPass"] ?? string.Empty).Replace(" ", string.Empty).Trim();  // Tolère les app passwords collés avec espaces
 var fromEmail = emailConfig["FromEmail"];
 var fromName = emailConfig["FromName"] ?? "SMSI Manager";
 

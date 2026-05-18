@@ -2,6 +2,7 @@
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
@@ -32,11 +33,11 @@ namespace backend.Infrastructure.Services
         {
             if (!_settings.Enabled)
             {
-                _logger.LogInformation("EmailMonitoringService est désactivé");
+                _logger.LogInformation("EmailMonitoringService disabled");
                 return;
             }
 
-            _logger.LogInformation("EmailMonitoringService démarré — surveillance depuis {StartupTime:u}", _startupTime);
+            _logger.LogInformation("EmailMonitoringService started at {StartupTime:u}", _startupTime);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -44,14 +45,31 @@ namespace backend.Infrastructure.Services
                 {
                     await CheckEmails(stoppingToken);
                 }
+                catch (AuthenticationException ex)
+                {
+                    _logger.LogError(ex,
+                        "IMAP authentication failed for {User}. Use a Google app password (16 chars) and ensure IMAP is enabled.",
+                        _settings.Username);
+
+                    if (_settings.DisableAfterAuthFailure)
+                    {
+                        _logger.LogWarning("EmailMonitoringService stopped after auth failure (DisableAfterAuthFailure=true).");
+                        return;
+                    }
+                }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erreur lors de la vérification des emails");
+                    _logger.LogError(ex, "Email monitoring check failed");
                 }
 
-                await Task.Delay(
-                    TimeSpan.FromSeconds(_settings.CheckIntervalSeconds),
-                    stoppingToken);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.CheckIntervalSeconds), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
 
@@ -64,18 +82,23 @@ namespace backend.Infrastructure.Services
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
 
-                await client.ConnectAsync(
-                    _settings.ImapServer, _settings.Port, _settings.UseSsl,
-                    timeoutCts.Token);
+                await client.ConnectAsync(_settings.ImapServer, _settings.Port, _settings.UseSsl, timeoutCts.Token);
 
-                await client.AuthenticateAsync(
-                    _settings.Username, _settings.Password,
-                    timeoutCts.Token);
+                var username = (_settings.Username ?? string.Empty).Trim();
+                var password = NormalizeSecret(_settings.Password);
+
+                if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                {
+                    _logger.LogWarning("EmailMonitoringService: missing IMAP credentials, check skipped.");
+                    return;
+                }
+
+                await client.AuthenticateAsync(username, password, timeoutCts.Token);
 
                 var inbox = client.Inbox;
                 await inbox.OpenAsync(FolderAccess.ReadWrite, timeoutCts.Token);
 
-                // Seulement les emails non lus arrivés APRÈS le démarrage du service
+                // Only unseen emails received after service startup
                 var query = SearchQuery.And(
                     SearchQuery.NotSeen,
                     SearchQuery.DeliveredAfter(_startupTime.AddMinutes(-1)));
@@ -83,18 +106,17 @@ namespace backend.Infrastructure.Services
                 var allUids = await inbox.SearchAsync(query, timeoutCts.Token);
                 var recentUids = allUids.TakeLast(10).ToList();
 
-                _logger.LogInformation(
-                    "{Count} nouveau(x) email(s) non lu(s) depuis le démarrage",
-                    recentUids.Count);
+                _logger.LogInformation("{Count} new unseen email(s) since startup", recentUids.Count);
 
                 foreach (var uid in recentUids)
                 {
-                    if (stoppingToken.IsCancellationRequested) break;
+                    if (stoppingToken.IsCancellationRequested)
+                        break;
 
                     var message = await inbox.GetMessageAsync(uid, timeoutCts.Token);
                     await ProcessEmail(message, stoppingToken);
 
-                    // Marquer comme lu APRÈS traitement réussi
+                    // Mark as seen after processing attempt
                     await inbox.AddFlagsAsync(uid, MessageFlags.Seen, true, timeoutCts.Token);
                 }
 
@@ -102,11 +124,16 @@ namespace backend.Infrastructure.Services
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Vérification email annulée (timeout ou arrêt)");
+                _logger.LogInformation("Email check canceled (timeout or shutdown)");
+            }
+            catch (AuthenticationException)
+            {
+                // Let ExecuteAsync apply fallback behavior.
+                throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur IMAP");
+                _logger.LogError(ex, "IMAP error");
             }
         }
 
@@ -114,25 +141,31 @@ namespace backend.Infrastructure.Services
         {
             try
             {
-                var from = message.From.Mailboxes.FirstOrDefault()?.Address ?? "inconnu";
-                var to = message.To.Mailboxes.FirstOrDefault()?.Address
-                              ?? _settings.Username; // fallback : adresse surveillée
-                var subject = message.Subject ?? "Sans sujet";
-                var body = message.TextBody ?? message.HtmlBody ?? "";
+                var from = message.From.Mailboxes.FirstOrDefault()?.Address ?? "unknown";
+                var to = message.To.Mailboxes.FirstOrDefault()?.Address ?? _settings.Username;
+                var subject = message.Subject ?? "No subject";
+                var body = message.TextBody ?? message.HtmlBody ?? string.Empty;
+
+                if (_settings.IgnoreOwnEmails && IsOwnMailboxAddress(from, _settings.Username))
+                {
+                    _logger.LogInformation(
+                        "Email skipped (sender is monitored mailbox) - From: {From} / Subject: {Subject}",
+                        from,
+                        subject);
+                    return;
+                }
 
                 if (body.Length > 500)
                     body = body[..500];
 
-                _logger.LogInformation(
-                    "Traitement email — De: {From} / À: {To} / Sujet: {Subject}",
-                    from, to, subject);
+                _logger.LogInformation("Processing email - From: {From} / To: {To} / Subject: {Subject}", from, to, subject);
 
                 var importDto = new
                 {
-                    from = from,
-                    to = to,        // ← transmis pour résolution du SocieteId
-                    subject = subject,
-                    body = body,
+                    from,
+                    to,
+                    subject,
+                    body,
                     receivedAt = message.Date.DateTime
                 };
 
@@ -141,39 +174,52 @@ namespace backend.Infrastructure.Services
                     Encoding.UTF8,
                     "application/json");
 
-                var request = new HttpRequestMessage(
-                    HttpMethod.Post,
-                    "http://localhost:5006/api/incidents/email-import")
+                var request = new HttpRequestMessage(HttpMethod.Post, "http://localhost:5006/api/incidents/email-import")
                 {
                     Content = content
                 };
 
-                // Clé interne pour contourner l'authentification JWT
                 if (!string.IsNullOrWhiteSpace(_settings.InternalImportKey))
                 {
-                    request.Headers.Add(
-                        "X-Internal-EmailImport-Key",
-                        _settings.InternalImportKey);
+                    request.Headers.Add("X-Internal-EmailImport-Key", _settings.InternalImportKey);
                 }
 
                 var response = await _httpClient.SendAsync(request, stoppingToken);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("✅ Email traité avec succès — Sujet: {Subject}", subject);
+                    _logger.LogInformation("Email imported successfully - Subject: {Subject}", subject);
                 }
                 else
                 {
                     var error = await response.Content.ReadAsStringAsync(stoppingToken);
                     _logger.LogWarning(
-                        "❌ Erreur traitement email — HTTP {StatusCode}: {Error}",
-                        (int)response.StatusCode, error);
+                        "Email import failed - HTTP {StatusCode}: {Error}",
+                        (int)response.StatusCode,
+                        error);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors du traitement de l'email");
+                _logger.LogError(ex, "Error while processing incoming email");
             }
+        }
+
+        private static string NormalizeSecret(string? secret)
+        {
+            if (string.IsNullOrWhiteSpace(secret))
+                return string.Empty;
+
+            // Allow app passwords copied with spaces.
+            return secret.Replace(" ", string.Empty).Trim();
+        }
+
+        private static bool IsOwnMailboxAddress(string? from, string? username)
+        {
+            if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(username))
+                return false;
+
+            return string.Equals(from.Trim(), username.Trim(), StringComparison.OrdinalIgnoreCase);
         }
     }
 }
