@@ -3,6 +3,8 @@
     public class EmailMonitoringSettings
     {
         public bool Enabled { get; set; }
+        public bool DisableAfterAuthFailure { get; set; } = true;
+        public bool IgnoreOwnEmails { get; set; } = true;
         public string ImapServer { get; set; } = string.Empty;
         public int Port { get; set; }
         public bool UseSsl { get; set; }

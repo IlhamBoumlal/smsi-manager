@@ -5,6 +5,7 @@ using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -19,8 +20,10 @@ namespace backend.Application.Incidents.Commands.CreateIncident
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly ILogger<CreateIncidentHandler> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IConfiguration _configuration;
 
-        private const string TARGET_EMAIL = "boumlalilham@gmail.com";
+        private const string IncidentCompanyEmailConfigKey = "Email:IncidentCompanyEmail";
+        private const string FallbackIncidentCompanyEmail = "smsimanager2026@gmail.com";
 
         public CreateIncidentHandler(
             AppDbContext context,
@@ -28,7 +31,8 @@ namespace backend.Application.Incidents.Commands.CreateIncident
             IEmailServiceIncident emailService,
             IHubContext<NotificationHub> hubContext,
             ILogger<CreateIncidentHandler> logger,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IConfiguration configuration)
         {
             _context = context;
             _userRepository = userRepository;
@@ -36,6 +40,7 @@ namespace backend.Application.Incidents.Commands.CreateIncident
             _hubContext = hubContext;
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;
+            _configuration = configuration;
         }
 
         public async Task<Guid> Handle(CreateIncidentCommand request, CancellationToken cancellationToken)
@@ -175,23 +180,38 @@ namespace backend.Application.Incidents.Commands.CreateIncident
 
         private async Task SendEmailNotificationAsync(Incident incident)
         {
-            _logger.LogInformation(
-                "=== Email pour incident {Id} → {Target} ===",
-                incident.Id, TARGET_EMAIL);
+            var targetEmail = (_configuration[IncidentCompanyEmailConfigKey] ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(targetEmail))
+            {
+                _logger.LogWarning(
+                    "Configuration {ConfigKey} absente. Fallback vers {Fallback}",
+                    IncidentCompanyEmailConfigKey,
+                    FallbackIncidentCompanyEmail);
+                targetEmail = FallbackIncidentCompanyEmail;
+            }
 
             try
             {
-                await _emailService.SendIncidentNotificationAsync(
-                    TARGET_EMAIL,
-                    "RSSI",
+                var sent = await _emailService.SendIncidentNotificationAsync(
+                    targetEmail,
+                    "Entreprise",
                     incident.Titre ?? string.Empty,
                     incident.Description ?? string.Empty);
 
-                _logger.LogInformation("✅ Email → {Target}", TARGET_EMAIL);
+                if (sent)
+                {
+                    _logger.LogInformation("✅ Email incident envoyé à l'entreprise: {Target}", targetEmail);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "⚠️ Email incident NON envoyé à {Target}. Vérifie Email:SmtpUser / Email:SmtpPass.",
+                        targetEmail);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Email échoué → {Target}", TARGET_EMAIL);
+                _logger.LogError(ex, "❌ Email échoué → {Target}", targetEmail);
             }
         }
     }

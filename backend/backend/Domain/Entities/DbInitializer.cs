@@ -686,6 +686,36 @@ BEGIN
         CONSTRAINT [DF_ActionPlans_GuidId] DEFAULT NEWID();
 END
 
+IF OBJECT_ID(N'[Actifs]', N'U') IS NOT NULL
+AND COL_LENGTH(N'Actifs', N'ProprietaireNom') IS NULL
+BEGIN
+    ALTER TABLE [Actifs]
+    ADD [ProprietaireNom] nvarchar(max) NULL;
+END
+
+IF OBJECT_ID(N'[Incidents]', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH(N'Incidents', N'CreatedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [CreatedAt] datetime2 NOT NULL
+            CONSTRAINT [DF_Incidents_CreatedAt_Legacy] DEFAULT SYSUTCDATETIME();
+    END
+
+    IF COL_LENGTH(N'Incidents', N'UpdatedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [UpdatedAt] datetime2 NOT NULL
+            CONSTRAINT [DF_Incidents_UpdatedAt_Legacy] DEFAULT SYSUTCDATETIME();
+    END
+
+    IF COL_LENGTH(N'Incidents', N'ClosedAt') IS NULL
+    BEGIN
+        ALTER TABLE [Incidents]
+        ADD [ClosedAt] datetime2 NULL;
+    END
+END
+
 IF OBJECT_ID(N'[ProcessusClauses]', N'U') IS NULL
 BEGIN
     CREATE TABLE [ProcessusClauses] (
