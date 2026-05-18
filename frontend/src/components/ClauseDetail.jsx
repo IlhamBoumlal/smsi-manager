@@ -259,18 +259,23 @@ function HybridListField({ items: itemsProp, onChange, onFileAdd, placeholder, a
     }];
     onChange(withPlaceholder);
 
+    const currentItemsWithPlaceholder = () => {
+      const current = latestItems.current;
+      return current.some(i => i.tempId === tempId) ? current : withPlaceholder;
+    };
+
     const replaceTempWith = (replacement) => {
-      const newItems = latestItems.current.map(i => i.tempId === tempId ? replacement : i);
+      const newItems = currentItemsWithPlaceholder().map(i => i.tempId === tempId ? replacement : i);
       onChange(newItems);
     };
     const removeTemp = () => {
-      onChange(latestItems.current.filter(i => i.tempId !== tempId));
+      onChange(currentItemsWithPlaceholder().filter(i => i.tempId !== tempId));
     };
 
     try {
       if (onFileAdd) {
         const saved = await onFileAdd(file, (pct) => {
-          onChange(latestItems.current.map(i =>
+          onChange(currentItemsWithPlaceholder().map(i =>
             i.tempId === tempId ? { ...i, progress: pct } : i
           ));
         });
