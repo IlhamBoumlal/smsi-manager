@@ -235,6 +235,42 @@ const auditStatusToControleStatut = (status, previousStatut) => {
 
 const getAuditName = (audit) => audit?.name || audit?.title || audit?.Title || '';
 const getAuditDate = (audit) => audit?.date || audit?.startDate || audit?.StartDate || '';
+const getNcAuditId = (nc) => nc?.auditId ?? nc?.AuditId ?? null;
+const getNcAuditName = (nc) => nc?.auditName ?? nc?.AuditName ?? '';
+const getNcControlId = (nc) => normalizeControlCode(nc?.controlId ?? nc?.ControlId ?? '');
+
+const isSamePostAuditNc = (nc, ncData) => {
+  const controlId = normalizeControlCode(ncData?.controlId || '');
+  if (!controlId || getNcControlId(nc) !== controlId) return false;
+
+  const existingAuditId = getNcAuditId(nc);
+  const auditId = ncData?.auditId ?? null;
+  if (existingAuditId && auditId) return String(existingAuditId) === String(auditId);
+
+  const existingAuditName = String(getNcAuditName(nc) || '').trim().toLowerCase();
+  const auditName = String(ncData?.auditName || '').trim().toLowerCase();
+  return Boolean(existingAuditName && auditName && existingAuditName === auditName);
+};
+
+const getPostAuditNcKey = (nc) => {
+  const controlId = getNcControlId(nc);
+  if (!controlId) return null;
+  const auditId = getNcAuditId(nc);
+  if (auditId) return `audit:${String(auditId)}|control:${controlId}`;
+  const auditName = String(getNcAuditName(nc) || '').trim().toLowerCase();
+  return auditName ? `auditName:${auditName}|control:${controlId}` : null;
+};
+
+const dedupePostAuditNCs = (items = []) => {
+  const seen = new Set();
+  return [...items].reverse().filter(nc => {
+    const key = getPostAuditNcKey(nc);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).reverse();
+};
 
 const parseDateOnly = (value) => {
   if (!value) return null;
@@ -306,6 +342,7 @@ const buildPostAuditSoA = (originalSoA = [], statuses = {}, comments = {}, ncFor
       deadline: nc.deadline || '',
       ncTitle: nc.title || '',
       ncDescription: nc.desc || '',
+      ncId: nc.id || null,
     };
   });
 
@@ -618,7 +655,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
     if(!form.title?.trim()) e.title = 'Requis';
     if(!form.startDate) e.startDate = 'Requis';
     if(!form.auditor?.trim()) e.auditor = 'Requis';
-    if(!form.org?.trim()) e.org = 'Requis';
     setErrors(e);
     return !Object.keys(e).length;
   };
@@ -633,10 +669,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start gap-3 p-3.5 bg-gray-50 border border-gray-200 rounded-xl">
-        <Info className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"/>
-        <p className="text-xs text-gray-600">Ce module est réservé aux <strong>audits</strong> externes.</p>
-      </div>
 
       <div className="flex justify-end">
         {canWrite && !showForm && <Btn icon={CalendarDays} onClick={()=>{ setForm(EMPTY); setEditId(null); setShowForm(true); }}>Planifier un audit</Btn>}
@@ -645,7 +677,7 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
       {showForm && (
         <Card className="border border-indigo-200">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileCheck className="w-5 h-5 text-indigo-500"/>{editId?'Modifier l\'audit':'Planifier un audit externe'}</h3>
+            <h3 className="font-bold text-gray-900 flex items-center gap-2"><FileCheck className="w-5 h-5 text-indigo-500"/>{editId?'Modifier l\'audit':'Planifier un audit interne'}</h3>
             <button onClick={()=>{ setShowForm(false); setEditId(null); }} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-4 h-4 text-gray-400"/></button>
           </div>
           <div className="space-y-4">
@@ -653,8 +685,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
               <div className="md:col-span-2">
                 <Inp label="Titre de l'audit" placeholder="Ex : Audit de certification ISO 27001 — 2026" value={form.title} onChange={e=>set('title',e.target.value)} error={errors.title} required icon={Tag}/>
               </div>
-              <Sel label="Type d'audit externe" value={form.type} onChange={v=>set('type',v)} icon={Briefcase} required
-                options={[{value:'external_cert',label:'Certification — Organisme accrédité'},{value:'external_surv',label:'Surveillance — Suivi post-certification'},{value:'supplier',label:'Fournisseur — Évaluation prestataire'}]}/>
               <Sel label="Statut" value={form.status} onChange={v=>set('status',v)} icon={Activity}
                 options={Object.entries(STATUS_CFG).map(([k,v])=>({value:k,label:v.label}))}/>
             </div>
@@ -664,7 +694,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Inp label="Auditeur / Responsable" placeholder="Nom de l'auditeur principal" value={form.auditor} onChange={e=>set('auditor',e.target.value)} error={errors.auditor} required icon={UserCheck}/>
-              <Inp label="Organisme certificateur" placeholder="Ex : Bureau Veritas, SGS, AFNOR…" value={form.org} onChange={e=>set('org',e.target.value)} error={errors.org} required icon={Building2}/>
               <Inp label="RSSI" value={form.rssi} onChange={e=>set('rssi',e.target.value)} icon={Shield}/>
               <Inp label="Approbateur" value={form.approver} onChange={e=>set('approver',e.target.value)} icon={Signature}/>
             </div>
@@ -692,7 +721,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
             return (
               <Card key={a.id} className="border border-gray-200">
                 <div className="flex items-start gap-4">
-                  <TypeBadge type={a.type} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <StatusBadge cfg={sc}/>
@@ -700,7 +728,6 @@ function PlanModule({ audits, saving, onSave, onDelete, canWrite, canEdit, canDe
                     <h3 className="font-bold text-gray-900 text-sm mb-1">{a.title}</h3>
                     <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
                       <span className="flex items-center gap-1"><UserCheck className="w-3 h-3"/>{a.auditor}</span>
-                      <span className="flex items-center gap-1"><Building2 className="w-3 h-3"/>{a.org}</span>
                       <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{a.startDate}{a.endDate&&a.endDate!==a.startDate?` → ${a.endDate}`:''}</span>
                     </div>
                     {a.scope && <p className="text-xs text-gray-400 mt-1">{a.scope}</p>}
@@ -1191,7 +1218,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite, onAuditCre
     const auditName = getAuditName(selectedAudit);
     const isLocalId = !selectedAudit.id || String(selectedAudit.id).startsWith('local-');
     const auditId = isLocalId ? null : selectedAudit.id;
-    const postAuditSoA = buildPostAuditSoA(originalSoA, statuses, comments, ncForms);
+    let postAuditSoA = buildPostAuditSoA(originalSoA, statuses, comments, ncForms);
     try {
       const existingNcControlIds = new Set((selectedAudit?.postAuditSoA || [])
         .filter(r => r.postAuditStatus === 'NC')
@@ -1199,7 +1226,7 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite, onAuditCre
         .filter(Boolean)
       );
 
-      await Promise.all(ALL_CONTROLS.filter(c => statuses[c.id] === 'NC').map(c => {
+      const createdNCs = await Promise.all(ALL_CONTROLS.filter(c => statuses[c.id] === 'NC').map(c => {
         if (existingNcControlIds.has(c.id) || ncForms[c.id]?.id) return Promise.resolve(null);
         const f = ncForms[c.id] || {};
         return onNCCreated({
@@ -1208,6 +1235,19 @@ function PostAuditModule({ onToast, onNCCreated, allAudits, canWrite, onAuditCre
           auditName, auditId,
         });
       }));
+      const ncIdsByControl = createdNCs.filter(Boolean).reduce((acc, nc) => {
+        const controlId = getNcControlId(nc);
+        if (controlId && nc.id) acc[controlId] = nc.id;
+        return acc;
+      }, {});
+      if (Object.keys(ncIdsByControl).length) {
+        const nextNcForms = Object.entries(ncIdsByControl).reduce((acc, [controlId, id]) => ({
+          ...acc,
+          [controlId]: { ...(acc[controlId] || {}), id },
+        }), { ...ncForms });
+        setNcForms(nextNcForms);
+        postAuditSoA = buildPostAuditSoA(originalSoA, statuses, comments, nextNcForms);
+      }
 
       const rowsToUpdate = postAuditSoA.filter(row => row.postAuditStatus && row.controleId);
       const updateResults = await Promise.allSettled(
@@ -1889,7 +1929,7 @@ export function Audits() {
         getAllSimulations().catch(() => []),
       ]);
       setAudits(ad);
-      setNcs(nc);
+      setNcs(dedupePostAuditNCs(nc));
       setSimHistory(sims);
     } catch (err) {
       showToast('Erreur de connexion au serveur — vérifiez que le backend est démarré', 'error');
@@ -1974,14 +2014,14 @@ export function Audits() {
   const handleAddNC = async (data) => {
     if (!canWrite(moduleCode)) { showToast('Vous n\'avez pas la permission de créer des NC', 'error'); return; }
     setSaving(true);
-    try { const c = await createNC({ ...data, correctiveActions: [] }); setNcs(p => [...p, c]); showToast('NC créée', 'success'); }
+    try { const c = await createNC({ ...data, correctiveActions: [] }); setNcs(p => dedupePostAuditNCs([...p, c])); showToast('NC créée', 'success'); }
     catch { showToast('Erreur'); }
     finally { setSaving(false); }
   };
 
   const handleUpdateNC = async (id, data) => {
     if (!canEdit(moduleCode)) { showToast('Vous n\'avez pas la permission de modifier des NC', 'error'); return; }
-    try { const u = await updateNC(id, data); setNcs(p => p.map(n => n.id === id ? u : n)); }
+    try { const u = await updateNC(id, data); setNcs(p => dedupePostAuditNCs(p.map(n => n.id === id ? u : n))); }
     catch { showToast('Erreur mise à jour NC'); }
   };
 
@@ -1993,6 +2033,9 @@ export function Audits() {
   };
 
   const handleNCFromPostAudit = async (ncData) => {
+    const existing = ncs.find(nc => isSamePostAuditNc(nc, ncData));
+    if (existing) return existing;
+
     const localId = `local-nc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const localNc = {
       id: localId, ...ncData, status: 'open',
@@ -2000,7 +2043,7 @@ export function Audits() {
         ? [{ id:`act-${Date.now()}`, description:ncData.correctiveAction, responsible:ncData.responsible||null, deadline:ncData.deadline||null, status:'pending' }]
         : [],
     };
-    setNcs(p => [...p, localNc]);
+    setNcs(p => dedupePostAuditNCs([...p, localNc]));
     const dto = {
       title: ncData.title||'', description: ncData.description||'', controlId: ncData.controlId||'',
       actor: ncData.actor||null, correctiveAction: ncData.correctiveAction||null,
@@ -2012,10 +2055,12 @@ export function Audits() {
     };
     try {
       const saved = await createNC(dto);
-      setNcs(p => p.map(n => n.id === localId ? saved : n));
+      setNcs(p => dedupePostAuditNCs(p.map(n => n.id === localId ? saved : n)));
+      return saved;
     } catch {
       showToast('Erreur lors de la création de la NC', 'error');
       setNcs(p => p.filter(n => n.id !== localId));
+      return null;
     }
   };
 
