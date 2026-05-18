@@ -24,7 +24,7 @@ export function AuditsModule({ data }: { data?: any }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SectionCard title="Actions en retard vs terminees" delay={0.1}>
+        <SectionCard title="Audits termines vs NC ouvertes" delay={0.1}>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={actionsLateVsDone} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -65,4 +65,3 @@ export function AuditsModule({ data }: { data?: any }) {
     </div>
   );
 }
-

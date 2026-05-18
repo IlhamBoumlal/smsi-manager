@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Building2, X, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import { appAlert, appConfirm } from '../../utils/appDialogs';
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 const API_BASE = 'http://localhost:5006';
@@ -77,7 +78,9 @@ export default function GestionHoldings() {
 
   const handleSave = async () => {
     if (!formNom.trim()) {
-      alert("Le nom de la holding est requis.");
+      await appAlert("Le nom de la holding est requis.", {
+        title: "Champ requis",
+      });
       return;
     }
 
@@ -103,7 +106,9 @@ export default function GestionHoldings() {
       setFormNom("");
     } catch (error) {
       console.error("Erreur sauvegarde :", error);
-      alert(error.response?.data?.message || "Erreur lors de la sauvegarde.");
+      await appAlert(error.response?.data?.message || "Erreur lors de la sauvegarde.", {
+        title: "Echec de l'enregistrement",
+      });
     } finally {
       setLoading(false);
     }
@@ -111,11 +116,16 @@ export default function GestionHoldings() {
 
   const handleDelete = async (id, cnt) => {
     if (cnt > 0) {
-      alert(`Impossible de supprimer : ${cnt} société(s) rattachée(s) à cette holding.`);
+      await appAlert(`Impossible de supprimer : ${cnt} société(s) rattachée(s) à cette holding.`, {
+        title: "Suppression impossible",
+      });
       return;
     }
 
-    if (!window.confirm("Supprimer cette holding ?")) return;
+    if (!(await appConfirm("Supprimer cette holding ?", {
+      title: "Supprimer la holding",
+      confirmText: "Supprimer",
+    }))) return;
 
     try {
       const config = getAuthConfig();
@@ -123,7 +133,9 @@ export default function GestionHoldings() {
       await fetchData();
     } catch (error) {
       console.error("Erreur suppression :", error);
-      alert(error.response?.data?.message || "Erreur lors de la suppression.");
+      await appAlert(error.response?.data?.message || "Erreur lors de la suppression.", {
+        title: "Suppression impossible",
+      });
     }
   };
 

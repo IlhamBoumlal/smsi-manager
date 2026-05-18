@@ -7,6 +7,7 @@ import {
   LayoutGrid, List, SlidersHorizontal, Shield,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { appAlert, appConfirm } from '../utils/appDialogs';
 
 const SIGNALR_HUB = 'http://localhost:5006/notificationHub';
 
@@ -244,7 +245,10 @@ function IncidentFormPanel({ incident, onClose, onSave, isCreating }) {
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    if (!form.titre?.trim()) { alert('Le titre est obligatoire'); return; }
+    if (!form.titre?.trim()) {
+      await appAlert('Le titre est obligatoire', { title: 'Champ requis' });
+      return;
+    }
     setSaving(true);
     await onSave(form);
     setSaving(false);
@@ -397,7 +401,9 @@ export default function GestionIncidents() {
     } catch (err) {
       console.error('Erreur chargement incidents:', err);
       if (err.response?.status === 401) {
-        alert('Session expirée. Veuillez vous reconnecter.');
+        await appAlert('Session expirée. Veuillez vous reconnecter.', {
+          title: 'Session expirée',
+        });
       }
       return [];
     } finally {
@@ -494,7 +500,9 @@ export default function GestionIncidents() {
   // ── CRUD ─────────────────────────────────────────────────────────────────
   const handleCreate = async (formData) => {
     if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission de créer des incidents");
+      await appAlert("Vous n'avez pas la permission de créer des incidents", {
+        title: 'Acces refuse',
+      });
       return;
     }
     try {
@@ -503,7 +511,7 @@ export default function GestionIncidents() {
       setShowCreatePanel(false);
     } catch (err) {
       console.error(err);
-      alert('Erreur lors de la création');
+      await appAlert('Erreur lors de la création', { title: 'Creation impossible' });
     }
   };
 
@@ -515,22 +523,27 @@ export default function GestionIncidents() {
       setEditingIncident(null);
     } catch (err) {
       console.error(err);
-      alert('Erreur lors de la mise à jour');
+      await appAlert('Erreur lors de la mise à jour', { title: 'Mise a jour impossible' });
     }
   };
 
   const handleDelete = async (id) => {
     if (!canDelete(moduleCode)) {
-      alert("Vous n'avez pas la permission de supprimer des incidents");
+      await appAlert("Vous n'avez pas la permission de supprimer des incidents", {
+        title: 'Acces refuse',
+      });
       return;
     }
-    if (!window.confirm('Supprimer définitivement cet incident ?')) return;
+    if (!(await appConfirm('Supprimer définitivement cet incident ?', {
+      title: "Supprimer l'incident",
+      confirmText: 'Supprimer',
+    }))) return;
     try {
       await api.delete(`/api/incidents/${id}`);
       await fetchData();
     } catch (err) {
       console.error(err);
-      alert('Erreur lors de la suppression');
+      await appAlert('Erreur lors de la suppression', { title: 'Suppression impossible' });
     }
   };
 
@@ -551,7 +564,7 @@ export default function GestionIncidents() {
       setTraitementIncident(null);
     } catch (err) {
       console.error(err);
-      alert('Erreur lors du traitement');
+      await appAlert('Erreur lors du traitement', { title: 'Traitement impossible' });
     }
   };
 

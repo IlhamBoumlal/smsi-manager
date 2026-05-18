@@ -26,6 +26,7 @@ import {
   listConversations,
   streamConversationMessage,
 } from "../api/chatbot";
+import { appConfirm } from "../utils/appDialogs";
 
 function formatDate(value) {
   if (!value) return "";
@@ -339,7 +340,10 @@ export default function ChatbotWidget() {
 
   async function handleDeleteConversation(conversationId) {
     if (!conversationId) return;
-    const ok = window.confirm("Voulez-vous vraiment supprimer cette conversation ?");
+    const ok = await appConfirm("Voulez-vous vraiment supprimer cette conversation ?", {
+      title: "Supprimer la conversation",
+      confirmText: "Supprimer",
+    });
     if (!ok) return;
 
     setError("");

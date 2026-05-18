@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Building2, Factory, Upload, X, CheckCircle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
+import { appAlert, appConfirm } from '../../utils/appDialogs';
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 const API_BASE = 'http://localhost:5006';
@@ -68,7 +69,9 @@ export default function GestionSocietes() {
 
   const handleSave = async () => {
     if (!formNom.trim()) {
-      alert("Le nom de la société est requis.");
+      await appAlert("Le nom de la société est requis.", {
+        title: "Champ requis",
+      });
       return;
     }
 
@@ -117,14 +120,19 @@ export default function GestionSocietes() {
       setDeleteLogo(false);
     } catch (error) {
       console.error("Erreur sauvegarde :", error);
-      alert(error.response?.data || "Erreur lors de la sauvegarde.");
+      await appAlert(error.response?.data || "Erreur lors de la sauvegarde.", {
+        title: "Echec de l'enregistrement",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer cette société ?")) return;
+    if (!(await appConfirm("Supprimer cette société ?", {
+      title: "Supprimer la société",
+      confirmText: "Supprimer",
+    }))) return;
 
     try {
       const config = getAuthConfig();
@@ -132,7 +140,9 @@ export default function GestionSocietes() {
       await fetchData();
     } catch (error) {
       console.error("Erreur suppression :", error);
-      alert(error.response?.data?.message || "Erreur lors de la suppression.");
+      await appAlert(error.response?.data?.message || "Erreur lors de la suppression.", {
+        title: "Suppression impossible",
+      });
     }
   };
 

@@ -12,6 +12,7 @@ import {
   getAllControlesForSelection,
 } from "../api/cartographie";
 import { useAuth } from "../context/AuthContext";
+import { appAlert, appConfirm } from "../utils/appDialogs";
 
 /* ═══════════════════════════════════════════════════════════
    CHARGEMENT DES POLICES & ICONES (Sora + Font Awesome)
@@ -401,7 +402,9 @@ export default function CartographieProcessus() {
 
   const openAddDocForProc = (procId) => {
     if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission d'ajouter des documents");
+      void appAlert("Vous n'avez pas la permission d'ajouter des documents", {
+        title: "Acces refuse",
+      });
       return;
     }
     setActiveId(procId);
@@ -411,7 +414,9 @@ export default function CartographieProcessus() {
   /* ── CRUD Processus ── */
   const saveProc = async () => {
     if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission d'ajouter ou modifier des processus");
+      await appAlert("Vous n'avez pas la permission d'ajouter ou modifier des processus", {
+        title: "Acces refuse",
+      });
       return;
     }
     const { editId, form } = procModal;
@@ -434,7 +439,9 @@ export default function CartographieProcessus() {
       setProcModal({ open:false, editId:null, form:EMPTY_PROC });
     } catch (error) {
       console.error("Erreur saveProc:", error);
-      alert(getApiErrorMessage(error, "Impossible d'enregistrer le processus."));
+      await appAlert(getApiErrorMessage(error, "Impossible d'enregistrer le processus."), {
+        title: "Echec de l'enregistrement",
+      });
     } finally {
       setSaving(false);
     }
@@ -442,24 +449,33 @@ export default function CartographieProcessus() {
 
   const deleteProc = async (id) => {
     if (!canDelete(moduleCode)) {
-      alert("Vous n'avez pas la permission de supprimer des processus");
+      await appAlert("Vous n'avez pas la permission de supprimer des processus", {
+        title: "Acces refuse",
+      });
       return;
     }
-    if (!window.confirm("Supprimer ce processus et tous ses documents ?")) return;
+    if (!(await appConfirm("Supprimer ce processus et tous ses documents ?", {
+      title: "Supprimer le processus",
+      confirmText: "Supprimer",
+    }))) return;
     try {
       await deleteProcessus(id);
       await refresh();
       if (activeId === id) closePanel();
     } catch (error) {
       console.error("Erreur deleteProc:", error);
-      alert(getApiErrorMessage(error, "Impossible de supprimer le processus."));
+      await appAlert(getApiErrorMessage(error, "Impossible de supprimer le processus."), {
+        title: "Suppression impossible",
+      });
     }
   };
 
   /* ── CRUD Documents ── */
   const saveDoc = async () => {
     if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission d'ajouter des documents");
+      await appAlert("Vous n'avez pas la permission d'ajouter des documents", {
+        title: "Acces refuse",
+      });
       return;
     }
     const { form, targetProcId } = docModal;
@@ -486,7 +502,9 @@ export default function CartographieProcessus() {
       setDocModal({ open:false, form:EMPTY_DOC, targetProcId: null });
     } catch (error) {
       console.error("Erreur saveDoc:", error);
-      alert(getApiErrorMessage(error, "Impossible d'ajouter le document."));
+      await appAlert(getApiErrorMessage(error, "Impossible d'ajouter le document."), {
+        title: "Ajout impossible",
+      });
     } finally {
       setSaving(false);
     }
@@ -494,7 +512,9 @@ export default function CartographieProcessus() {
 
   const deleteDoc = async (pid, did) => {
     if (!canDelete(moduleCode)) {
-      alert("Vous n'avez pas la permission de supprimer des documents");
+      await appAlert("Vous n'avez pas la permission de supprimer des documents", {
+        title: "Acces refuse",
+      });
       return;
     }
     try {
@@ -504,7 +524,9 @@ export default function CartographieProcessus() {
       ));
     } catch (error) {
       console.error("Erreur deleteDoc:", error);
-      alert(getApiErrorMessage(error, "Impossible de supprimer le document."));
+      await appAlert(getApiErrorMessage(error, "Impossible de supprimer le document."), {
+        title: "Suppression impossible",
+      });
     }
   };
 
@@ -1297,4 +1319,3 @@ const CSS = `
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#aed6f1;border-radius:99px; }
 `;
-

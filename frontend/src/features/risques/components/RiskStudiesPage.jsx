@@ -26,6 +26,7 @@ import {
 } from "../riskModel";
 import { RiskCard, RiskKpiTile, RiskModal, RiskPageHeader, RiskProgressBar, RiskSectionHeader, RiskStatusBadge } from "./RiskUi";
 import { useAuth } from "../../../hooks/useAuth";
+import { appConfirm } from "../../../utils/appDialogs";
 
 function StudyCreateModal({ open, onClose, onSubmit }) {
   const [form, setForm] = useState({ name: "", organization: "", description: "", perimeter: "", author: "" });
@@ -455,9 +456,12 @@ export default function RiskStudiesPage() {
                       {canDeleteStudy && (
                         <div className="mt-3 flex justify-end">
                           <button
-                            onClick={(event) => {
+                            onClick={async (event) => {
                               event.stopPropagation();
-                              const confirmed = window.confirm(`Supprimer l'etude "${study.name || "sans nom"}" ? Cette action est irreversible.`);
+                              const confirmed = await appConfirm(`Supprimer l'etude "${study.name || "sans nom"}" ? Cette action est irreversible.`, {
+                                title: "Supprimer l'etude",
+                                confirmText: "Supprimer",
+                              });
                               if (!confirmed) return;
                               void deleteStudy(study.id);
                             }}

@@ -23,6 +23,7 @@ import {
   uploadConformityProofFile, deleteConformityProofFile,
   uploadActionPlanFile, deleteActionPlanFile, downloadFile, openFile,
 } from "../api/clauses";
+import { appConfirm } from "../utils/appDialogs";
 
 /* ════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -563,7 +564,10 @@ function ConformityProofPanel({ sub, meta, proofs, onProofUploaded, onProofFileD
   };
 
   const handleDelete = async (fileId) => {
-    if (!window.confirm("Supprimer cette preuve ?")) return;
+    if (!(await appConfirm("Supprimer cette preuve ?", {
+      title: "Supprimer la preuve",
+      confirmText: "Supprimer",
+    }))) return;
     await deleteConformityProofFile(fileId);
     onProofFileDeleted(fileId);
   };
@@ -1707,7 +1711,10 @@ export default function ClauseDetail() {
   };
 
   const handleDelete = async(planId)=>{
-    if(!window.confirm("Supprimer définitivement ce plan d'action ?")) return;
+    if(!(await appConfirm("Supprimer définitivement ce plan d'action ?", {
+      title: "Supprimer le plan d'action",
+      confirmText: "Supprimer",
+    }))) return;
     try { await deleteActionPlan(planId); setPlans(p=>p.filter(x=>x.id!==planId)); showToast("Plan supprimé","info"); }
     catch(e){ showToast(e.message,"error"); }
   };

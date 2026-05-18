@@ -367,6 +367,60 @@ function RoleUpsertModal({
   );
 }
 
+function DeleteRoleConfirmModal({
+  open,
+  roleLabel,
+  onClose,
+  onConfirm,
+  loading,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-slate-900/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="w-full max-w-[520px] rounded-3xl overflow-hidden shadow-2xl bg-white">
+        <div className="px-6 py-5 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600">
+          <h3 className="text-white font-bold text-[20px]">Confirmer la suppression</h3>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="w-9 h-9 rounded-xl inline-flex items-center justify-center text-white hover:bg-white/15 disabled:opacity-60"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-blue-700 text-sm flex items-start gap-3">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+            <p>
+              Supprimer le role <span className="font-bold">"{roleLabel}"</span> ? Cette action est irreversible.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 border-t border-slate-200 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="h-11 px-5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-60"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="h-11 px-6 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GestionRoles() {
   const { user, canEdit } = useAuth();
   const canEditRoles = canEdit("roles");
@@ -400,6 +454,8 @@ export default function GestionRoles() {
   const [roleModalMode, setRoleModalMode] = useState("create");
   const [roleModalName, setRoleModalName] = useState("");
   const [roleModalTarget, setRoleModalTarget] = useState(null);
+  const [deleteRoleModalOpen, setDeleteRoleModalOpen] = useState(false);
+  const [deleteRoleTarget, setDeleteRoleTarget] = useState(null);
 
   const roleKeyFromQuery = useMemo(() => {
     const searchParams = new URLSearchParams(location.search || "");
@@ -878,7 +934,14 @@ export default function GestionRoles() {
   };
 
   const openEditRoleModal = (roleCard) => {
-    if (!roleCard?.isCustom || !roleCard?.id) return;
+    if (!roleCard?.id) {
+      setError("Role introuvable pour la modification.");
+      return;
+    }
+    if (!roleCard?.isCustom) {
+      setError("Les roles systeme ne sont pas modifiables.");
+      return;
+    }
     setRoleModalMode("edit");
     setRoleModalName(roleCard.label || "");
     setRoleModalTarget(roleCard);
@@ -931,13 +994,31 @@ export default function GestionRoles() {
     }
   };
 
-  const handleDeleteRole = async (roleCard) => {
-    if (!roleCard?.isCustom || !roleCard?.id) {
+  const openDeleteRoleModal = (roleCard) => {
+    if (!roleCard?.id) {
+      setError("Role introuvable pour la suppression.");
       return;
     }
 
-    const confirmed = window.confirm(`Supprimer le role "${roleCard.label}" ?`);
-    if (!confirmed) return;
+    if (!roleCard?.isCustom) {
+      setError("Les roles systeme ne sont pas supprimables.");
+      return;
+    }
+    setDeleteRoleTarget(roleCard);
+    setDeleteRoleModalOpen(true);
+  };
+
+  const closeDeleteRoleModal = () => {
+    setDeleteRoleModalOpen(false);
+    setDeleteRoleTarget(null);
+  };
+
+  const confirmDeleteRole = async () => {
+    const roleCard = deleteRoleTarget;
+    if (!roleCard?.id || !roleCard?.isCustom) {
+      closeDeleteRoleModal();
+      return;
+    }
 
     setSavingRole(true);
     setError("");
@@ -952,6 +1033,7 @@ export default function GestionRoles() {
 
       setSuccessMessage("Role supprime avec succes.");
       await loadUsers();
+      closeDeleteRoleModal();
     } catch (err) {
       setError(err.message || "Impossible de supprimer ce role.");
     } finally {
@@ -1081,6 +1163,12 @@ export default function GestionRoles() {
                   const style = ROLE_STYLES[roleCard.key] || ROLE_STYLES.consultant;
                   const basePermissions = ROLE_BASE_PERMISSION_HINTS[roleCard.key] ?? 0;
                   const roleLabel = roleCard.label || roleLabelFromKey(roleCard.key);
+                  const canTriggerRoleActions = Boolean(canEditRoles) && !savingRole;
+                  const roleActionTitle = !canEditRoles
+                    ? "Permission requise pour gerer les roles"
+                    : roleCard.isCustom && roleCard.id
+                      ? ""
+                      : "Role systeme (action non autorisee)";
 
                   return (
                     <article
@@ -1124,26 +1212,30 @@ export default function GestionRoles() {
                           Voir les utilisateurs
                         </button>
 
-                        {canEditRoles && roleCard.isCustom && roleCard.id && (
-                          <>
-                            <button
-                              onClick={() => openEditRoleModal(roleCard)}
-                              disabled={savingRole}
-                              className="w-10 h-10 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 inline-flex items-center justify-center hover:bg-blue-100 disabled:opacity-50"
-                              title="Modifier le role"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              onClick={() => void handleDeleteRole(roleCard)}
-                              disabled={savingRole}
-                              className="w-10 h-10 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 inline-flex items-center justify-center hover:bg-rose-100 disabled:opacity-50"
-                              title="Supprimer le role"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={() => openEditRoleModal(roleCard)}
+                          disabled={!canTriggerRoleActions}
+                          className={`w-10 h-10 rounded-xl border inline-flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            canTriggerRoleActions
+                              ? "border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                              : "border-slate-200 bg-slate-100 text-slate-400"
+                          }`}
+                          title={roleActionTitle || "Modifier le role"}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => openDeleteRoleModal(roleCard)}
+                          disabled={!canTriggerRoleActions}
+                          className={`w-10 h-10 rounded-xl border inline-flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            canTriggerRoleActions
+                              ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                              : "border-slate-200 bg-slate-100 text-slate-400"
+                          }`}
+                          title={roleActionTitle || "Supprimer le role"}
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </article>
                   );
@@ -1486,6 +1578,14 @@ export default function GestionRoles() {
         onChangeRoleName={setRoleModalName}
         onClose={closeRoleModal}
         onSubmit={submitRoleModal}
+        loading={savingRole}
+      />
+
+      <DeleteRoleConfirmModal
+        open={deleteRoleModalOpen}
+        roleLabel={deleteRoleTarget?.label || ""}
+        onClose={closeDeleteRoleModal}
+        onConfirm={confirmDeleteRole}
         loading={savingRole}
       />
 

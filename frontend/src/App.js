@@ -29,6 +29,7 @@ import Sensibilisation from './pages/modules/Sensibilisation';
 import GestionIncidents from './pages/modules/GestionIncidents';
 import SuperAdminSpace from './pages/superadmin/SuperAdminSpace';
 import GestionUtilisateurs from './pages/admin/GestionUtilisateurs';
+import AppDialogHost from './components/ui/AppDialogHost';
 
 const SUPER_ADMIN_ROLES = ['Super Admin'];
 const ADMIN_SCOPE_ROLES = ['Super Admin', 'Admin Societe'];
@@ -51,10 +52,11 @@ const withModuleRead = (moduleCode, element) => (
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Accueil />} />
-      <Route path="/accueil" element={<Accueil />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Accueil />} />
+        <Route path="/accueil" element={<Accueil />} />
 
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route path="/cartographie" element={withModuleRead('cartographie', <CartographieProcessus />)} />
@@ -153,7 +155,9 @@ export default function App() {
         element={<PrivateAdminRoute allowedRoles={SUPER_ADMIN_ROLES}><Navigate to="/super-admin" replace /></PrivateAdminRoute>}
       />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <AppDialogHost />
+    </>
   );
 }

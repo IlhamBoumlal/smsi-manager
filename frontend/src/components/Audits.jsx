@@ -26,6 +26,7 @@ import {
 } from '../api/audits';
 import { getAllControles, updateControle } from '../api/controles';
 import { useAuth } from '../context/AuthContext';
+import { appConfirm } from '../utils/appDialogs';
 
 // ─── ISO 27001:2022 — 93 contrôles ───────────────────────────────────────────
 const ISO_THEMES = [
@@ -1966,7 +1967,10 @@ export function Audits() {
 
   const handleDeletePlan = async (id) => {
     if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des audits', 'error'); return; }
-    if (!window.confirm('Supprimer cet audit ?')) return;
+    if (!(await appConfirm('Supprimer cet audit ?', {
+      title: "Supprimer l'audit",
+      confirmText: 'Supprimer',
+    }))) return;
     try { await deleteAudit(id); setAudits(p => p.filter(a => a.id !== id)); showToast('Audit supprimé', 'success'); }
     catch { showToast('Erreur'); }
   };
@@ -1987,7 +1991,10 @@ export function Audits() {
 
   const handleDeleteNC = async (id) => {
     if (!canDelete(moduleCode)) { showToast('Vous n\'avez pas la permission de supprimer des NC', 'error'); return; }
-    if (!window.confirm('Supprimer cette NC ?')) return;
+    if (!(await appConfirm('Supprimer cette NC ?', {
+      title: 'Supprimer la NC',
+      confirmText: 'Supprimer',
+    }))) return;
     try { await deleteNC(id); setNcs(p => p.filter(n => n.id !== id)); showToast('NC supprimée', 'success'); }
     catch { showToast('Erreur'); }
   };

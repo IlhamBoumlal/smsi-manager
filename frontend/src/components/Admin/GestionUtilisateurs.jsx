@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { appAlert, appConfirm } from "../../utils/appDialogs";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5006";
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
@@ -178,7 +179,9 @@ export default function GestionUtilisateurs() {
   const openEditModal = (item) => {
     const roleName = item.role || item.Role || "";
     if (!isTenantManageableRole(roleName)) {
-      window.alert("Ce role n'est pas modifiable depuis l'espace Admin societe.");
+      void appAlert("Ce role n'est pas modifiable depuis l'espace Admin societe.", {
+        title: "Action impossible",
+      });
       return;
     }
 
@@ -210,23 +213,23 @@ export default function GestionUtilisateurs() {
     }
 
     if (!form.nomComplet.trim() || !form.email.trim() || !form.roleId) {
-      window.alert("Nom, email et role sont obligatoires.");
+      await appAlert("Nom, email et role sont obligatoires.", { title: "Champs requis" });
       return;
     }
 
     const selectedRole = roles.find((entry) => String(entry.id) === String(form.roleId));
     if (!isTenantManageableRole(selectedRole?.nom || selectedRole?.name || "")) {
-      window.alert("Role non autorise.");
+      await appAlert("Role non autorise.", { title: "Action refusee" });
       return;
     }
 
     if (!editingUser && !form.password.trim()) {
-      window.alert("Le mot de passe est obligatoire a la creation.");
+      await appAlert("Le mot de passe est obligatoire a la creation.", { title: "Champ requis" });
       return;
     }
 
     if ((form.password || form.confirmPassword) && form.password !== form.confirmPassword) {
-      window.alert("Les mots de passe ne correspondent pas.");
+      await appAlert("Les mots de passe ne correspondent pas.", { title: "Validation" });
       return;
     }
 
@@ -264,7 +267,9 @@ export default function GestionUtilisateurs() {
       closeModal();
       await loadData();
     } catch (err) {
-      window.alert(err.message || "Erreur lors de l'enregistrement.");
+      await appAlert(err.message || "Erreur lors de l'enregistrement.", {
+        title: "Echec de l'enregistrement",
+      });
     } finally {
       setSaving(false);
     }
@@ -274,18 +279,25 @@ export default function GestionUtilisateurs() {
     const target = users.find((item) => String(item.id) === String(id));
     const targetRole = target?.role || target?.Role || "";
     if (!isTenantManageableRole(targetRole)) {
-      window.alert("Ce role ne peut pas etre supprime depuis cet espace.");
+      await appAlert("Ce role ne peut pas etre supprime depuis cet espace.", {
+        title: "Action impossible",
+      });
       return;
     }
 
-    const confirmed = window.confirm("Confirmer la suppression de cet utilisateur ?");
+    const confirmed = await appConfirm("Confirmer la suppression de cet utilisateur ?", {
+      title: "Supprimer l'utilisateur",
+      confirmText: "Supprimer",
+    });
     if (!confirmed) return;
 
     try {
       await apiFetch(`/api/user/${id}`, { method: "DELETE" });
       await loadData();
     } catch (err) {
-      window.alert(err.message || "Erreur lors de la suppression.");
+      await appAlert(err.message || "Erreur lors de la suppression.", {
+        title: "Suppression impossible",
+      });
     }
   };
 
@@ -294,13 +306,17 @@ export default function GestionUtilisateurs() {
 
     const targetRole = target.role || target.Role || "";
     if (!isTenantManageableRole(targetRole)) {
-      window.alert("Ce role ne peut pas etre modifie depuis cet espace.");
+      await appAlert("Ce role ne peut pas etre modifie depuis cet espace.", {
+        title: "Action impossible",
+      });
       return;
     }
 
     const roleId = roleIdByName.get(normalizeRoleKey(targetRole));
     if (!roleId) {
-      window.alert("Impossible de resoudre le role de cet utilisateur.");
+      await appAlert("Impossible de resoudre le role de cet utilisateur.", {
+        title: "Mise a jour impossible",
+      });
       return;
     }
 
@@ -319,7 +335,9 @@ export default function GestionUtilisateurs() {
       });
       await loadData();
     } catch (err) {
-      window.alert(err.message || "Erreur lors de la mise a jour.");
+      await appAlert(err.message || "Erreur lors de la mise a jour.", {
+        title: "Mise a jour impossible",
+      });
     }
   };
 

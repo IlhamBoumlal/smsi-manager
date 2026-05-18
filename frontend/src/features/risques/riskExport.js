@@ -1,4 +1,5 @@
 import { G_LABELS, MITRE_TACTICS, V_LABELS, riskEntryStatusLabel, riskLevel } from "./riskModel";
+import { appAlert } from "../../utils/appDialogs";
 
 const safe = (value) =>
   String(value ?? "")
@@ -252,7 +253,9 @@ async function downloadWorkshopLivrablePdf(study, workshopNum) {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error("Echec generation PDF.", error);
-    window.alert("Impossible de generer le PDF pour ce livrable. Verifie le contenu et reessaie.");
+    await appAlert("Impossible de generer le PDF pour ce livrable. Verifie le contenu et reessaie.", {
+      title: "Generation PDF impossible",
+    });
   }
 }
 

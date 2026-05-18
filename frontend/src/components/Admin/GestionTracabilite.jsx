@@ -7,6 +7,7 @@ import {
   Search,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { appAlert } from "../../utils/appDialogs";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5006";
 
@@ -198,7 +199,9 @@ export default function GestionTracabilite() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      window.alert(err.message || "Erreur pendant l'export.");
+      await appAlert(err.message || "Erreur pendant l'export.", {
+        title: "Export impossible",
+      });
     } finally {
       setExporting(false);
     }

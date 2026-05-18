@@ -3,6 +3,7 @@ import {
   X, CheckCircle2, Lightbulb, ClipboardList, 
   Save 
 } from 'lucide-react';
+import { appPrompt } from '../utils/appDialogs';
 
 // Configuration complète pour TOUS les contrôles avec 5 recommandations chacun
 const PLAN_CONFIGS = {
@@ -1441,8 +1442,12 @@ export default function PlanActionModal({ ctrl, onClose, onSave }) {
     setFormData({ ...formData, steps: newSteps });
   };
 
-  const addStep = () => {
-    const title = prompt("Titre de la nouvelle étape :");
+  const addStep = async () => {
+    const title = await appPrompt("Titre de la nouvelle étape :", {
+      title: "Nouvelle étape",
+      confirmText: "Ajouter",
+      defaultValue: "",
+    });
     if (title) {
       setFormData({
         ...formData,
@@ -1604,4 +1609,3 @@ export default function PlanActionModal({ ctrl, onClose, onSave }) {
     </div>
   );
 }
-

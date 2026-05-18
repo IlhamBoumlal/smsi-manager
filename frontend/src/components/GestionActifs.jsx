@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
+import { appAlert, appConfirm } from '../utils/appDialogs';
 
 const T = {
   font: "'Sora', 'Segoe UI', sans-serif",
@@ -159,7 +160,9 @@ export default function GestionActifs() {
 
   const handleExport = async () => {
     if (!canExport(moduleCode)) {
-      alert('Vous n\'avez pas la permission d\'exporter les actifs');
+      await appAlert("Vous n'avez pas la permission d'exporter les actifs", {
+        title: 'Acces refuse',
+      });
       return;
     }
     setExportLoading(true);
@@ -199,7 +202,7 @@ export default function GestionActifs() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Erreur export:', err);
-      alert('Erreur lors de l\'export des actifs');
+      await appAlert("Erreur lors de l'export des actifs", { title: 'Export impossible' });
     } finally {
       setExportLoading(false);
     }
@@ -236,13 +239,19 @@ export default function GestionActifs() {
   const closeModal = () => { setModal(false); reset(); };
 
   const openNew = () => {
-    if (!canWrite(moduleCode)) { alert('Vous n\'avez pas la permission de créer des actifs'); return; }
+    if (!canWrite(moduleCode)) {
+      void appAlert("Vous n'avez pas la permission de créer des actifs", { title: 'Acces refuse' });
+      return;
+    }
     reset();
     setModal(true);
   };
 
   const openEdit = (a) => {
-    if (!canEdit(moduleCode)) { alert('Vous n\'avez pas la permission de modifier cet actif'); return; }
+    if (!canEdit(moduleCode)) {
+      void appAlert("Vous n'avez pas la permission de modifier cet actif", { title: 'Acces refuse' });
+      return;
+    }
     setEditing(a);
     setForm({
       nom: a.nom,
@@ -257,8 +266,14 @@ export default function GestionActifs() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canWrite(moduleCode)) { alert('Vous n\'avez pas la permission de créer ou modifier des actifs'); return; }
-    if (!form.nom || String(form.nom).trim() === '') { alert('Le champ "Nom" est requis.'); return; }
+    if (!canWrite(moduleCode)) {
+      await appAlert("Vous n'avez pas la permission de créer ou modifier des actifs", { title: 'Acces refuse' });
+      return;
+    }
+    if (!form.nom || String(form.nom).trim() === '') {
+      await appAlert('Le champ "Nom" est requis.', { title: 'Champ requis' });
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -278,20 +293,26 @@ export default function GestionActifs() {
       closeModal();
     } catch (err) {
       const msg = typeof err.response?.data === 'object' ? JSON.stringify(err.response.data) : err.response?.data;
-      alert(`Erreur: ${msg || 'Une erreur est survenue'}`);
+      await appAlert(`Erreur: ${msg || 'Une erreur est survenue'}`, { title: "Echec de l'enregistrement" });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!canDelete(moduleCode)) { alert('Vous n\'avez pas la permission de supprimer des actifs'); return; }
-    if (!window.confirm('Supprimer cet actif ?')) return;
+    if (!canDelete(moduleCode)) {
+      await appAlert("Vous n'avez pas la permission de supprimer des actifs", { title: 'Acces refuse' });
+      return;
+    }
+    if (!(await appConfirm('Supprimer cet actif ?', {
+      title: "Supprimer l'actif",
+      confirmText: 'Supprimer',
+    }))) return;
     try {
       await axiosInstance.delete(`/api/actifs/${id}`);
       await fetchAll();
     } catch {
-      alert('Erreur lors de la suppression');
+      await appAlert('Erreur lors de la suppression', { title: 'Suppression impossible' });
     }
   };
 

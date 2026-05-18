@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { appAlert } from '../utils/appDialogs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -782,7 +783,7 @@ export default function Controles() {
       }
     } catch (err) {
       console.error("Erreur détaillée:", err.response?.data);
-      alert("Erreur lors de la sauvegarde.");
+      await appAlert("Erreur lors de la sauvegarde.", { title: "Enregistrement impossible" });
     }
   };
 
@@ -1169,7 +1170,9 @@ function EvaluationPanel({ ctrl, onClose, onSave, theme, onViewHistorique }) {
 
   const handleSaveClick = async () => {
     if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission de modifier ce contrôle");
+      await appAlert("Vous n'avez pas la permission de modifier ce contrôle", {
+        title: "Acces refuse",
+      });
       return;
     }
     setSaving(true);

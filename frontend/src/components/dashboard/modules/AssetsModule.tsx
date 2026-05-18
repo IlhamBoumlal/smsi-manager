@@ -20,7 +20,7 @@ export function AssetsModule({ data }: { data?: any }) {
   const support = Number(assets.supports ?? Math.max(0, totalActifs - primaires));
   const secret = Number(assets.secret ?? 0);
   const topSecret = Number(assets.topSecret ?? 0);
-  const conformiteGlobale = Number(assets.conformiteGlobale ?? 0);
+  const classificationRate = Number(assets.conformiteGlobale ?? 0);
   const aRevoir = Number(assets.aRevoir ?? Math.max(0, totalActifs - primaires - support));
 
   const primairesPct = totalActifs > 0 ? Math.round((primaires / totalActifs) * 100) : 0;
@@ -70,9 +70,9 @@ export function AssetsModule({ data }: { data?: any }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Taux de conformite des actifs" delay={0.1}>
+        <SectionCard title="Taux de classification des actifs" delay={0.1}>
           <div className="flex justify-center py-2">
-            <DonutScore value={conformiteGlobale} />
+            <DonutScore value={classificationRate} label="Classification" />
           </div>
         </SectionCard>
 
@@ -95,4 +95,3 @@ export function AssetsModule({ data }: { data?: any }) {
     </div>
   );
 }
-

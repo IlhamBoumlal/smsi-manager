@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Unlock, Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Users, Mail, Shield, Factory, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
+import { appAlert, appConfirm } from '../../utils/appDialogs';
 
 const GRAD_BLUE = "linear-gradient(135deg, #1D4ED8, #1E40AF)";
 const API_BASE = 'http://localhost:5006';
@@ -68,23 +69,23 @@ export default function GestionUtilisateursAdmins() {
 
   const handleSave = async () => {
     if (!form.nomComplet.trim()) {
-      alert("Le nom complet est requis.");
+      await appAlert("Le nom complet est requis.", { title: "Champ requis" });
       return;
     }
     if (!form.email.trim()) {
-      alert("L'email est requis.");
+      await appAlert("L'email est requis.", { title: "Champ requis" });
       return;
     }
     if (!editing && !form.password) {
-      alert("Le mot de passe est requis pour un nouvel utilisateur.");
+      await appAlert("Le mot de passe est requis pour un nouvel utilisateur.", { title: "Champ requis" });
       return;
     }
     if (form.password && form.password !== form.confirmPassword) {
-      alert("Les mots de passe ne correspondent pas.");
+      await appAlert("Les mots de passe ne correspondent pas.", { title: "Validation" });
       return;
     }
     if (!form.societeId) {
-      alert("La société est obligatoire pour un Admin Societe.");
+      await appAlert("La société est obligatoire pour un Admin Societe.", { title: "Champ requis" });
       return;
     }
 
@@ -120,14 +121,19 @@ export default function GestionUtilisateursAdmins() {
       setShowPwd(false);
     } catch (error) {
       console.error("Erreur sauvegarde :", error);
-      alert(error.response?.data || "Erreur lors de la sauvegarde.");
+      await appAlert(error.response?.data || "Erreur lors de la sauvegarde.", {
+        title: "Echec de l'enregistrement",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer cet utilisateur ?")) return;
+    if (!(await appConfirm("Supprimer cet utilisateur ?", {
+      title: "Supprimer l'utilisateur",
+      confirmText: "Supprimer",
+    }))) return;
 
     try {
       const config = getAuthConfig();
@@ -135,13 +141,17 @@ export default function GestionUtilisateursAdmins() {
       await fetchData();
     } catch (error) {
       console.error("Erreur suppression :", error);
-      alert(error.response?.data || "Erreur lors de la suppression.");
+      await appAlert(error.response?.data || "Erreur lors de la suppression.", {
+        title: "Suppression impossible",
+      });
     }
   };
 
   const handleToggle = async (user) => {
     if (!user?.societeId) {
-      alert("Impossible de modifier ce compte: société manquante.");
+      await appAlert("Impossible de modifier ce compte: société manquante.", {
+        title: "Action impossible",
+      });
       return;
     }
 
@@ -159,7 +169,9 @@ export default function GestionUtilisateursAdmins() {
       await fetchData();
     } catch (error) {
       console.error("Erreur changement statut :", error);
-      alert(error.response?.data || "Erreur lors du changement de statut.");
+      await appAlert(error.response?.data || "Erreur lors du changement de statut.", {
+        title: "Mise a jour impossible",
+      });
     }
   };
 

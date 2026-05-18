@@ -1,6 +1,7 @@
 import { isValidElement, useMemo, useState } from "react";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
 import { statusClass, statusLabel } from "../riskModel";
+import { appConfirm } from "../../../utils/appDialogs";
 
 export function RiskPageHeader({ title, subtitle, badge, actions, variant = "default" }) {
   const headerClass = `risk-page-header${variant === "hero" ? " risk-page-header-hero" : ""}`;
@@ -553,10 +554,13 @@ export function RiskCrudTable({
     setEditorOpen(false);
   };
 
-  const askDelete = (row) => {
+  const askDelete = async (row) => {
     if (!canDelete) return;
     const message = typeof deleteConfirmMessage === "function" ? deleteConfirmMessage(row) : deleteConfirmMessage;
-    const confirmed = window.confirm(message || "Confirmer la suppression de cet element ?");
+    const confirmed = await appConfirm(message || "Confirmer la suppression de cet element ?", {
+      title: "Confirmer la suppression",
+      confirmText: "Supprimer",
+    });
     if (!confirmed) return;
     onDelete(row.id);
   };

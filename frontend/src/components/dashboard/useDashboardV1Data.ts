@@ -1486,9 +1486,6 @@ export function useDashboardV1Data(options?: DashboardV1Options) {
           ncOuvertes: auditOpenNcCount,
           simulations: auditSims.length,
           actionsLateVsDone: [
-            { name: "Clauses", done: toNum(clauseStats?.completedActions), late: toNum(clauseStats?.delayedActions) },
-            { name: "Controles", done: controlsConforme, late: controlsActionsRetard },
-            { name: "PDCA", done: pdca.done, late: pdca.todo },
             { name: "Audits", done: auditCompletedCount, late: auditOpenNcCount },
           ],
           actionPlans: auditsActionPlans,
