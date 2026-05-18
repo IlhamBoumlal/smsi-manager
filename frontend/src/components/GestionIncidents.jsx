@@ -8,32 +8,24 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE    = 'http://localhost:5006/api/incidents';
 const SIGNALR_HUB = 'http://localhost:5006/notificationHub';
 
-// ── Instance axios avec token JWT automatique ────────────────────────────────
 const api = axios.create({ baseURL: 'http://localhost:5006' });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  } else {
-    console.warn('⚠️ Aucun token JWT trouvé dans localStorage');
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (r) => r,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error('❌ 401 Unauthorized — token expiré ou invalide');
-    }
+    if (error.response?.status === 401)
+      console.error('❌ 401 Unauthorized');
     return Promise.reject(error);
   }
 );
-// ────────────────────────────────────────────────────────────────────────────
 
 const T = {
   font: "'Sora', 'Segoe UI', sans-serif",
@@ -73,9 +65,12 @@ const animationStyles = `
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0);    }
   }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
 `;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function normalizeIncident(inc) {
   return {
     id:          inc.id          || inc.Id,
@@ -96,13 +91,12 @@ function formatDateTime(dateStr) {
   });
 }
 
-// ── KPI Strip ────────────────────────────────────────────────────────────────
 function KpiStrip({ stats }) {
   const kpis = [
-    { label: 'Total incidents',  value: stats.total,   sub: `${stats.total} incidents déclarés`,      bg: T.gradBlue, light: false },
-    { label: 'En cours',         value: stats.enCours, sub: `${Math.round((stats.enCours / (stats.total || 1)) * 100)}% du total`, bg: '#fff', light: true },
-    { label: 'Résolus',          value: stats.resolus, sub: `${Math.round((stats.resolus / (stats.total || 1)) * 100)}% du total`, bg: '#fff', light: true },
-    { label: 'Critiques',        value: stats.critiques, sub: 'priorité critique',                    bg: '#fff', light: true },
+    { label: 'Total incidents',  value: stats.total,     sub: `${stats.total} incidents déclarés`,      bg: T.gradBlue, light: false },
+    { label: 'En cours',         value: stats.enCours,   sub: `${Math.round((stats.enCours / (stats.total || 1)) * 100)}% du total`, bg: '#fff', light: true },
+    { label: 'Résolus',          value: stats.resolus,   sub: `${Math.round((stats.resolus / (stats.total || 1)) * 100)}% du total`, bg: '#fff', light: true },
+    { label: 'Critiques',        value: stats.critiques, sub: 'priorité critique',                      bg: '#fff', light: true },
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
@@ -126,7 +120,6 @@ function KpiStrip({ stats }) {
   );
 }
 
-// ── Badges ───────────────────────────────────────────────────────────────────
 function StatutIncidentBadge({ statut }) {
   const s = STATUTS_INCIDENT.find(s => s.key === statut);
   if (!s) return <span>—</span>;
@@ -155,34 +148,60 @@ function PrioriteBadge({ priorite }) {
   );
 }
 
-// ── Toast de notification ─────────────────────────────────────────────────────
 function NotificationToast({ notification, onClose, onView }) {
+  // Auto-fermeture après 8 secondes
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(onClose, 8000);
+    return () => clearTimeout(timer);
+  }, [notification, onClose]);
+
   if (!notification) return null;
+
   return (
-    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1300, width: 360, animation: 'slideInRight 0.3s cubic-bezier(0.68,-0.55,0.265,1.55)' }}>
-      <div style={{ background: '#FFF', borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999, width: 360,
+      animation: 'slideInRight 0.3s cubic-bezier(0.68,-0.55,0.265,1.55)',
+    }}>
+      <div style={{ background: '#FFF', borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
         <div style={{ height: 4, background: 'linear-gradient(135deg,#1D4ED8,#3B82F6)' }} />
         <div style={{ padding: 16, display: 'flex', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#1D4ED8,#3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: 'linear-gradient(135deg,#1D4ED8,#3B82F6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
             <AlertCircle size={20} color="#FFF" />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Nouvel incident</span>
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 12, background: '#EFF6FF', color: '#1D4ED8' }}>
+              <span style={{
+                fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 12,
+                background: '#EFF6FF', color: '#1D4ED8',
+              }}>
                 {notification.priorite || 'MOYENNE'}
               </span>
             </div>
-            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 500, color: '#374151' }}>{notification.titre}</p>
-            <button onClick={() => { onView(notification.incidentId); onClose(); }}
-              style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              Voir
+            <p style={{
+              margin: '0 0 8px', fontSize: 13, fontWeight: 500, color: '#374151',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {notification.titre}
+            </p>
+            <button
+              onClick={() => { onView(notification.incidentId); onClose(); }}
+              style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              Voir l'incident →
             </button>
           </div>
-          <button onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4, borderRadius: 6 }}
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4, borderRadius: 6, alignSelf: 'flex-start' }}
             onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
             <X size={16} />
           </button>
         </div>
@@ -191,7 +210,6 @@ function NotificationToast({ notification, onClose, onView }) {
   );
 }
 
-// ── Panneau Détails ───────────────────────────────────────────────────────────
 function DetailIncidentPanel({ incident, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
@@ -216,7 +234,6 @@ function DetailIncidentPanel({ incident, onClose }) {
   );
 }
 
-// ── Formulaire Création / Modification ────────────────────────────────────────
 function IncidentFormPanel({ incident, onClose, onSave, isCreating }) {
   const [form, setForm] = useState({
     titre:       incident?.titre       || '',
@@ -276,7 +293,6 @@ function IncidentFormPanel({ incident, onClose, onSave, isCreating }) {
   );
 }
 
-// ── Panneau Traitement ────────────────────────────────────────────────────────
 function TraitementPanel({ incident, onClose, onSave }) {
   const [statut,     setStatut]     = useState(incident.statut     || 'EnCours');
   const [resolution, setResolution] = useState(incident.resolution || '');
@@ -344,98 +360,44 @@ export default function GestionIncidents() {
   const [editingIncident,    setEditingIncident]    = useState(null);
   const [traitementIncident, setTraitementIncident] = useState(null);
   const [detailsIncident,    setDetailsIncident]    = useState(null);
-  const [notifications,      setNotifications]      = useState([]);
   const [currentToast,       setCurrentToast]       = useState(null);
   const [isSignalRConnected, setIsSignalRConnected] = useState(false);
 
-  const connectionRef = useRef(null);
+  const connectionRef  = useRef(null);
+  // ✅ File d'attente des notifications dans un ref pour éviter les problèmes de closure
+  const toastQueueRef  = useRef([]);
+  const isShowingToast = useRef(false);
 
-  // ── Permission notifications navigateur ──────────────────────────────────
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  // ── Connexion SignalR ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (connectionRef.current) return;
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('❌ Pas de token JWT — SignalR non connecté');
+  // ── Gestion de la file de toasts ────────────────────────────────────────
+  const showNextToast = useCallback(() => {
+    if (toastQueueRef.current.length === 0) {
+      isShowingToast.current = false;
       return;
     }
-
-    const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl(SIGNALR_HUB, {
-        accessTokenFactory: () => localStorage.getItem('token') || '',
-        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
-      })
-      .withAutomaticReconnect([0, 2000, 5000, 10000])
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
-
-    newConnection.on('ReceiveNotification', (notification) => {
-      console.log('📢 Notification reçue:', notification);
-      setNotifications(prev => {
-        if (prev.some(n => n.incidentId === notification.incidentId)) return prev;
-        return [notification, ...prev];
-      });
-    });
-
-    newConnection.start()
-      .then(() => {
-        console.log('✅ SignalR connecté:', newConnection.connectionId);
-        setIsSignalRConnected(true);
-        connectionRef.current = newConnection;
-      })
-      .catch(err => {
-        console.error('❌ Erreur SignalR:', err);
-        setIsSignalRConnected(false);
-      });
-
-    return () => {
-      connectionRef.current?.stop();
-      connectionRef.current = null;
-    };
+    isShowingToast.current = true;
+    const next = toastQueueRef.current[0];
+    setCurrentToast(next);
   }, []);
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (notifications.length > 0 && !currentToast) {
-      setCurrentToast(notifications[0]);
-    }
-  }, [notifications, currentToast]);
-
-  const handleCloseToast = () => {
+  const handleCloseToast = useCallback(() => {
     setCurrentToast(null);
-    setNotifications(prev => prev.slice(1));
-  };
+    toastQueueRef.current = toastQueueRef.current.slice(1);
+    setTimeout(showNextToast, 300); // petit délai pour l'animation de sortie
+  }, [showNextToast]);
 
-  const handleViewIncidentFromToast = async (incidentId) => {
-    const data = await fetchData();
-    setCurrentToast(null);
-    setNotifications([]);
-    const found = data.find(i => i.id === incidentId);
-    if (found) setDetailsIncident(found);
-  };
-
-  // ── Chargement ────────────────────────────────────────────────────────────
+  // ── Chargement des données ───────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res  = await api.get('/api/incidents');
       const data = res.data.map(normalizeIncident);
       setIncidents(data);
-      setDetailsIncident(prev => prev ? data.find(i => i.id === prev.id) ?? prev : null);
+      setDetailsIncident(prev => prev ? (data.find(i => i.id === prev.id) ?? prev) : null);
       return data;
     } catch (err) {
       console.error('Erreur chargement incidents:', err);
       if (err.response?.status === 401) {
         alert('Session expirée. Veuillez vous reconnecter.');
-      } else {
-        alert('Erreur lors du chargement des données');
       }
       return [];
     } finally {
@@ -445,13 +407,91 @@ export default function GestionIncidents() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── Permissions navigateur ───────────────────────────────────────────────
   useEffect(() => {
-    if (notifications.length > 0) {
-      fetchData();
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-  }, [notifications, fetchData]);
+  }, []);
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
+  // ── Connexion SignalR ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (connectionRef.current) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('❌ Pas de token JWT — SignalR non connecté');
+      return;
+    }
+
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(SIGNALR_HUB, {
+        accessTokenFactory: () => localStorage.getItem('token') || '',
+        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+      })
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
+
+    // ✅ Handler de notification : rafraîchit les données ET affiche le toast
+    connection.on('ReceiveNotification', (notification) => {
+      console.log('📢 Notification SignalR reçue:', notification);
+
+      // 1. Rafraîchir les données immédiatement
+      fetchData();
+
+      // 2. Ajouter à la file si pas déjà présent
+      const alreadyQueued = toastQueueRef.current.some(
+        n => n.incidentId === notification.incidentId
+      );
+      if (!alreadyQueued) {
+        toastQueueRef.current = [...toastQueueRef.current, notification];
+        if (!isShowingToast.current) {
+          showNextToast();
+        }
+      }
+    });
+
+    connection.onreconnecting(() => {
+      console.warn('⚠️ SignalR reconnexion en cours...');
+      setIsSignalRConnected(false);
+    });
+
+    connection.onreconnected(() => {
+      console.log('✅ SignalR reconnecté');
+      setIsSignalRConnected(true);
+    });
+
+    connection.onclose(() => {
+      console.warn('❌ SignalR connexion fermée');
+      setIsSignalRConnected(false);
+    });
+
+    connection.start()
+      .then(() => {
+        console.log('✅ SignalR connecté — connectionId:', connection.connectionId);
+        setIsSignalRConnected(true);
+        connectionRef.current = connection;
+      })
+      .catch(err => {
+        console.error('❌ Erreur démarrage SignalR:', err);
+        setIsSignalRConnected(false);
+      });
+
+    return () => {
+      connection.stop();
+      connectionRef.current = null;
+    };
+  }, [fetchData, showNextToast]);
+
+  // ── Voir un incident depuis le toast ────────────────────────────────────
+  const handleViewIncidentFromToast = useCallback(async (incidentId) => {
+    const data = await fetchData();
+    const found = data.find(i => i.id === incidentId);
+    if (found) setDetailsIncident(found);
+  }, [fetchData]);
+
+  // ── CRUD ─────────────────────────────────────────────────────────────────
   const handleCreate = async (formData) => {
     if (!canWrite(moduleCode)) {
       alert("Vous n'avez pas la permission de créer des incidents");
@@ -468,11 +508,7 @@ export default function GestionIncidents() {
   };
 
   const handleUpdate = async (formData) => {
-    if (!editingIncident) return;
-    if (!canEdit(moduleCode)) {
-      alert("Vous n'avez pas la permission de modifier cet incident");
-      return;
-    }
+    if (!editingIncident || !canEdit(moduleCode)) return;
     try {
       await api.put(`/api/incidents/${editingIncident.id}`, { ...formData, id: editingIncident.id });
       await fetchData();
@@ -499,11 +535,7 @@ export default function GestionIncidents() {
   };
 
   const handleTraitement = async (data) => {
-    if (!traitementIncident) return;
-    if (!canWrite(moduleCode)) {
-      alert("Vous n'avez pas la permission de traiter des incidents");
-      return;
-    }
+    if (!traitementIncident || !canWrite(moduleCode)) return;
     try {
       const payload = {
         titre:       traitementIncident.titre,
@@ -533,9 +565,9 @@ export default function GestionIncidents() {
   });
 
   const stats = {
-    total:    incidents.length,
-    enCours:  incidents.filter(i => i.statut   === 'EnCours').length,
-    resolus:  incidents.filter(i => i.statut   === 'Resolu').length,
+    total:     incidents.length,
+    enCours:   incidents.filter(i => i.statut   === 'EnCours').length,
+    resolus:   incidents.filter(i => i.statut   === 'Resolu').length,
     critiques: incidents.filter(i => i.priorite === 'CRITIQUE').length,
   };
 
@@ -546,20 +578,18 @@ export default function GestionIncidents() {
     transition: 'all 0.15s',
   };
 
-  // ── Accès refusé ──────────────────────────────────────────────────────────
   if (!hasAccess) {
     return (
       <div style={{ minHeight: '100vh', background: '#f4f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: T.font }}>
         <div style={{ textAlign: 'center' }}>
           <Shield size={64} color="#f87171" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1f2937', marginBottom: 8 }}>Accès non autorisé</h2>
-          <p style={{ color: '#6b7280' }}>Vous n'avez pas les permissions nécessaires pour accéder à la gestion des incidents.</p>
+          <p style={{ color: '#6b7280' }}>Vous n'avez pas les permissions nécessaires.</p>
         </div>
       </div>
     );
   }
 
-  // ── Rendu principal ───────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.font }}>
       <style>{animationStyles}</style>
@@ -575,7 +605,11 @@ export default function GestionIncidents() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {/* Indicateur SignalR */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: isSignalRConnected ? '#059669' : '#9CA3AF' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: isSignalRConnected ? '#059669' : '#9CA3AF' }} />
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: isSignalRConnected ? '#059669' : '#9CA3AF',
+                animation: isSignalRConnected ? 'pulse 2s ease-in-out infinite' : 'none',
+              }} />
               {isSignalRConnected ? 'Notifications actives' : 'Notifications inactives'}
             </div>
             {canWrite(moduleCode) && (
@@ -589,14 +623,12 @@ export default function GestionIncidents() {
           </div>
         </div>
 
-        {/* KPI Strip */}
         <KpiStrip stats={stats} />
 
         {/* Filtres */}
         <div style={{ background: '#fff', borderRadius: 16, padding: '18px 20px', boxShadow: T.shadow, marginBottom: 20 }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1 }}>
-              {/* Recherche */}
               <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                 <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.gray400 }} />
                 <input
@@ -607,19 +639,16 @@ export default function GestionIncidents() {
                   style={{ width: '100%', padding: '10px 10px 10px 38px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, fontSize: 13 }}
                 />
               </div>
-              {/* Filtre statut */}
               <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
                 style={{ padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, background: '#fff', fontSize: 13 }}>
                 <option value="all">Tous statuts</option>
                 {STATUTS_INCIDENT.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
-              {/* Filtre priorité */}
               <select value={filterPriorite} onChange={e => setFilterPriorite(e.target.value)}
                 style={{ padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, background: '#fff', fontSize: 13 }}>
                 <option value="all">Toutes priorités</option>
                 {PRIORITES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
-              {/* Reset */}
               <button
                 onClick={() => { setSearchTerm(''); setFilterStatut('all'); setFilterPriorite('all'); }}
                 style={{ padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${T.gray200}`, background: '#F9FAFB', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: T.gray700 }}
@@ -627,20 +656,13 @@ export default function GestionIncidents() {
                 <SlidersHorizontal size={14} /> Réinitialiser
               </button>
             </div>
-            {/* Toggle vue */}
             <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: `1.5px solid ${T.gray200}` }}>
-              <button
-                onClick={() => setViewMode('grid')}
-                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? '#2f62de' : '#F9FAFB', color: viewMode === 'grid' ? '#fff' : T.gray600 }}
-                title="Vue grille"
-              >
+              <button onClick={() => setViewMode('grid')}
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', background: viewMode === 'grid' ? '#2f62de' : '#F9FAFB', color: viewMode === 'grid' ? '#fff' : T.gray500 }}>
                 <LayoutGrid size={17} />
               </button>
-              <button
-                onClick={() => setViewMode('table')}
-                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', background: viewMode === 'table' ? '#2f62de' : '#F9FAFB', color: viewMode === 'table' ? '#fff' : T.gray600 }}
-                title="Vue liste"
-              >
+              <button onClick={() => setViewMode('table')}
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', background: viewMode === 'table' ? '#2f62de' : '#F9FAFB', color: viewMode === 'table' ? '#fff' : T.gray500 }}>
                 <List size={17} />
               </button>
             </div>
@@ -658,7 +680,6 @@ export default function GestionIncidents() {
             <div style={{ fontWeight: 700 }}>Aucun incident trouvé</div>
           </div>
         ) : viewMode === 'grid' ? (
-          /* ── Vue Grille ── */
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(480px, 1fr))', gap: 16 }}>
             {filtered.map((incident, idx) => (
               <div key={incident.id}
@@ -706,7 +727,6 @@ export default function GestionIncidents() {
             ))}
           </div>
         ) : (
-          /* ── Vue Tableau ── */
           <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: T.shadow }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
@@ -768,7 +788,7 @@ export default function GestionIncidents() {
         )}
       </main>
 
-      {/* Toast notification */}
+      {/* Toast */}
       {currentToast && (
         <NotificationToast
           notification={currentToast}

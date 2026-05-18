@@ -4,7 +4,9 @@ using System.Security.Claims;
 
 namespace backend.API.Hubs
 {
-    [Authorize(Policy = "SmsiTenantScope")]
+    // ✅ On accepte les utilisateurs authentifiés (JWT valide suffit)
+    // La policy SmsiTenantScope est trop restrictive pour SignalR
+    [Authorize]
     public class NotificationHub : Hub
     {
         private readonly ILogger<NotificationHub> _logger;
@@ -16,20 +18,35 @@ namespace backend.API.Hubs
 
         public override async Task OnConnectedAsync()
         {
+            var userId = GetUserId();
             var userEmail = GetUserEmail();
 
+            _logger.LogInformation(
+                "SignalR OnConnected — userId={UserId}, email={Email}, connectionId={ConnectionId}",
+                userId ?? "null", userEmail ?? "null", Context.ConnectionId);
+
+            // Rejoindre le groupe par email (canal fiable)
             if (!string.IsNullOrEmpty(userEmail))
             {
-                var groupName = NormalizeEmailForGroup(userEmail);
-                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+                var emailGroup = NormalizeEmailForGroup(userEmail);
+                await Groups.AddToGroupAsync(Context.ConnectionId, emailGroup);
                 _logger.LogInformation(
-                    "Utilisateur {Email} connecté — groupe: {Group} — ConnectionId: {ConnectionId}",
-                    userEmail, groupName, Context.ConnectionId);
+                    "✅ {Email} → groupe email '{Group}'", userEmail, emailGroup);
             }
-            else
+
+            // Rejoindre aussi un groupe par userId (canal direct)
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userIdGroup = $"user_{userId}";
+                await Groups.AddToGroupAsync(Context.ConnectionId, userIdGroup);
+                _logger.LogInformation(
+                    "✅ userId={UserId} → groupe userId '{Group}'", userId, userIdGroup);
+            }
+
+            if (string.IsNullOrEmpty(userEmail) && string.IsNullOrEmpty(userId))
             {
                 _logger.LogWarning(
-                    "Connexion SignalR sans email valide — ConnectionId: {ConnectionId}",
+                    "⚠️ Connexion SignalR sans email ni userId — ConnectionId: {ConnectionId}",
                     Context.ConnectionId);
             }
 
@@ -38,44 +55,41 @@ namespace backend.API.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
+            var userId = GetUserId();
             var userEmail = GetUserEmail();
 
             if (!string.IsNullOrEmpty(userEmail))
             {
-                var groupName = NormalizeEmailForGroup(userEmail);
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-                _logger.LogInformation(
-                    "❌ Utilisateur {Email} déconnecté — groupe: {Group}",
-                    userEmail, groupName);
+                var emailGroup = NormalizeEmailForGroup(userEmail);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, emailGroup);
             }
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userIdGroup = $"user_{userId}";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, userIdGroup);
+            }
+
+            _logger.LogInformation(
+                "SignalR OnDisconnected — email={Email}, userId={UserId}",
+                userEmail ?? "null", userId ?? "null");
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        /// <summary>
-        /// Envoie une notification à un utilisateur spécifique (par son email).
-        /// Appelé depuis le hub lui-même ou depuis un IHubContext injecté.
-        /// </summary>
         public async Task SendNotificationToUser(string userEmail, object notification)
         {
             var groupName = NormalizeEmailForGroup(userEmail);
             await Clients.Group(groupName).SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation("Notification envoyée à {Email} (groupe: {Group})", userEmail, groupName);
+            _logger.LogInformation("Notification → {Email} (groupe: {Group})", userEmail, groupName);
         }
 
-        /// <summary>
-        /// Envoie une notification à TOUS les utilisateurs connectés.
-        /// À utiliser uniquement pour les événements globaux (ex: maintenance).
-        /// </summary>
         public async Task SendNotificationToAll(object notification)
         {
             await Clients.All.SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation("Notification broadcast à TOUS les utilisateurs");
+            _logger.LogInformation("Notification broadcast → TOUS");
         }
 
-        /// <summary>
-        /// Méthode de test : envoie une notification de test à un email donné.
-        /// </summary>
         public async Task TestNotificationForUser(string email)
         {
             var testNotification = new
@@ -90,26 +104,28 @@ namespace backend.API.Hubs
             };
 
             await SendNotificationToUser(email, testNotification);
-            _logger.LogInformation("🧪 Test notification envoyé à {Email}", email);
+            _logger.LogInformation("🧪 Test notification → {Email}", email);
         }
 
-        // ── Helpers ────────────────────────────────────────────────────────────
+        // ── Helpers ────────────────────────────────────────────────────────
+
+        private string? GetUserId()
+        {
+            return Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? Context.User?.FindFirst("sub")?.Value
+                ?? Context.User?.FindFirst("userId")?.Value;
+        }
 
         private string? GetUserEmail()
         {
-            // Essayer plusieurs claim types selon la configuration du JWT
-            var email = Context.User?.FindFirst(ClaimTypes.Email)?.Value
-                        ?? Context.User?.FindFirst("email")?.Value
-                        ?? Context.User?.FindFirst("sub")?.Value
-                        ?? Context.User?.Identity?.Name;
-
-            _logger.LogDebug("GetUserEmail: email extrait = '{Email}'", email ?? "null");
-            return email;  // ← Ne plus utiliser de fallback hardcodé
+            return Context.User?.FindFirst(ClaimTypes.Email)?.Value
+                ?? Context.User?.FindFirst("email")?.Value
+                ?? Context.User?.FindFirst("sub")?.Value
+                ?? Context.User?.Identity?.Name;
         }
 
         private static string NormalizeEmailForGroup(string email)
         {
-            // Convertit "user@example.com" → "user_example_com"
             return email.ToLower()
                         .Replace("@", "_")
                         .Replace(".", "_");
