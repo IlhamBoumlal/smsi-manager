@@ -89,14 +89,14 @@ function RadialScore({ value, size = 64, compliant, evaluated }) {
 ═══════════════════════════════════════════════════════════ */
 function ClauseCard({ item, index, onClick }) {
   const [hov, setHov] = useState(false);
-  const { clause, computedScore, isFullyCompliant, subConformities, actionCount, doneCount, inProgress } = item;
+  const { clause, computedScore, isFullyCompliant, subConformities, totalSubClauses, actionCount, doneCount, inProgress } = item;
   const num  = parseInt(clause.number);
   const meta = CLAUSE_META[num] || CLAUSE_META[4];
   const pdca = PDCA_COLORS[meta.phase];
 
   const hasEvaluated  = Object.values(subConformities || {}).some(c => c.status !== "non-évalué");
   const conformeCount = Object.values(subConformities || {}).filter(c => c.status === "conforme").length;
-  const totalSub      = Object.keys(subConformities || {}).length;
+  const totalSub      = totalSubClauses || Object.keys(subConformities || {}).length;
 
   const statusColor  = !hasEvaluated ? "#9CA3AF" : isFullyCompliant ? "#10B981" : "#EF4444";
   const statusLabel  = !hasEvaluated ? "Non évalué" : isFullyCompliant ? "Conforme" : "Non conforme";

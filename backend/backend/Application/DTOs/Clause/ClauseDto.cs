@@ -172,6 +172,7 @@ namespace Application.DTOs.Clause
         public int ComputedScore { get; set; }
         public bool IsFullyCompliant { get; set; }
         public Dictionary<int, ConformityStatusDto> SubConformities { get; set; } = new();
+        public int TotalSubClauses { get; set; }
         public int ActionCount { get; set; }
         public int DoneCount { get; set; }
         public int InProgress { get; set; }
