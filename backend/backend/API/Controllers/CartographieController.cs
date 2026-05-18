@@ -136,7 +136,7 @@ public class CartographieController : ControllerBase
 
         var result = await _mediator.Send(
             new AddDocumentCommand(processusId, body.Nom, body.Type,
-                                   body.Reference, body.Statut,
+                                   body.Reference ?? string.Empty, body.Statut,
                                    fichierNom, fichierType, fichierData, CurrentSocieteId, CurrentUserId), ct);
 
         return Ok(result);
@@ -163,4 +163,4 @@ public class CartographieController : ControllerBase
 public record UpdateProcessusBody(string Categorie, string Nom, string Responsable, string Description, List<string> IsoReferences);
 public record AddClauseBody(int ClauseId, string? Justification);
 public record AddControleBody(Guid ControleId, string? Justification);
-public record AddDocumentBody(string Nom, string Type, string Reference, string Statut);
+public record AddDocumentBody(string Nom, string Type, string? Reference, string Statut);

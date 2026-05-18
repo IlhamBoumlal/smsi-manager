@@ -19,6 +19,13 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (process.env.NODE_ENV === "development" && error?.response) {
+      const method = String(error.config?.method || "get").toUpperCase();
+      const url = error.config?.url || "";
+      // Aide au diagnostic en local sans impacter le flux applicatif.
+      console.error(`[API ${error.response.status}] ${method} ${url}`, error.response.data);
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
