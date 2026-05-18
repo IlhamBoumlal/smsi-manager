@@ -387,6 +387,7 @@ namespace backend.Infrastructure.Services
                     ComputedScore = computedScore,
                     IsFullyCompliant = isFullyCompliant,
                     SubConformities = subConformityDict,
+                    TotalSubClauses = totalSubs,
                     ActionCount = plans.Count,
                     DoneCount = plans.Count(p => p.Statut == "terminee"),
                     InProgress = plans.Count(p => p.Statut == "en-cours"),

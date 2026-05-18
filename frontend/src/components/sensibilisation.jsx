@@ -537,12 +537,6 @@ function CreateView({ onBack, onSave, canWrite, onToast }) {
             <input placeholder="Email" type="email" value={partInput.email}
               onChange={e => setPartInput(p => ({ ...p, email: e.target.value }))}
               className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-            <select value={partInput.department}
-              onChange={e => setPartInput(p => ({ ...p, department: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-              <option value="">Département…</option>
-              {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
-            </select>
             <button onClick={addParticipant}
               className="px-3 py-2 bg-blue-700 text-white text-[13px] rounded-lg hover:opacity-85 transition-opacity">
               <Plus className="w-4 h-4 inline mr-1" />Ajouter
