@@ -1,5 +1,4 @@
 ﻿using backend.Domain.Enumerations;
-
 namespace backend.Domain.Entities
 {
     public class Actif
@@ -10,10 +9,8 @@ namespace backend.Domain.Entities
         public TypeActif Type { get; set; }
         public CategorieActif Categorie { get; set; }
         public ClassificationActif Classification { get; set; }
-        //A changer après
-        public Guid? ProprietaireId { get; set; }
+        public string? ProprietaireNom { get; set; }  // ← champ texte libre
         public int? SocieteId { get; set; }
         public Societe? Societe { get; set; }
-
     }
 }

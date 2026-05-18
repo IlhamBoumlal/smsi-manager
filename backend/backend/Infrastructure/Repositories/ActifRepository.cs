@@ -1,14 +1,12 @@
 ﻿using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using backend.Infrastructure.Data;
-
 using Microsoft.EntityFrameworkCore;
 namespace backend.Infrastructure.Repositories
 {
     public class ActifRepository : IActifRepository
     {
         private readonly AppDbContext _context;
-
         public ActifRepository(AppDbContext context) => _context = context;
 
         public async Task<IEnumerable<Actif>> GetAllAsync(int? societeId = null)
@@ -35,7 +33,6 @@ namespace backend.Infrastructure.Repositories
         {
             if (!actif.SocieteId.HasValue || actif.SocieteId.Value <= 0)
                 throw new InvalidOperationException("SocieteId obligatoire pour creer un actif.");
-
             actif.Id = Guid.NewGuid();
             _context.Actifs.Add(actif);
             await _context.SaveChangesAsync();
@@ -46,15 +43,13 @@ namespace backend.Infrastructure.Repositories
         {
             var existing = await _context.Actifs.FindAsync(actif.Id);
             if (!actif.SocieteId.HasValue || existing is null || existing.SocieteId != actif.SocieteId) return null;
-
             existing.Nom = actif.Nom;
             existing.Description = actif.Description;
             existing.Type = actif.Type;
             existing.Categorie = actif.Categorie;
             existing.Classification = actif.Classification;
-            existing.ProprietaireId = actif.ProprietaireId;
+            existing.ProprietaireNom = actif.ProprietaireNom;
             existing.SocieteId = actif.SocieteId;
-
             await _context.SaveChangesAsync();
             return existing;
         }
@@ -63,7 +58,6 @@ namespace backend.Infrastructure.Repositories
         {
             var actif = await _context.Actifs.FindAsync(id);
             if (!societeId.HasValue || actif is null || actif.SocieteId != societeId) return false;
-
             _context.Actifs.Remove(actif);
             await _context.SaveChangesAsync();
             return true;

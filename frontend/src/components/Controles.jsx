@@ -692,6 +692,10 @@ export default function Controles() {
     link.rel = 'stylesheet';
     document.head.appendChild(link);
     fetchData();
+
+    const handleSoARefresh = () => fetchData();
+    window.addEventListener('soaPostAuditGenerated', handleSoARefresh);
+    return () => window.removeEventListener('soaPostAuditGenerated', handleSoARefresh);
   }, []);
 
   const fetchData = () => {

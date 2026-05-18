@@ -2,7 +2,6 @@
 using backend.Domain.Entities;
 using backend.Domain.Interfaces;
 using MediatR;
-
 namespace backend.Application.Actifs.Commands.UpdateActif
 {
     public class UpdateActifHandler : IRequestHandler<UpdateActifCommand, ActifResponseDto?>
@@ -20,14 +19,14 @@ namespace backend.Application.Actifs.Commands.UpdateActif
                 Type = request.Type,
                 Categorie = request.Categorie,
                 Classification = request.Classification,
-                ProprietaireId = request.ProprietaireId,
+                ProprietaireNom = request.ProprietaireNom,
                 SocieteId = request.SocieteId
             };
             var updated = await _repository.UpdateAsync(actif);
             if (updated is null) return null;
             return new ActifResponseDto(
                 updated.Id, updated.Nom, updated.Description, updated.Type,
-                updated.Categorie, updated.Classification, updated.ProprietaireId);
+                updated.Categorie, updated.Classification, updated.ProprietaireNom);
         }
     }
 }

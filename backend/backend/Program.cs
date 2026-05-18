@@ -240,6 +240,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+
 // ─── PIPELINE ─────────────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

@@ -1,7 +1,6 @@
 ﻿using backend.Application.DTOs.ActifDTOs;
 using backend.Domain.Interfaces;
 using MediatR;
-
 namespace backend.Application.Actifs.Queries.GetActifById
 {
     public class GetActifByIdHandler : IRequestHandler<GetActifByIdQuery, ActifResponseDto?>
@@ -15,7 +14,7 @@ namespace backend.Application.Actifs.Queries.GetActifById
             if (actif is null) return null;
             return new ActifResponseDto(
                 actif.Id, actif.Nom, actif.Description, actif.Type,
-                actif.Categorie, actif.Classification, actif.ProprietaireId);
+                actif.Categorie, actif.Classification, actif.ProprietaireNom);  // ← ProprietaireNom
         }
     }
 }

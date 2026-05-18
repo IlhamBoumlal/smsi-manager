@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -18,6 +19,11 @@ namespace backend.Application.Security
 
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
         {
+            if (context.HttpContext.GetEndpoint()?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
+            {
+                return;
+            }
+
             if (ShouldSkipBecauseMethodOverrides(context))
             {
                 return;

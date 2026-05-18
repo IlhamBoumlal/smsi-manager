@@ -12,7 +12,7 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260517145404_first migration")]
+    [Migration("20260517222118_first migration")]
     partial class firstmigration
     {
         /// <inheritdoc />
@@ -281,8 +281,8 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("ProprietaireId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("ProprietaireNom")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("SocieteId")
                         .HasColumnType("int");

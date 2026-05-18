@@ -2,17 +2,10 @@
 {
     public class EmailImportDto
     {
-        public string From { get; set; } = string.Empty;
-
-        /// Sujet de l'email → deviendra le titre de l'incident
-        
-        public string Subject { get; set; } = string.Empty;
-
-        /// Corps de l'email → deviendra la description de l'incident
-        public string Body { get; set; } = string.Empty;
-
-        /// Date de réception de l'email
+        public string? From { get; set; }
+        public string? To { get; set; }  
+        public string? Subject { get; set; }
+        public string? Body { get; set; }
         public DateTime? ReceivedAt { get; set; }
     }
 }
-

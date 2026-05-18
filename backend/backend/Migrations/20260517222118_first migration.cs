@@ -176,7 +176,7 @@ namespace backend.Migrations
                     Type = table.Column<int>(type: "int", nullable: false),
                     Categorie = table.Column<int>(type: "int", nullable: false),
                     Classification = table.Column<int>(type: "int", nullable: false),
-                    ProprietaireId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ProprietaireNom = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     SocieteId = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
