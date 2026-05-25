@@ -46,7 +46,8 @@ export default function Layout() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Header activeAxe={activeAxe} />
-      <main style={{ flex: 1 }}>
+      <div aria-hidden style={{ height: "var(--app-header-height)", flexShrink: 0 }} />
+      <main style={{ flex: 1, minHeight: "calc(100vh - var(--app-header-height))" }}>
         <Outlet />
       </main>
       {canAccessChatbot ? <ChatbotWidget /> : null}

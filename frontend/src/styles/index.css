@@ -5,6 +5,8 @@
 
 @layer base {
   :root {
+    --app-scale: 1;
+    --app-header-height: 85px;
     --background: 222 45% 98%;
     --foreground: 224 29% 15%;
     --card: 0 0% 100%;
@@ -43,6 +45,54 @@
     margin: 0;
     @apply bg-background text-foreground antialiased;
     font-family: "DM Sans", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+    overflow-x: hidden;
+    zoom: var(--app-scale);
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  @supports not (zoom: 1) {
+    html {
+      font-size: clamp(14px, 0.8vw + 9px, 16px);
+    }
+  }
+}
+
+@media (max-width: 1800px) and (min-width: 1601px) {
+  :root {
+    --app-scale: 0.98;
+  }
+}
+
+@media (max-width: 1600px) and (min-width: 1401px) {
+  :root {
+    --app-scale: 0.95;
+  }
+}
+
+@media (max-width: 1400px) and (min-width: 1201px) {
+  :root {
+    --app-scale: 0.92;
+    --app-header-height: 80px;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 1025px) {
+  :root {
+    --app-scale: 0.88;
+    --app-header-height: 76px;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --app-scale: 1;
+    --app-header-height: 72px;
   }
 }
 

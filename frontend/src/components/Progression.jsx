@@ -1,7 +1,6 @@
 // Progression.jsx - Version avec style KPI identique à ClausesDashboard
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   getCycle, getCycles, createCycle,
@@ -78,12 +77,6 @@ const SEP_LINES = [0, 90, 180, 270].map(deg => {
     x2: CX + OUTER_R * Math.cos(r), y2: CY + OUTER_R * Math.sin(r)
   };
 });
-
-const AXE_ROUTES = {
-  "tableau-bord": "/dashboard", "pdca": "/pdca", "clauses": "/Clausesdashboard",
-  "controles": "/controles", "documentation": "/documentation",
-  "risques": "/risques", "audits": "/audits", "actifs": "/actifs",
-};
 
 function transformCycle(cycle, fallback) {
   if (!cycle || !cycle.phases || !Array.isArray(cycle.phases)) {
@@ -553,17 +546,14 @@ function Toast({ msg, visible }) {
 
 /* ════════ MAIN ════════ */
 export default function Progression() {
-  const { user, logout, canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const { canRead, canWrite, canDelete } = useAuth();
   const moduleCode = "pdca";
   const hasAccess = canRead(moduleCode);
-  const navigate = useNavigate();
 
   const [data,     setData]     = useState(INITIAL_DATA);
   const [selected, setSelected] = useState(null);
   const [hovered,  setHovered]  = useState(null);
   const [toast,    setToast]    = useState({ msg: "", visible: false });
-  const [activeAxe, setActiveAxe] = useState("pdca");
-  const [cycleId,  setCycleId]  = useState(null);
   const toastRef = useRef(null);
 
   const showToast = useCallback((msg) => {
@@ -580,12 +570,10 @@ export default function Progression() {
         if (list.length > 0) {
           const id    = list[0].id;
           const cycle = await getCycle(id);
-          setCycleId(id);
           setData(transformCycle(cycle, INITIAL_DATA));
         } else {
           const created = await createCycle("Cycle PDCA");
           const cycle   = await getCycle(created.id);
-          setCycleId(created.id);
           setData(transformCycle(cycle, INITIAL_DATA));
         }
       } catch (e) {
@@ -707,9 +695,6 @@ export default function Progression() {
       showToast("❌ Erreur lors de l'ajout");
     }
   }, [mutate, showToast, data, canWrite, moduleCode]);
-
-  const handleLogout    = () => { logout(); navigate("/login"); };
-  const handleAxeChange = id => { setActiveAxe(id); if (id !== "pdca" && AXE_ROUTES[id]) navigate(AXE_ROUTES[id]); };
 
   const global = calcGlobal(data);
   const HUB_R  = 52, hubCirc = 2 * Math.PI * HUB_R;

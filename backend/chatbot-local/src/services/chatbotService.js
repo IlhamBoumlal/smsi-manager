@@ -35,6 +35,8 @@ const SOURCES = [
   { key: "dashboard", path: "/api/dashboard/global", module: "dashboard" },
 ];
 
+const SOURCE_KEYS = new Set(SOURCES.map((source) => source.key));
+
 export class ChatbotServiceError extends Error {
   constructor(message, status = 500, code = "CHATBOT_SERVICE_ERROR", details = undefined) {
     super(message);
@@ -104,7 +106,75 @@ function normalizeSearchText(value) {
     .trim();
 }
 
+function includesAny(text, tokens = []) {
+  return tokens.some((token) => text.includes(token));
+}
+
+function selectPreferredSourceKeys(message, followUpContext = null) {
+  const anchor = String(followUpContext?.anchorUserMessage || "");
+  const text = normalizeSearchText(`${anchor} ${String(message || "")}`);
+  if (!text) return [];
+
+  const selected = new Set();
+
+  if (includesAny(text, ["incident", "incidents"])) {
+    selected.add("incidents");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["risque", "risques", "risk"])) {
+    selected.add("risques");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["controle", "controles", "annexe a", "soa", "conforme"])) {
+    selected.add("controles");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["audit", "audits", "non conformite", "non conformites", "nc"])) {
+    selected.add("audits");
+    selected.add("auditsNc");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["actif", "actifs", "asset"])) {
+    selected.add("actifs");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["clause", "clauses", "iso 27001", "iso27001"])) {
+    selected.add("clausesDashboard");
+    selected.add("clausesStats");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["pdca", "cycle", "plan do check act"])) {
+    selected.add("pdcaCycles");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["documentation", "document", "procedure", "politique"])) {
+    selected.add("documentation");
+  }
+
+  if (includesAny(text, ["sensibilisation", "formation", "awareness"])) {
+    selected.add("formations");
+    selected.add("formationsDashboard");
+    selected.add("dashboard");
+  }
+
+  if (includesAny(text, ["dashboard", "tableau de bord", "kpi", "score"])) {
+    selected.add("dashboard");
+  }
+
+  const keys = Array.from(selected).filter((key) => SOURCE_KEYS.has(key));
+  return keys;
+}
+
 const CONTROLE_CONFORME_QUESTION_PATTERN = /\b(quel|quels|quelle|quelles|qui|liste|donne|montre|affiche|identifie|citer)\b/;
+const INCIDENT_LIST_QUESTION_PATTERN = /\b(quel|quels|quelle|quelles|liste|donne|montre|affiche)\b/;
+const APP_LIST_REQUEST_PATTERN = /\b(liste|donne|montre|affiche|quels|quelles|quel|top|details?)\b/;
 
 function isConformeControlsQuestion(message) {
   const raw = String(message ?? "");
@@ -113,9 +183,166 @@ function isConformeControlsQuestion(message) {
 
   const hasControlSignal = normalized.includes("controle");
   const hasConformeSignal = normalized.includes("conforme");
+  const hasNegativeConformitySignal =
+    normalized.includes("non conforme") ||
+    normalized.includes("non conformes") ||
+    normalized.includes("non mis") ||
+    normalized.includes("nonmis");
+  if (hasNegativeConformitySignal) return false;
   if (!hasControlSignal || !hasConformeSignal) return false;
 
   return raw.includes("?") || CONTROLE_CONFORME_QUESTION_PATTERN.test(normalized);
+}
+
+function isIncidentListQuestion(message) {
+  const raw = String(message ?? "");
+  const normalized = normalizeSearchText(raw);
+  if (!normalized) return false;
+
+  const hasIncidentSignal =
+    normalized.includes("incident") ||
+    normalized.includes("incidents") ||
+    normalized.includes("ticket") ||
+    normalized.includes("tickets");
+  if (!hasIncidentSignal) return false;
+
+  return raw.includes("?") || INCIDENT_LIST_QUESTION_PATTERN.test(normalized);
+}
+
+function isAppListStyleQuestion(message) {
+  const raw = String(message ?? "");
+  const normalized = normalizeSearchText(raw);
+  if (!normalized) return false;
+  return raw.includes("?") || APP_LIST_REQUEST_PATTERN.test(normalized);
+}
+
+function isShortModulePrompt(normalizedMessage) {
+  const normalized = String(normalizedMessage || "").trim();
+  if (!normalized) return false;
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 4) return false;
+  return !includesAny(normalized, [
+    "pourquoi",
+    "comment",
+    "analyse",
+    "analyser",
+    "cause",
+    "causes",
+    "impact",
+    "impacts",
+    "recommandation",
+    "recommandations",
+  ]);
+}
+
+function detectRequestedAppListModule(message) {
+  const normalized = normalizeSearchText(message);
+  if (!normalized) return null;
+
+  const allowDirectModuleList =
+    isAppListStyleQuestion(message) || isShortModulePrompt(normalized);
+  if (!allowDirectModuleList) return null;
+
+  if (
+    normalized.includes("incident") ||
+    normalized.includes("incidents") ||
+    normalized.includes("ticket") ||
+    normalized.includes("tickets")
+  ) {
+    return "incidents";
+  }
+
+  if (
+    normalized.includes("action corrective") ||
+    normalized.includes("actions correctives") ||
+    normalized.includes("non conformite") ||
+    normalized.includes("non conformites")
+  ) {
+    return "audits_actions";
+  }
+
+  if (normalized.includes("audit") || normalized.includes("audits")) {
+    return "audits";
+  }
+
+  if (
+    normalized.includes("dashboard") ||
+    normalized.includes("tableau de bord") ||
+    normalized.includes("kpi") ||
+    normalized.includes("score")
+  ) {
+    return "dashboard";
+  }
+
+  if (normalized.includes("risque") || normalized.includes("risques")) {
+    return "risques";
+  }
+
+  if (normalized.includes("actif") || normalized.includes("actifs")) {
+    return "actifs";
+  }
+
+  if (
+    normalized.includes("document") ||
+    normalized.includes("documentation") ||
+    normalized.includes("procedure") ||
+    normalized.includes("politique")
+  ) {
+    return "documentation";
+  }
+
+  if (normalized.includes("formation") || normalized.includes("sensibilisation")) {
+    return "formations";
+  }
+
+  if (normalized.includes("clause") || normalized.includes("clauses")) {
+    return "clauses";
+  }
+
+  if (normalized.includes("controle") || normalized.includes("controles")) {
+    return "controles";
+  }
+
+  if (normalized.includes("pdca") || normalized.includes("phase")) {
+    return "pdca";
+  }
+
+  return null;
+}
+
+function shouldShowTechnicalIds(message, followUpContext = null) {
+  const anchor = String(followUpContext?.anchorUserMessage || "");
+  const normalized = normalizeSearchText(`${anchor} ${String(message || "")}`);
+  if (!normalized) return false;
+  const tokens = normalized.split(" ").filter(Boolean);
+  return (
+    tokens.includes("id") ||
+    tokens.includes("ids") ||
+    tokens.includes("uuid") ||
+    normalized.includes("identifiant") ||
+    normalized.includes("identifiants")
+  );
+}
+
+function removeTechnicalIds(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => removeTechnicalIds(item));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const next = {};
+  for (const [key, entryValue] of Object.entries(value)) {
+    const normalizedKey = String(key || "").toLowerCase();
+    if (normalizedKey === "id" || normalizedKey.endsWith("id")) {
+      continue;
+    }
+    next[key] = removeTechnicalIds(entryValue);
+  }
+
+  return next;
 }
 
 function hasIso27001Signal(message) {
@@ -439,7 +666,12 @@ async function fetchSmsiSource(path, token) {
   return response.json();
 }
 
-async function loadSources(token, permissionScope) {
+async function loadSources(token, permissionScope, options = {}) {
+  const requestedSourceKeys = new Set(
+    toArray(options?.sourceKeys)
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  );
   const allowedSources = SOURCES.filter((source) =>
     canReadSmsiModule(permissionScope, source.module)
   );
@@ -452,8 +684,16 @@ async function loadSources(token, permissionScope) {
     );
   }
 
+  let targetSources = allowedSources;
+  if (requestedSourceKeys.size > 0) {
+    const narrowed = allowedSources.filter((source) => requestedSourceKeys.has(source.key));
+    if (narrowed.length > 0) {
+      targetSources = narrowed;
+    }
+  }
+
   const settled = await Promise.allSettled(
-    allowedSources.map((source) => fetchSmsiSource(source.path, token))
+    targetSources.map((source) => fetchSmsiSource(source.path, token))
   );
 
   const data = {};
@@ -463,7 +703,7 @@ async function loadSources(token, permissionScope) {
   );
 
   settled.forEach((result, index) => {
-    const source = allowedSources[index];
+    const source = targetSources[index];
     if (result.status === "fulfilled") {
       data[source.key] = result.value;
       sourceStatus.push({
@@ -502,8 +742,9 @@ async function loadSources(token, permissionScope) {
     });
   });
 
-  const cycles = toArray(data.pdcaCycles);
-  if (cycles.length > 0) {
+  const canLoadPdcaDetail = targetSources.some((source) => source.key === "pdcaCycles");
+  const cycles = canLoadPdcaDetail ? toArray(data.pdcaCycles) : [];
+  if (canLoadPdcaDetail && cycles.length > 0) {
     const preferredCycle =
       cycles.find((cycle) => readValue(cycle, "isActive", "IsActive") === true) || cycles[0];
     const cycleId = String(readValue(preferredCycle, "id", "Id") || "").trim();
@@ -624,16 +865,33 @@ function summarizeClauses(clausesStats, clausesDashboard) {
   const stats = clausesStats && typeof clausesStats === "object" ? clausesStats : {};
   const dashboardRows = toArray(clausesDashboard);
 
-  const nonConformes = dashboardRows
-    .map((row) => {
-      const clause = readValue(row, "clause", "Clause") || {};
-      const number = readValue(clause, "number", "Number");
-      const title = readValue(clause, "title", "Title");
-      const computedScore = toNumber(readValue(row, "computedScore", "ComputedScore"));
-      const fullyCompliant = Boolean(readValue(row, "isFullyCompliant", "IsFullyCompliant"));
-      const actionCount = toNumber(readValue(row, "actionCount", "ActionCount"));
-      return { number, title, computedScore, fullyCompliant, actionCount };
-    })
+  const mappedClauses = dashboardRows.map((row) => {
+    const clause = readValue(row, "clause", "Clause") || {};
+    const number = readValue(clause, "number", "Number");
+    const title = readValue(clause, "title", "Title");
+    const computedScore = toNumber(readValue(row, "computedScore", "ComputedScore"));
+    const fullyCompliant = Boolean(readValue(row, "isFullyCompliant", "IsFullyCompliant"));
+    const actionCount = toNumber(readValue(row, "actionCount", "ActionCount"));
+    return {
+      id: readValue(clause, "id", "Id") || null,
+      number,
+      title,
+      computedScore,
+      fullyCompliant,
+      actionCount,
+    };
+  });
+
+  const clauses = mappedClauses
+    .slice()
+    .sort((a, b) => {
+      const aKey = normalizeSearchText(`${a.number || ""} ${a.title || ""}`);
+      const bKey = normalizeSearchText(`${b.number || ""} ${b.title || ""}`);
+      return aKey.localeCompare(bKey);
+    });
+
+  const nonConformes = mappedClauses
+    .slice()
     .filter((row) => !row.fullyCompliant || row.computedScore < 100)
     .sort((a, b) => a.computedScore - b.computedScore);
 
@@ -645,6 +903,7 @@ function summarizeClauses(clausesStats, clausesDashboard) {
     clausesNonConformes: toNumber(readValue(stats, "nonConformeClauses", "NonConformeClauses")),
     actionsTotales: toNumber(readValue(stats, "totalActions", "TotalActions")),
     actionsEnRetard: toNumber(readValue(stats, "delayedActions", "DelayedActions")),
+    clauses: limitItems(clauses),
     topClausesNonConformes: limitItems(nonConformes),
   };
 }
@@ -668,6 +927,7 @@ function summarizeControles(controles) {
   const soaNonApplicables = [];
   const actionsEnRetard = [];
   const controlesConformes = [];
+  const controlesList = [];
 
   for (const control of items) {
     const status = normalizeControlStatus(readValue(control, "statut", "Statut"));
@@ -683,6 +943,21 @@ function summarizeControles(controles) {
     const responsable = readValue(control, "responsablePlan", "ResponsablePlan");
     const dueDate = readValue(control, "dateEcheance", "DateEcheance");
     const planStatus = normalizePlanStatus(readValue(control, "statutPlan", "StatutPlan"));
+    const statusRaw = readValue(control, "statut", "Statut") || null;
+
+    controlesList.push({
+      id,
+      code,
+      titre,
+      domaine,
+      applicable,
+      statut: status,
+      statutBrut: statusRaw,
+      priorite: priorite || null,
+      responsable: responsable || null,
+      echeance: dueDate || null,
+      statutPlan: planStatus,
+    });
 
     if (applicable) overview.applicables += 1;
     else overview.nonApplicables += 1;
@@ -746,9 +1021,15 @@ function summarizeControles(controles) {
     const bKey = normalizeSearchText(`${b.code || ""} ${b.titre || ""}`);
     return aKey.localeCompare(bKey);
   });
+  const orderedControls = controlesList.sort((a, b) => {
+    const aKey = normalizeSearchText(`${a.code || ""} ${a.titre || ""}`);
+    const bKey = normalizeSearchText(`${b.code || ""} ${b.titre || ""}`);
+    return aKey.localeCompare(bKey);
+  });
 
   return {
     ...overview,
+    controles: limitItems(orderedControls),
     topConformes: limitItems(controlesConformes),
     nonMisEnOeuvre: limitItems(nonMisEnOeuvre),
     actionsEnRetard: limitItems(actionsEnRetard),
@@ -766,8 +1047,7 @@ function formatConformeControlLabel(control) {
   if (code && titre) return `${code} - ${titre}`;
   if (code) return code;
   if (titre) return titre;
-  const id = String(readValue(control, "id", "Id") || "").trim();
-  return id ? `Controle ${id}` : "Controle conforme";
+  return "Controle conforme";
 }
 
 function buildDirectConformeControlsAnswer(message, appSummary) {
@@ -796,9 +1076,690 @@ function buildDirectConformeControlsAnswer(message, appSummary) {
   return `Voici les controles conformes identifies :\n${lines.join("\n")}${totalLine}`;
 }
 
+function toDisplayIncidentStatus(value) {
+  const token = normalizeToken(value);
+  if (token === "resolved" || token === "resolu" || token === "closed") return "resolu";
+  return "ouvert";
+}
+
+function toDisplayControlStatus(value) {
+  const token = normalizeToken(value);
+  if (!token) return "non evalue";
+  if (token === "conforme" || token === "1") return "conforme";
+  if (token === "ncmineure" || token === "3") return "nc mineure";
+  if (token === "ncmajeure" || token === "4") return "nc majeure";
+  if (token === "remarque" || token === "2") return "remarque";
+  if (token === "nonevalue" || token === "nonvalue") return "non evalue";
+  if (token === "nonconforme") return "non conforme";
+  return token;
+}
+
+function toDisplayPlanStatus(value) {
+  const token = normalizeToken(value);
+  if (token === "done") return "termine";
+  if (token === "inprogress" || token === "in_progress") return "en cours";
+  if (token === "todo") return "a faire";
+  return token || "unknown";
+}
+
+function toDisplayAuditStatus(value) {
+  const token = normalizeToken(value);
+  if (token.includes("completed") || token.includes("termine")) return "termine";
+  if (token.includes("progress") || token.includes("encours")) return "en cours";
+  return "planifie";
+}
+
+function formatIncidentLabel(incident, index, includeIds = false) {
+  const title = String(readValue(incident, "titre", "title", "nom", "name") || "Incident").trim();
+  const id = String(readValue(incident, "id") || "").trim();
+  const status = toDisplayIncidentStatus(readValue(incident, "statut", "status"));
+  const priority = String(readValue(incident, "priorite", "priority") || "").trim();
+  const date = String(readValue(incident, "date", "createdAt") || "").trim();
+
+  const parts = [`${index + 1}. ${title}`];
+  if (includeIds && id) parts.push(`id=${id}`);
+  if (status) parts.push(`statut=${status}`);
+  if (priority) parts.push(`priorite=${priority}`);
+  if (date) parts.push(`date=${date}`);
+  return parts.join(" | ");
+}
+
+function buildDirectIncidentListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+
+  const incidentsSummary = readValue(appSummary, "incidents");
+  if (!incidentsSummary || typeof incidentsSummary !== "object") return null;
+
+  const total = toNumber(readValue(incidentsSummary, "total"), 0);
+  const openCount = toNumber(readValue(incidentsSummary, "ouverts"), 0);
+  const resolvedCount = toNumber(readValue(incidentsSummary, "resolus"), 0);
+  const recent = toArray(readValue(incidentsSummary, "recentIncidents", "incidentsOuverts"));
+
+  if (total <= 0) {
+    return "Selon les donnees actuelles, aucun incident n'est enregistre.";
+  }
+
+  if (recent.length === 0) {
+    return `Incidents detectes: total=${total}, ouverts=${openCount}, resolus=${resolvedCount}. Le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = recent.map((incident, index) => formatIncidentLabel(incident, index, includeIds));
+  const footer =
+    total > recent.length
+      ? `\nAffichage partiel (${recent.length}/${total}).`
+      : `\nTotal incidents: ${total} (ouverts=${openCount}, resolus=${resolvedCount}).`;
+
+  return `Voici la liste des incidents disponibles :\n${lines.join("\n")}${footer}`;
+}
+
+function toDisplayText(value, fallback = "non renseigne") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function buildPartialFooter(displayed, total, label) {
+  if (total > displayed) {
+    return `\nAffichage partiel (${displayed}/${total}).`;
+  }
+  return `\nTotal ${label}: ${total}.`;
+}
+
+function buildDirectRisksListAnswer(appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "risques");
+  if (!summary || typeof summary !== "object") return null;
+
+  const totalEtudes = toNumber(readValue(summary, "totalEtudes"), 0);
+  const etudes = toArray(readValue(summary, "etudes"));
+  const totalCritiques = toNumber(readValue(summary, "totalRisquesCritiques"), 0);
+  const items = toArray(readValue(summary, "topRisquesCritiques"));
+  const totalEntrees = toNumber(readValue(summary, "totalEntreesRisque"), 0);
+
+  if (totalEtudes <= 0) {
+    return "Selon les donnees actuelles, aucune etude de risque n'est enregistree.";
+  }
+
+  if (etudes.length === 0 && items.length === 0) {
+    return `Etudes de risque detectees: ${totalEtudes}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const studyLines = etudes.map((study, index) => {
+    const name = toDisplayText(readValue(study, "name"));
+    const organization = String(readValue(study, "organization") || "").trim();
+    const author = String(readValue(study, "author") || "").trim();
+    const perimeter = String(readValue(study, "perimeter") || "").trim();
+    const status = String(readValue(study, "status") || "").trim();
+    const updatedAt = String(readValue(study, "updatedAt", "createdAt") || "").trim();
+    const id = String(readValue(study, "id") || "").trim();
+    const totalStudyRisks = toNumber(readValue(study, "totalRisques"), 0);
+    const criticalStudyRisks = toNumber(readValue(study, "risquesCritiques"), 0);
+
+    const parts = [`${index + 1}. ${name}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    if (organization) parts.push(`organisation=${organization}`);
+    if (author) parts.push(`auteur=${author}`);
+    if (perimeter) parts.push(`perimetre=${perimeter}`);
+    if (status) parts.push(`statut=${status}`);
+    if (updatedAt) parts.push(`maj=${updatedAt}`);
+    parts.push(`risques=${totalStudyRisks}`);
+    parts.push(`critiques=${criticalStudyRisks}`);
+    return parts.join(" | ");
+  });
+
+  if (items.length === 0) {
+    const totalLine =
+      totalEntrees > 0 ? `\nTotal entrees de risque recensees: ${totalEntrees}.` : "";
+    return `Voici la liste des etudes de risque disponibles :\n${studyLines.join(
+      "\n"
+    )}${buildPartialFooter(etudes.length, totalEtudes, "etudes de risque")}${totalLine}`;
+  }
+
+  const criticalLines = items.map((risk, index) => {
+    const label = toDisplayText(readValue(risk, "label"));
+    const study = toDisplayText(readValue(risk, "study"));
+    const score = toNumber(readValue(risk, "score"), 0);
+    const gravity = toNumber(readValue(risk, "gravity"), 0);
+    const likelihood = toNumber(readValue(risk, "likelihood"), 0);
+    const treatment = String(readValue(risk, "treatment") || "").trim();
+    const parts = [
+      `${index + 1}. ${label}`,
+      `etude=${study}`,
+      `score=${score}`,
+      `gravite=${gravity}`,
+      `vraisemblance=${likelihood}`,
+    ];
+    if (treatment) parts.push(`traitement=${treatment}`);
+    return parts.join(" | ");
+  });
+
+  const studiesSection = studyLines.length
+    ? `Voici la liste des etudes de risque disponibles :\n${studyLines.join(
+        "\n"
+      )}${buildPartialFooter(etudes.length, totalEtudes, "etudes de risque")}\n\n`
+    : "";
+
+  return `${studiesSection}Voici la liste des risques critiques disponibles :\n${criticalLines.join(
+    "\n"
+  )}${buildPartialFooter(items.length, totalCritiques, "risques critiques")}`;
+}
+
+function buildDirectAssetsListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "actifs");
+  if (!summary || typeof summary !== "object") return null;
+
+  const normalized = normalizeSearchText(message);
+  const askSensibles =
+    normalized.includes("sensible") ||
+    normalized.includes("secret") ||
+    normalized.includes("top secret") ||
+    normalized.includes("classification");
+
+  const totalAssets = toNumber(readValue(summary, "total"), 0);
+  const secretCount = toNumber(readValue(summary, "secret"), 0);
+  const topSecretCount = toNumber(readValue(summary, "topSecret"), 0);
+  const totalSensibles = secretCount + topSecretCount;
+  const allItems = toArray(readValue(summary, "actifs"));
+  const sensitiveItems = toArray(readValue(summary, "actifsSensibles"));
+  const items = askSensibles ? sensitiveItems : allItems;
+
+  if (totalAssets <= 0) {
+    return "Selon les donnees actuelles, aucun actif n'est enregistre.";
+  }
+
+  if (items.length === 0) {
+    if (askSensibles || totalSensibles <= 0) {
+      return `Actifs enregistres: ${totalAssets}. Aucun actif sensible (Secret/TopSecret) n'est signale.`;
+    }
+    return `Actifs enregistres: ${totalAssets}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((asset, index) => {
+    const nom = toDisplayText(readValue(asset, "nom"));
+    const classification = toDisplayText(readValue(asset, "classification"));
+    const owner = String(readValue(asset, "proprietaire") || "").trim();
+    const criticite = String(readValue(asset, "criticite") || "").trim();
+    const statut = String(readValue(asset, "statut") || "").trim();
+    const id = String(readValue(asset, "id") || "").trim();
+    const parts = [`${index + 1}. ${nom}`, `classification=${classification}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    if (owner) parts.push(`proprietaire=${owner}`);
+    if (criticite) parts.push(`criticite=${criticite}`);
+    if (statut) parts.push(`statut=${statut}`);
+    return parts.join(" | ");
+  });
+
+  const title = askSensibles
+    ? "Voici la liste des actifs sensibles disponibles :"
+    : "Voici la liste des actifs disponibles :";
+  const totalLabel = askSensibles ? "actifs sensibles" : "actifs";
+  const totalValue = askSensibles ? totalSensibles : totalAssets;
+
+  return `${title}\n${lines.join("\n")}${buildPartialFooter(items.length, totalValue, totalLabel)}`;
+}
+
+function buildDirectDocumentationListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "documentation");
+  if (!summary || typeof summary !== "object") return null;
+  const normalized = normalizeSearchText(message);
+  const askReview =
+    normalized.includes("revoir") ||
+    normalized.includes("revue") ||
+    normalized.includes("validation") ||
+    normalized.includes("brouillon") ||
+    normalized.includes("retard");
+
+  const totalDocs = toNumber(readValue(summary, "total"), 0);
+  const totalARevoir =
+    toNumber(readValue(summary, "enValidation"), 0) +
+    toNumber(readValue(summary, "aRevoir"), 0) +
+    toNumber(readValue(summary, "brouillons"), 0);
+  const allDocs = toArray(readValue(summary, "documents"));
+  const reviewDocs = toArray(readValue(summary, "documentsARevoir"));
+  const items = askReview ? reviewDocs : allDocs;
+
+  if (totalDocs <= 0) {
+    return "Selon les donnees actuelles, aucun document n'est enregistre.";
+  }
+
+  if (items.length === 0) {
+    if (askReview || totalARevoir <= 0) {
+      return `Documents enregistres: ${totalDocs}. Aucun document en attente de revue n'est signale.`;
+    }
+    return `Documents enregistres: ${totalDocs}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((doc, index) => {
+    const nom = toDisplayText(readValue(doc, "nom"));
+    const statut = toDisplayText(readValue(doc, "statut"));
+    const version = String(readValue(doc, "version") || "").trim();
+    const dateMaj = String(readValue(doc, "dateMaj") || "").trim();
+    const id = String(readValue(doc, "id") || "").trim();
+    const parts = [`${index + 1}. ${nom}`, `statut=${statut}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    if (version) parts.push(`version=${version}`);
+    if (dateMaj) parts.push(`dateMaj=${dateMaj}`);
+    return parts.join(" | ");
+  });
+
+  const title = askReview
+    ? "Voici la liste des documents a revoir :"
+    : "Voici la liste des documents disponibles :";
+  const totalLabel = askReview ? "documents a revoir" : "documents";
+  const totalValue = askReview ? totalARevoir : totalDocs;
+
+  return `${title}\n${lines.join("\n")}${buildPartialFooter(items.length, totalValue, totalLabel)}`;
+}
+
+function buildDirectTrainingsListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "formations");
+  if (!summary || typeof summary !== "object") return null;
+  const normalized = normalizeSearchText(message);
+  const askLate =
+    normalized.includes("retard") ||
+    normalized.includes("echeance") ||
+    normalized.includes("en retard");
+
+  const total = toNumber(readValue(summary, "total"), 0);
+  const allItems = toArray(readValue(summary, "formations"));
+  const lateItems = toArray(readValue(summary, "formationsEnRetard"));
+  const items = askLate ? lateItems : allItems;
+  const totalRetard = lateItems.length;
+
+  if (total <= 0) {
+    return "Selon les donnees actuelles, aucune formation n'est enregistree.";
+  }
+
+  if (items.length === 0) {
+    if (askLate || totalRetard <= 0) {
+      return `Formations enregistrees: ${total}. Aucune formation en retard n'est detectee.`;
+    }
+    return `Formations enregistrees: ${total}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((formation, index) => {
+    const titre = toDisplayText(readValue(formation, "titre", "title"));
+    const status = toDisplayText(readValue(formation, "status"));
+    const date = String(readValue(formation, "date") || "").trim();
+    const id = String(readValue(formation, "id") || "").trim();
+    const parts = [`${index + 1}. ${titre}`, `statut=${status}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    if (date) parts.push(`date=${date}`);
+    return parts.join(" | ");
+  });
+
+  const title = askLate
+    ? "Voici la liste des formations en retard :"
+    : "Voici la liste des formations disponibles :";
+  const totalLabel = askLate ? "formations en retard" : "formations";
+  const totalValue = askLate ? totalRetard : total;
+  return `${title}\n${lines.join("\n")}${buildPartialFooter(items.length, totalValue, totalLabel)}`;
+}
+
+function buildDirectClausesListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "clauses");
+  if (!summary || typeof summary !== "object") return null;
+  const normalized = normalizeSearchText(message);
+  const askNonConforme =
+    normalized.includes("non conforme") ||
+    normalized.includes("non conformes") ||
+    normalized.includes("partielle");
+
+  const totalNonConformes = toNumber(readValue(summary, "clausesNonConformes"), 0);
+  const totalClauses = toNumber(readValue(summary, "totalClauses"), 0);
+  const allItems = toArray(readValue(summary, "clauses"));
+  const nonConformeItems = toArray(readValue(summary, "topClausesNonConformes"));
+  const items = askNonConforme ? nonConformeItems : allItems;
+
+  if (totalClauses <= 0) {
+    return "Selon les donnees actuelles, aucune clause n'est disponible.";
+  }
+
+  if (items.length === 0) {
+    if (askNonConforme || totalNonConformes <= 0) {
+      return "Selon les donnees actuelles, aucune clause n'est marquee non conforme.";
+    }
+    return `Clauses detectees: ${totalClauses}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((clause, index) => {
+    const number = toDisplayText(readValue(clause, "number"), "N/A");
+    const title = toDisplayText(readValue(clause, "title"));
+    const score = toNumber(readValue(clause, "computedScore"), 0);
+    const actionCount = toNumber(readValue(clause, "actionCount"), 0);
+    const id = String(readValue(clause, "id") || "").trim();
+    const parts = [`${index + 1}. Clause ${number} - ${title}`, `score=${score}%`, `actions=${actionCount}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    return parts.join(" | ");
+  });
+
+  const title = askNonConforme
+    ? "Voici la liste des clauses non conformes :"
+    : "Voici la liste des clauses disponibles :";
+  const totalLabel = askNonConforme ? "clauses non conformes" : "clauses";
+  const totalValue = askNonConforme ? totalNonConformes : totalClauses;
+
+  return `${title}\n${lines.join("\n")}${buildPartialFooter(items.length, totalValue, totalLabel)}`;
+}
+
+function buildDirectControlsListAnswer(message, appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "controles");
+  if (!summary || typeof summary !== "object") return null;
+
+  const normalized = normalizeSearchText(message);
+  const askRetard =
+    normalized.includes("retard") ||
+    normalized.includes("echeance") ||
+    normalized.includes("plan");
+  const askNonConforme =
+    normalized.includes("non conforme") ||
+    normalized.includes("non conformes") ||
+    normalized.includes("non mis") ||
+    normalized.includes("nonmis");
+
+  if (askRetard) {
+    const items = toArray(readValue(summary, "actionsEnRetard"));
+    if (items.length === 0) {
+      return "Selon les donnees actuelles, aucune action controle en retard n'est detectee.";
+    }
+
+    const lines = items.map((row, index) => {
+      const code = toDisplayText(readValue(row, "code"), "N/A");
+      const titre = toDisplayText(readValue(row, "titre"));
+      const responsable = String(readValue(row, "responsable") || "").trim();
+      const echeance = String(readValue(row, "echeance") || "").trim();
+      const statutPlan = String(readValue(row, "statutPlan") || "").trim();
+      const parts = [`${index + 1}. ${code} - ${titre}`];
+      if (responsable) parts.push(`responsable=${responsable}`);
+      if (echeance) parts.push(`echeance=${echeance}`);
+      if (statutPlan) parts.push(`statutPlan=${statutPlan}`);
+      return parts.join(" | ");
+    });
+
+    return `Voici la liste des actions controles en retard :\n${lines.join("\n")}`;
+  }
+
+  if (askNonConforme) {
+    const total = toNumber(readValue(summary, "nonConformes"), 0);
+    const items = toArray(readValue(summary, "nonMisEnOeuvre"));
+    if (total <= 0) {
+      return "Selon les donnees actuelles, aucun controle non conforme n'est detecte.";
+    }
+    if (items.length === 0) {
+      return `Controles non conformes detectes: ${total}, mais le detail n'est pas disponible dans le contexte courant.`;
+    }
+
+    const lines = items.map((row, index) => {
+      const code = toDisplayText(readValue(row, "code"), "N/A");
+      const titre = toDisplayText(readValue(row, "titre"));
+      const statut = toDisplayText(readValue(row, "statut"));
+      const priorite = String(readValue(row, "priorite") || "").trim();
+      const parts = [`${index + 1}. ${code} - ${titre}`, `statut=${statut}`];
+      if (priorite) parts.push(`priorite=${priorite}`);
+      return parts.join(" | ");
+    });
+
+    return `Voici la liste des controles non conformes / non mis en oeuvre :\n${lines.join("\n")}${buildPartialFooter(
+      items.length,
+      total,
+      "controles non conformes"
+    )}`;
+  }
+
+  const totalControls = toNumber(readValue(summary, "total"), 0);
+  const items = toArray(readValue(summary, "controles"));
+  if (totalControls <= 0) {
+    return "Selon les donnees actuelles, aucun controle n'est disponible.";
+  }
+  if (items.length === 0) {
+    return `Controles detectes: ${totalControls}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((row, index) => {
+    const code = toDisplayText(readValue(row, "code"), "N/A");
+    const titre = toDisplayText(readValue(row, "titre"));
+    const statut = toDisplayControlStatus(readValue(row, "statutBrut", "statut"));
+    const applicable = readValue(row, "applicable");
+    const priorite = String(readValue(row, "priorite") || "").trim();
+    const statutPlan = toDisplayPlanStatus(readValue(row, "statutPlan"));
+    const id = String(readValue(row, "id") || "").trim();
+    const parts = [`${index + 1}. ${code} - ${titre}`, `statut=${statut}`];
+    if (includeIds && id) parts.push(`id=${id}`);
+    if (typeof applicable === "boolean") parts.push(`applicable=${applicable ? "oui" : "non"}`);
+    if (priorite) parts.push(`priorite=${priorite}`);
+    if (statutPlan && statutPlan !== "unknown") parts.push(`statutPlan=${statutPlan}`);
+    return parts.join(" | ");
+  });
+
+  return `Voici la liste des controles disponibles :\n${lines.join("\n")}${buildPartialFooter(
+    items.length,
+    totalControls,
+    "controles"
+  )}`;
+}
+
+function buildDirectAuditActionsListAnswer(appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "actionsCorrectives");
+  if (!summary || typeof summary !== "object") return null;
+
+  const total = toNumber(readValue(summary, "totalRetard"), 0);
+  const items = toArray(readValue(summary, "topRetard"));
+  if (total <= 0) {
+    return "Selon les donnees actuelles, aucune action corrective en retard n'est detectee.";
+  }
+
+  if (items.length === 0) {
+    return `Actions correctives en retard detectees: ${total}, mais le detail n'est pas disponible dans le contexte courant.`;
+  }
+
+  const lines = items.map((row, index) => {
+    const ncTitre = toDisplayText(readValue(row, "ncTitre"), "Non-conformite");
+    const description = toDisplayText(readValue(row, "description"));
+    const responsible = String(readValue(row, "responsible") || "").trim();
+    const echeance = String(readValue(row, "echeance") || "").trim();
+    const statut = String(readValue(row, "statut") || "").trim();
+    const ncId = String(readValue(row, "ncId") || "").trim();
+    const parts = [`${index + 1}. ${ncTitre}`, `action=${description}`];
+    if (includeIds && ncId) parts.push(`id=${ncId}`);
+    if (responsible) parts.push(`responsable=${responsible}`);
+    if (echeance) parts.push(`echeance=${echeance}`);
+    if (statut) parts.push(`statut=${statut}`);
+    return parts.join(" | ");
+  });
+
+  return `Voici la liste des actions correctives en retard :\n${lines.join("\n")}${buildPartialFooter(
+    items.length,
+    total,
+    "actions correctives en retard"
+  )}`;
+}
+
+function buildDirectAuditsListAnswer(appSummary, options = {}) {
+  const includeIds = Boolean(options.includeIds);
+  const summary = readValue(appSummary, "audits");
+  if (!summary || typeof summary !== "object") return null;
+
+  const totalAudits = toNumber(readValue(summary, "totalAudits"), 0);
+  if (totalAudits <= 0) {
+    return "Selon les donnees actuelles, aucun audit n'est enregistre.";
+  }
+
+  const audits = toArray(readValue(summary, "audits"));
+  const planned = toNumber(readValue(summary, "auditsPlanifies"), 0);
+  const inProgress = toNumber(readValue(summary, "auditsEnCours"), 0);
+  const completed = toNumber(readValue(summary, "auditsTermines"), 0);
+  const ncOpen = toNumber(readValue(summary, "nonConformitesOuvertes"), 0);
+  const correctiveLate = toNumber(readValue(summary, "actionsCorrectivesEnRetard"), 0);
+
+  if (audits.length > 0) {
+    const lines = audits.map((audit, index) => {
+      const titre = toDisplayText(readValue(audit, "titre"));
+      const statut = toDisplayAuditStatus(readValue(audit, "statut"));
+      const startDate = String(readValue(audit, "startDate") || "").trim();
+      const endDate = String(readValue(audit, "endDate") || "").trim();
+      const responsable = String(readValue(audit, "responsable") || "").trim();
+      const id = String(readValue(audit, "id") || "").trim();
+      const parts = [`${index + 1}. ${titre}`, `statut=${statut}`];
+      if (includeIds && id) parts.push(`id=${id}`);
+      if (startDate) parts.push(`debut=${startDate}`);
+      if (endDate) parts.push(`fin=${endDate}`);
+      if (responsable) parts.push(`responsable=${responsable}`);
+      return parts.join(" | ");
+    });
+
+    return `Voici la liste des audits disponibles :\n${lines.join("\n")}${buildPartialFooter(
+      audits.length,
+      totalAudits,
+      "audits"
+    )}\nStatistiques: planifies=${planned}, enCours=${inProgress}, termines=${completed}, ncOuvertes=${ncOpen}, actionsRetard=${correctiveLate}.`;
+  }
+
+  return [
+    "Synthese audits disponible:",
+    `- Total audits=${totalAudits}`,
+    `- Planifies=${planned}`,
+    `- En cours=${inProgress}`,
+    `- Termines=${completed}`,
+    `- Non-conformites ouvertes=${ncOpen}`,
+    `- Actions correctives en retard=${correctiveLate}`,
+  ].join("\n");
+}
+
+function buildDirectDashboardListAnswer(appSummary) {
+  const summary = readValue(appSummary, "dashboardKpi");
+  if (!summary || typeof summary !== "object") return null;
+
+  const tauxGlobalConformite = toNumber(readValue(summary, "tauxGlobalConformite"), 0);
+  const totalActifs = toNumber(readValue(summary, "totalActifs"), 0);
+  const totalControles = toNumber(readValue(summary, "totalControles"), 0);
+  const controlesParStatut = toArray(readValue(summary, "controlesParStatut"));
+  const controlesParDomaine = toArray(readValue(summary, "controlesParDomaine"));
+
+  const lines = [
+    "Voici le resume du dashboard SMSI :",
+    `- Taux global de conformite=${tauxGlobalConformite}%`,
+    `- Total actifs=${totalActifs}`,
+    `- Total controles=${totalControles}`,
+  ];
+
+  if (controlesParStatut.length > 0) {
+    const statusLine = controlesParStatut
+      .map((row) => {
+        const name = toDisplayText(readValue(row, "statut", "status", "name", "label"), "statut");
+        const count = toNumber(readValue(row, "count", "value", "total"), 0);
+        return `${name}:${count}`;
+      })
+      .join(", ");
+    lines.push(`- Controles par statut=${statusLine}`);
+  }
+
+  if (controlesParDomaine.length > 0) {
+    const domainLine = controlesParDomaine
+      .map((row) => {
+        const name = toDisplayText(readValue(row, "domaine", "domain", "name", "label"), "domaine");
+        const count = toNumber(readValue(row, "count", "value", "total"), 0);
+        return `${name}:${count}`;
+      })
+      .join(", ");
+    lines.push(`- Controles par domaine=${domainLine}`);
+  }
+
+  return lines.join("\n");
+}
+
+function buildDirectPdcaListAnswer(appSummary) {
+  const summary = readValue(appSummary, "pdca");
+  if (!summary || typeof summary !== "object") return null;
+
+  const phases = toArray(readValue(summary, "progressionParPhase"));
+  const itemsSummary = readValue(summary, "items") || {};
+  const totalItems = toNumber(readValue(itemsSummary, "total"), 0);
+  const progressionGlobale = toNumber(readValue(summary, "progressionGlobale"), 0);
+
+  if (totalItems <= 0 || phases.length === 0) {
+    return "Selon les donnees actuelles, aucune donnee PDCA detaillee n'est disponible.";
+  }
+
+  const lines = phases.map((phase, index) => {
+    const name = toDisplayText(readValue(phase, "phase"), "PDCA");
+    const progression = toNumber(readValue(phase, "progression"), 0);
+    const done = toNumber(readValue(phase, "termines"), 0);
+    const inProgress = toNumber(readValue(phase, "enCours"), 0);
+    const todo = toNumber(readValue(phase, "aFaire"), 0);
+    return `${index + 1}. ${name} | progression=${progression}% | termines=${done} | enCours=${inProgress} | aFaire=${todo}`;
+  });
+
+  return `Voici la liste de progression PDCA par phase :\n${lines.join("\n")}\nProgression globale PDCA: ${progressionGlobale}% (${totalItems} items).`;
+}
+
+function buildDirectAppModuleListResult(message, appSummary, options = {}) {
+  const module = detectRequestedAppListModule(message);
+  if (!module) return null;
+  if (!appSummary || typeof appSummary !== "object") {
+    return {
+      key: `${module}_list_unavailable`,
+      answer:
+        "Les donnees de ce module ne sont pas disponibles actuellement. Verifiez les permissions et la disponibilite des sources SMSI.",
+    };
+  }
+
+  if (module === "incidents") {
+    const answer = buildDirectIncidentListAnswer(message, appSummary, options);
+    return answer ? { key: "incidents_list", answer } : null;
+  }
+  if (module === "risques") {
+    const answer = buildDirectRisksListAnswer(appSummary, options);
+    return answer ? { key: "risques_list", answer } : null;
+  }
+  if (module === "actifs") {
+    const answer = buildDirectAssetsListAnswer(message, appSummary, options);
+    return answer ? { key: "actifs_list", answer } : null;
+  }
+  if (module === "documentation") {
+    const answer = buildDirectDocumentationListAnswer(message, appSummary, options);
+    return answer ? { key: "documentation_list", answer } : null;
+  }
+  if (module === "formations") {
+    const answer = buildDirectTrainingsListAnswer(message, appSummary, options);
+    return answer ? { key: "formations_list", answer } : null;
+  }
+  if (module === "clauses") {
+    const answer = buildDirectClausesListAnswer(message, appSummary, options);
+    return answer ? { key: "clauses_list", answer } : null;
+  }
+  if (module === "controles") {
+    const answer = buildDirectControlsListAnswer(message, appSummary, options);
+    return answer ? { key: "controles_list", answer } : null;
+  }
+  if (module === "audits_actions") {
+    const answer = buildDirectAuditActionsListAnswer(appSummary, options);
+    return answer ? { key: "audits_actions_list", answer } : null;
+  }
+  if (module === "audits") {
+    const answer = buildDirectAuditsListAnswer(appSummary, options);
+    return answer ? { key: "audits_list", answer } : null;
+  }
+  if (module === "dashboard") {
+    const answer = buildDirectDashboardListAnswer(appSummary);
+    return answer ? { key: "dashboard_summary", answer } : null;
+  }
+  if (module === "pdca") {
+    const answer = buildDirectPdcaListAnswer(appSummary);
+    return answer ? { key: "pdca_list", answer } : null;
+  }
+
+  return null;
+}
+
 function summarizeRisques(studies) {
   const list = toArray(studies);
   const allRiskEntries = [];
+  const studiesOverview = [];
 
   for (const study of list) {
     const payload = parseJson(readValue(study, "payloadJson", "PayloadJson"), {});
@@ -811,10 +1772,16 @@ function summarizeRisques(studies) {
       ...toArray(readValue(workshop4, "operationalScenarios")),
     ];
 
+    let localRisks = 0;
+    let localCriticalRisks = 0;
     for (const entry of candidates) {
       const gravity = toNumber(readValue(entry, "gravity", "gravite"), 0);
       const likelihood = toNumber(readValue(entry, "likelihood", "vraisemblance"), 0);
       const score = gravity * likelihood;
+      const isCritical = score >= 10 || gravity >= 4 || likelihood >= 4;
+      localRisks += 1;
+      if (isCritical) localCriticalRisks += 1;
+
       allRiskEntries.push({
         study: readValue(study, "name", "Name") || "Etude",
         label:
@@ -826,7 +1793,29 @@ function summarizeRisques(studies) {
         treatment: readValue(entry, "treatment", "decision", "strategy") || null,
       });
     }
+
+    studiesOverview.push({
+      id: readValue(study, "id", "Id") || null,
+      name: readValue(study, "name", "Name") || "Etude",
+      organization: readValue(study, "organization", "Organization") || null,
+      author: readValue(study, "author", "Author") || null,
+      perimeter: readValue(study, "perimeter", "Perimeter") || null,
+      status: readValue(study, "status", "Status", "statut", "Statut") || null,
+      createdAt: readValue(study, "createdAt", "CreatedAt") || null,
+      updatedAt:
+        readValue(study, "updatedAt", "UpdatedAt", "modifiedAt", "ModifiedAt") ||
+        readValue(study, "createdAt", "CreatedAt") ||
+        null,
+      totalRisques: localRisks,
+      risquesCritiques: localCriticalRisks,
+    });
   }
+
+  const orderedStudies = studiesOverview.sort((a, b) => {
+    const aDate = parseDate(a.updatedAt, a.createdAt)?.getTime() || 0;
+    const bDate = parseDate(b.updatedAt, b.createdAt)?.getTime() || 0;
+    return bDate - aDate;
+  });
 
   const critical = allRiskEntries
     .filter((risk) => risk.score >= 10 || risk.gravity >= 4 || risk.likelihood >= 4)
@@ -836,6 +1825,7 @@ function summarizeRisques(studies) {
     totalEtudes: list.length,
     totalEntreesRisque: allRiskEntries.length,
     totalRisquesCritiques: critical.length,
+    etudes: limitItems(orderedStudies),
     topRisquesCritiques: limitItems(critical),
   };
 }
@@ -843,6 +1833,7 @@ function summarizeRisques(studies) {
 function summarizeActifs(actifs) {
   const items = toArray(actifs);
   const sensibles = [];
+  const allAssets = [];
   let secret = 0;
   let topSecret = 0;
 
@@ -850,6 +1841,20 @@ function summarizeActifs(actifs) {
     const classificationRaw = readValue(actif, "classification", "Classification");
     const token = normalizeToken(classificationRaw);
     const nominal = readValue(actif, "nom", "Nom") || "Actif";
+    const owner =
+      readValue(actif, "proprietaire", "Proprietaire", "owner", "Owner", "responsable", "Responsable") ||
+      null;
+    const criticite = readValue(actif, "criticite", "Criticite", "criticalite", "Criticalite") || null;
+    const statut = readValue(actif, "status", "Status", "statut", "Statut") || null;
+
+    allAssets.push({
+      id: readValue(actif, "id", "Id") || null,
+      nom: nominal,
+      classification: classificationRaw || null,
+      proprietaire: owner,
+      criticite,
+      statut,
+    });
 
     const isTopSecret = token === "3" || token.includes("topsecret");
     const isSecret = token === "2" || token.includes("secret") || token.includes("confidentiel");
@@ -863,10 +1868,17 @@ function summarizeActifs(actifs) {
     }
   }
 
+  const orderedAssets = allAssets.sort((a, b) => {
+    const aKey = normalizeSearchText(`${a.nom || ""}`);
+    const bKey = normalizeSearchText(`${b.nom || ""}`);
+    return aKey.localeCompare(bKey);
+  });
+
   return {
     total: items.length,
     secret,
     topSecret,
+    actifs: limitItems(orderedAssets),
     actifsSensibles: limitItems(sensibles),
   };
 }
@@ -874,27 +1886,41 @@ function summarizeActifs(actifs) {
 function summarizeIncidents(incidents) {
   const items = toArray(incidents);
   const ouverts = [];
+  const recentIncidents = [];
   let openCount = 0;
   let resolvedCount = 0;
 
   for (const incident of items) {
     const status = normalizeIncidentStatus(readValue(incident, "statut", "Statut"));
+    const row = {
+      id: readValue(incident, "id", "Id"),
+      titre:
+        readValue(incident, "titre", "Titre", "title", "Title", "nom", "Nom", "name", "Name") ||
+        "Incident",
+      priorite: readValue(incident, "priorite", "Priorite", "priority", "Priority") || null,
+      date: readValue(incident, "date", "Date", "createdAt", "CreatedAt") || null,
+      statut: status,
+    };
+    recentIncidents.push(row);
+
     if (status === "resolved") resolvedCount += 1;
     else {
       openCount += 1;
-      ouverts.push({
-        id: readValue(incident, "id", "Id"),
-        titre: readValue(incident, "titre", "Titre"),
-        priorite: readValue(incident, "priorite", "Priorite") || null,
-        date: readValue(incident, "date", "Date") || null,
-      });
+      ouverts.push(row);
     }
   }
+
+  const sortedRecent = recentIncidents.sort((a, b) => {
+    const aDate = parseDate(a.date)?.getTime() || 0;
+    const bDate = parseDate(b.date)?.getTime() || 0;
+    return bDate - aDate;
+  });
 
   return {
     total: items.length,
     ouverts: openCount,
     resolus: resolvedCount,
+    recentIncidents: limitItems(sortedRecent),
     incidentsOuverts: limitItems(
       ouverts.sort((a, b) => {
         const aDate = parseDate(a.date)?.getTime() || 0;
@@ -912,6 +1938,7 @@ function summarizeDocumentation(documents) {
   let revoir = 0;
   let brouillon = 0;
   const needsReview = [];
+  const documentsList = [];
 
   for (const doc of items) {
     const statusRaw = readValue(doc, "status", "Status");
@@ -923,6 +1950,7 @@ function summarizeDocumentation(documents) {
       version: readValue(doc, "version", "Version") || null,
       dateMaj: readValue(doc, "updatedAt", "UpdatedAt") || null,
     };
+    documentsList.push(row);
 
     if (status.includes("approuve") || status.includes("approved")) approuves += 1;
     else if (status.includes("validation")) {
@@ -937,12 +1965,19 @@ function summarizeDocumentation(documents) {
     }
   }
 
+  const orderedDocuments = documentsList.sort((a, b) => {
+    const aDate = parseDate(a.dateMaj)?.getTime() || 0;
+    const bDate = parseDate(b.dateMaj)?.getTime() || 0;
+    return bDate - aDate;
+  });
+
   return {
     total: items.length,
     approuves,
     enValidation: validation,
     aRevoir: revoir,
     brouillons: brouillon,
+    documents: limitItems(orderedDocuments),
     documentsARevoir: limitItems(needsReview),
   };
 }
@@ -951,6 +1986,7 @@ function summarizeFormations(formations, formationsDashboard) {
   const items = toArray(formations);
   const dashboard = formationsDashboard && typeof formationsDashboard === "object" ? formationsDashboard : {};
   const overdue = [];
+  const formationsList = [];
   let completed = 0;
   let inProgress = 0;
   let planned = 0;
@@ -960,20 +1996,31 @@ function summarizeFormations(formations, formationsDashboard) {
     const status = normalizeTrainingStatus(statusRaw);
     const dateRaw = readValue(formation, "date", "Date");
     const date = parseDate(dateRaw);
+    const row = {
+      id: readValue(formation, "id", "Id"),
+      titre:
+        readValue(formation, "title", "Title", "titre", "Titre", "name", "Name") ||
+        "Formation",
+      status: statusRaw || null,
+      date: dateRaw || null,
+      responsable: readValue(formation, "owner", "Owner", "responsable", "Responsable") || null,
+    };
+    formationsList.push(row);
 
     if (status === "completed") completed += 1;
     else if (status === "in_progress") inProgress += 1;
     else planned += 1;
 
     if (date && date.getTime() < Date.now() && status !== "completed") {
-      overdue.push({
-        id: readValue(formation, "id", "Id"),
-        titre: readValue(formation, "title", "Title"),
-        status: statusRaw || null,
-        date: dateRaw || null,
-      });
+      overdue.push(row);
     }
   }
+
+  const orderedFormations = formationsList.sort((a, b) => {
+    const aDate = parseDate(a.date)?.getTime() || 0;
+    const bDate = parseDate(b.date)?.getTime() || 0;
+    return bDate - aDate;
+  });
 
   return {
     total: toNumber(readValue(dashboard, "total", "Total"), items.length),
@@ -981,6 +2028,7 @@ function summarizeFormations(formations, formationsDashboard) {
     enCours: toNumber(readValue(dashboard, "enCours", "EnCours"), inProgress),
     terminees: toNumber(readValue(dashboard, "terminees", "Terminees"), completed),
     tauxParticipationMoyen: Math.round(toNumber(readValue(dashboard, "tauxMoyen", "TauxMoyen"))),
+    formations: limitItems(orderedFormations),
     formationsEnRetard: limitItems(overdue),
   };
 }
@@ -988,6 +2036,7 @@ function summarizeFormations(formations, formationsDashboard) {
 function summarizeAudits(audits, auditsNc, controlsActionsLate) {
   const auditItems = toArray(audits);
   const ncItems = toArray(auditsNc);
+  const auditsList = [];
 
   let planned = 0;
   let inProgress = 0;
@@ -997,6 +2046,22 @@ function summarizeAudits(audits, auditsNc, controlsActionsLate) {
 
   for (const audit of auditItems) {
     const status = normalizeAuditStatus(readValue(audit, "status", "Status"));
+    const rawStatus = readValue(audit, "status", "Status") || null;
+    const startDate =
+      readValue(audit, "date", "Date", "startDate", "StartDate", "scheduledAt", "ScheduledAt") ||
+      null;
+    const endDate = readValue(audit, "endDate", "EndDate", "completedAt", "CompletedAt") || null;
+    auditsList.push({
+      id: readValue(audit, "id", "Id") || null,
+      titre: readValue(audit, "title", "Title", "nom", "Nom", "name", "Name") || "Audit",
+      statut: rawStatus,
+      startDate,
+      endDate,
+      responsable:
+        readValue(audit, "auditor", "Auditor", "responsable", "Responsable", "owner", "Owner") ||
+        null,
+    });
+
     if (status === "completed") completed += 1;
     else if (status === "in_progress") inProgress += 1;
     else planned += 1;
@@ -1027,6 +2092,12 @@ function summarizeAudits(audits, auditsNc, controlsActionsLate) {
     }
   }
 
+  const orderedAudits = auditsList.sort((a, b) => {
+    const aDate = parseDate(a.startDate, a.endDate)?.getTime() || 0;
+    const bDate = parseDate(b.startDate, b.endDate)?.getTime() || 0;
+    return bDate - aDate;
+  });
+
   return {
     totalAudits: auditItems.length,
     auditsPlanifies: planned,
@@ -1034,6 +2105,7 @@ function summarizeAudits(audits, auditsNc, controlsActionsLate) {
     auditsTermines: completed,
     nonConformitesOuvertes: ncOpen,
     actionsCorrectivesEnRetard: correctiveLate.length,
+    audits: limitItems(orderedAudits),
     topActionsCorrectivesEnRetard: limitItems(correctiveLate),
   };
 }
@@ -1287,6 +2359,8 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
     "- Reponds uniquement en francais.",
     "- N'utilise pas de markdown (pas de **, pas de listes markdown).",
     "- N'invente jamais de donnees.",
+    "- Ne pas afficher les IDs techniques (UUID, identifiants internes) sauf si l'utilisateur le demande explicitement.",
+    "- Privilegier des reponses metier claires, concises et directement exploitables.",
     "- Le chatbot est strictement en lecture seule: aucune action d'ecriture n'est executee dans l'application.",
     "- Interdiction de creer, modifier, supprimer, importer, exporter ou approuver des donnees via le chatbot.",
     ...(isEbiosConversation
@@ -1321,6 +2395,7 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
       unavailableSources,
       "- Si une information est absente, indique clairement: 'Information indisponible dans les donnees actuelles'.",
       "- Si la question porte sur les controles conformes, utilise prioritairement 'controles.topConformes' et 'controles.conformes' du contexte JSON.",
+      "- Quand l'utilisateur demande une liste, commence par afficher la liste demandee puis ajoute un bref resume.",
       "- Structure la reponse en sections claires: constats, impacts, recommandations.",
     ].join("\n");
   }
@@ -1369,11 +2444,22 @@ function buildSystemPrompt(chatMode, appContext, documentContext, followUpContex
   ].join("\n");
 }
 
-function buildUserPrompt(chatMode, message, appContext, documentContext, followUpContext, methodContext) {
+function buildUserPrompt(
+  chatMode,
+  message,
+  appContext,
+  documentContext,
+  followUpContext,
+  methodContext,
+  showTechnicalIds = false
+) {
   const followUpBlock = buildFollowUpUserBlock(message, followUpContext, methodContext);
 
   if (chatMode === CHAT_MODE.APP_DATA_ANALYSIS) {
-    const contextJson = truncateContextForPrompt(appContext?.summary || {});
+    const summaryForPrompt = showTechnicalIds
+      ? appContext?.summary || {}
+      : removeTechnicalIds(appContext?.summary || {});
+    const contextJson = truncateContextForPrompt(summaryForPrompt);
     return [
       ...followUpBlock,
       "Contexte SMSI condense (JSON):",
@@ -1394,7 +2480,8 @@ function buildUserPrompt(chatMode, message, appContext, documentContext, followU
   }
 
   if (chatMode === CHAT_MODE.DOCUMENT_CHAT) {
-    const docs = toArray(documentContext?.documents);
+    const docsRaw = toArray(documentContext?.documents);
+    const docs = showTechnicalIds ? docsRaw : removeTechnicalIds(docsRaw);
     const docsJson = truncateContextForPrompt({ documents: docs });
     return [
       ...followUpBlock,
@@ -1511,6 +2598,7 @@ function buildOllamaMessages({
   documentContext,
   followUpContext,
   methodContext,
+  showTechnicalIds = false,
 }) {
   return [
     {
@@ -1520,7 +2608,15 @@ function buildOllamaMessages({
     ...sanitizeHistory(history),
     {
       role: "user",
-      content: buildUserPrompt(chatMode, message, appContext, documentContext, followUpContext, methodContext),
+      content: buildUserPrompt(
+        chatMode,
+        message,
+        appContext,
+        documentContext,
+        followUpContext,
+        methodContext,
+        showTechnicalIds
+      ),
     },
   ];
 }
@@ -1530,6 +2626,10 @@ async function prepareConversationExecution({ message, history, token, permissio
   const profile = getIntentExecutionProfile(intent.mode);
   const followUpContext = buildFollowUpContext(intent, history);
   const methodContext = buildMethodContext(lastMethod, message, followUpContext);
+  const requestedAppListModule = detectRequestedAppListModule(message);
+  const forceAppDataForList = Boolean(requestedAppListModule);
+  const effectiveAppDataUsed = Boolean(profile.appDataUsed || forceAppDataForList);
+  const showTechnicalIds = shouldShowTechnicalIds(message, followUpContext);
   const shouldForceDetailedContinuation = Boolean(
     followUpContext?.isFollowUp &&
       (followUpContext.type === "continue" || followUpContext.type === "detail")
@@ -1537,9 +2637,14 @@ async function prepareConversationExecution({ message, history, token, permissio
 
   let appContext = null;
   let documentContext = null;
+  const preferredSourceKeys = effectiveAppDataUsed
+    ? selectPreferredSourceKeys(message, followUpContext)
+    : [];
 
-  if (profile.appDataUsed) {
-    appContext = await getSmsiContext(token, permissionScope);
+  if (effectiveAppDataUsed) {
+    appContext = await getSmsiContext(token, permissionScope, {
+      sourceKeys: preferredSourceKeys,
+    });
   }
 
   if (profile.documentUsed) {
@@ -1559,6 +2664,7 @@ async function prepareConversationExecution({ message, history, token, permissio
     documentContext,
     followUpContext,
     methodContext,
+    showTechnicalIds,
   });
 
   const llmOptions = {
@@ -1576,7 +2682,7 @@ async function prepareConversationExecution({ message, history, token, permissio
     missingOptionalSources: toArray(appContext?.missingOptionalSources),
     permissionFilteredSources: toArray(appContext?.permissionFilteredSources),
     chatMode: intent.mode,
-    appDataUsed: Boolean(profile.appDataUsed),
+    appDataUsed: effectiveAppDataUsed,
     documentUsed: Boolean(profile.documentUsed),
     ragUsed: effectiveRagUsed,
     intentReason: intent.reason,
@@ -1585,6 +2691,8 @@ async function prepareConversationExecution({ message, history, token, permissio
     anchorMessage: String(intent.anchorMessage || ""),
     lastMethod: methodContext.activeMethod,
     methodUsedInResponse: methodContext.methodUsedInResponse,
+    requestedAppListModule: requestedAppListModule || null,
+    showTechnicalIds,
   };
 
   return {
@@ -1595,17 +2703,21 @@ async function prepareConversationExecution({ message, history, token, permissio
     trace: {
       message,
       mode: intent.mode,
-      appDataUsed: Boolean(profile.appDataUsed),
+      appDataUsed: effectiveAppDataUsed,
       documentUsed: Boolean(profile.documentUsed),
       ragUsed: effectiveRagUsed,
       followUp: Boolean(intent.followUp),
       followUpType: intent.followUpType || "none",
       lastMethod: methodContext.activeMethod,
       methodUsedInResponse: methodContext.methodUsedInResponse,
+      preferredSourceKeys,
+      requestedAppListModule: requestedAppListModule || null,
+      showTechnicalIds,
       llmCalled: false,
       finalResponseLength: 0,
       numPredict: llmOptions.numPredict,
     },
+    showTechnicalIds,
   };
 }
 
@@ -1887,8 +2999,8 @@ async function callOllama(messages, options = {}) {
   return streamed.content;
 }
 
-export async function getSmsiContext(token, permissionScope) {
-  const { data, sourceStatus, blockedSources } = await loadSources(token, permissionScope);
+export async function getSmsiContext(token, permissionScope, options = {}) {
+  const { data, sourceStatus, blockedSources } = await loadSources(token, permissionScope, options);
   return summarizeContext(data, sourceStatus, blockedSources);
 }
 
@@ -1908,13 +3020,19 @@ export async function generateAssistantReply({
   });
   logChatTrace(execution.trace);
 
-  const directAnswer = buildDirectConformeControlsAnswer(message, execution.appSummary);
-  if (directAnswer) {
-    execution.trace.finalResponseLength = String(directAnswer).length;
-    execution.trace.directAnswer = "controles_conformes";
+  const directResult =
+    (isConformeControlsQuestion(message)
+      ? { key: "controles_conformes", answer: buildDirectConformeControlsAnswer(message, execution.appSummary) }
+      : null) ||
+    buildDirectAppModuleListResult(message, execution.appSummary, {
+      includeIds: execution.showTechnicalIds,
+    });
+  if (directResult?.answer) {
+    execution.trace.finalResponseLength = String(directResult.answer).length;
+    execution.trace.directAnswer = directResult.key || "direct_answer";
     logChatTrace(execution.trace);
     return {
-      answer: directAnswer,
+      answer: directResult.answer,
       context: execution.context,
     };
   }
@@ -1958,20 +3076,26 @@ export async function streamAssistantReply({
   });
   logChatTrace(execution.trace);
 
-  const directAnswer = buildDirectConformeControlsAnswer(message, execution.appSummary);
-  if (directAnswer) {
+  const directResult =
+    (isConformeControlsQuestion(message)
+      ? { key: "controles_conformes", answer: buildDirectConformeControlsAnswer(message, execution.appSummary) }
+      : null) ||
+    buildDirectAppModuleListResult(message, execution.appSummary, {
+      includeIds: execution.showTechnicalIds,
+    });
+  if (directResult?.answer) {
     const directStartedAt = Date.now();
     onFirstToken?.({
       elapsedMs: 0,
       timeoutMs: OLLAMA_FIRST_TOKEN_TIMEOUT_MS,
     });
-    onToken?.(directAnswer);
-    execution.trace.finalResponseLength = String(directAnswer).length;
-    execution.trace.directAnswer = "controles_conformes";
+    onToken?.(directResult.answer);
+    execution.trace.finalResponseLength = String(directResult.answer).length;
+    execution.trace.directAnswer = directResult.key || "direct_answer";
     logChatTrace(execution.trace);
 
     return {
-      answer: directAnswer,
+      answer: directResult.answer,
       context: execution.context,
       metrics: {
         firstTokenMs: 0,

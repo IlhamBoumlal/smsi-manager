@@ -28,7 +28,7 @@ export const OLLAMA_FOLLOW_UP_NUM_PREDICT = toPositiveNumber(
 );
 export const CHATBOT_CONTEXT_CHAR_LIMIT = toPositiveNumber(process.env.CHATBOT_CONTEXT_CHAR_LIMIT, 8000);
 export const MAX_HISTORY_MESSAGES = toPositiveNumber(process.env.MAX_HISTORY_MESSAGES, 16);
-export const MAX_CONTEXT_ITEMS = toPositiveNumber(process.env.MAX_CONTEXT_ITEMS, 12);
+export const MAX_CONTEXT_ITEMS = toPositiveNumber(process.env.MAX_CONTEXT_ITEMS, 20);
 export const SSE_HEARTBEAT_INTERVAL_MS = toPositiveNumber(process.env.SSE_HEARTBEAT_INTERVAL_MS, 15000);
 export const STREAM_LOCK_MAX_MS = toPositiveNumber(
   process.env.STREAM_LOCK_MAX_MS,

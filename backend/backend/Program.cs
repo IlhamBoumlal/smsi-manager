@@ -226,8 +226,9 @@ builder.Services.AddHttpClient();
 var app = builder.Build();
 
 // ─── INITIALISATION BDD + ADMIN ───────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     try
     {
         await DbInitializer.InitializeAsync(scope.ServiceProvider);
@@ -258,3 +259,5 @@ app.MapControllers();
 app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
+
+public partial class Program { }

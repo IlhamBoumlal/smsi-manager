@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getDashboard, getGlobalStats } from "../api/clauses";
 import { useAuth } from "../context/AuthContext";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faRotateRight, faTriangleExclamation, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faRotateRight, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 /* ═══════════════════════════════════════════════════════════
    CLAUSE CONFIG

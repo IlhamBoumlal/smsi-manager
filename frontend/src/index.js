@@ -5,7 +5,6 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
-import SuperAdminSpace from './components/SuperAdminSpace';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

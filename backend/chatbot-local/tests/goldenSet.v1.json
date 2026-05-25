@@ -1,0 +1,468 @@
+{
+  "version": "2026-05-25",
+  "description": "Jeu de validation fonctionnelle du chatbot SMSI (questions metier orientees modules).",
+  "scenarios": [
+    {
+      "id": "INC_001",
+      "module": "incidents",
+      "message": "affiche les incidents",
+      "expectedIncludes": ["Voici la liste des incidents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "INC_002",
+      "module": "incidents",
+      "message": "donne les incidents",
+      "expectedIncludes": ["Voici la liste des incidents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "INC_003",
+      "module": "incidents",
+      "message": "montre les tickets",
+      "expectedIncludes": ["Voici la liste des incidents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "INC_004",
+      "module": "incidents",
+      "message": "incidents",
+      "expectedIncludes": ["Voici la liste des incidents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "INC_005",
+      "module": "incidents",
+      "message": "tickets ouverts",
+      "expectedIncludes": ["Voici la liste des incidents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "INC_006",
+      "module": "incidents",
+      "message": "affiche les incidents avec id",
+      "expectedIncludes": ["Voici la liste des incidents disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_001",
+      "module": "risques",
+      "message": "affiche les risques",
+      "expectedIncludes": ["Voici la liste des etudes de risque disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_002",
+      "module": "risques",
+      "message": "donne les risques",
+      "expectedIncludes": ["Voici la liste des etudes de risque disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_003",
+      "module": "risques",
+      "message": "montre les etudes de risque",
+      "expectedIncludes": ["Voici la liste des etudes de risque disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_004",
+      "module": "risques",
+      "message": "risques",
+      "expectedIncludes": ["Voici la liste des etudes de risque disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_005",
+      "module": "risques",
+      "message": "quels risques critiques",
+      "expectedIncludes": ["Voici la liste des risques critiques disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "RSK_006",
+      "module": "risques",
+      "message": "affiche les risques avec id",
+      "expectedIncludes": ["Voici la liste des etudes de risque disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_001",
+      "module": "actifs",
+      "message": "affiche les actifs",
+      "expectedIncludes": ["Voici la liste des actifs disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_002",
+      "module": "actifs",
+      "message": "donne les actifs",
+      "expectedIncludes": ["Voici la liste des actifs disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_003",
+      "module": "actifs",
+      "message": "actifs",
+      "expectedIncludes": ["Voici la liste des actifs disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_004",
+      "module": "actifs",
+      "message": "affiche les actifs sensibles",
+      "expectedIncludes": ["Voici la liste des actifs sensibles disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_005",
+      "module": "actifs",
+      "message": "montre les actifs top secret",
+      "expectedIncludes": ["Voici la liste des actifs sensibles disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AST_006",
+      "module": "actifs",
+      "message": "affiche les actifs avec id",
+      "expectedIncludes": ["Voici la liste des actifs disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_001",
+      "module": "documentation",
+      "message": "affiche la documentation",
+      "expectedIncludes": ["Voici la liste des documents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_002",
+      "module": "documentation",
+      "message": "donne les documents",
+      "expectedIncludes": ["Voici la liste des documents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_003",
+      "module": "documentation",
+      "message": "documentation",
+      "expectedIncludes": ["Voici la liste des documents disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_004",
+      "module": "documentation",
+      "message": "affiche les documents a revoir",
+      "expectedIncludes": ["Voici la liste des documents a revoir"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_005",
+      "module": "documentation",
+      "message": "montre les documents en validation",
+      "expectedIncludes": ["Voici la liste des documents a revoir"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DOC_006",
+      "module": "documentation",
+      "message": "affiche la documentation avec id",
+      "expectedIncludes": ["Voici la liste des documents disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_001",
+      "module": "formations",
+      "message": "affiche les formations",
+      "expectedIncludes": ["Voici la liste des formations disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_002",
+      "module": "formations",
+      "message": "donne les formations",
+      "expectedIncludes": ["Voici la liste des formations disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_003",
+      "module": "formations",
+      "message": "formations",
+      "expectedIncludes": ["Voici la liste des formations disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_004",
+      "module": "formations",
+      "message": "affiche les formations en retard",
+      "expectedIncludes": ["Voici la liste des formations en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_005",
+      "module": "formations",
+      "message": "montre les formations en echeance",
+      "expectedIncludes": ["Voici la liste des formations en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "TRN_006",
+      "module": "formations",
+      "message": "affiche les formations avec id",
+      "expectedIncludes": ["Voici la liste des formations disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_001",
+      "module": "clauses",
+      "message": "affiche les clauses",
+      "expectedIncludes": ["Voici la liste des clauses disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_002",
+      "module": "clauses",
+      "message": "donne les clauses",
+      "expectedIncludes": ["Voici la liste des clauses disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_003",
+      "module": "clauses",
+      "message": "clauses",
+      "expectedIncludes": ["Voici la liste des clauses disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_004",
+      "module": "clauses",
+      "message": "affiche les clauses non conformes",
+      "expectedIncludes": ["Voici la liste des clauses non conformes"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_005",
+      "module": "clauses",
+      "message": "montre les clauses partielles",
+      "expectedIncludes": ["Voici la liste des clauses non conformes"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CLS_006",
+      "module": "clauses",
+      "message": "affiche les clauses avec id",
+      "expectedIncludes": ["Voici la liste des clauses disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_001",
+      "module": "controles",
+      "message": "affiche les controles",
+      "expectedIncludes": ["Voici la liste des controles disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_002",
+      "module": "controles",
+      "message": "donne les controles",
+      "expectedIncludes": ["Voici la liste des controles disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_003",
+      "module": "controles",
+      "message": "controles",
+      "expectedIncludes": ["Voici la liste des controles disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_004",
+      "module": "controles",
+      "message": "affiche les controles non conformes",
+      "expectedIncludes": ["Voici la liste des controles non conformes / non mis en oeuvre"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_005",
+      "module": "controles",
+      "message": "affiche les controles en retard",
+      "expectedIncludes": ["Voici la liste des actions controles en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "CTL_006",
+      "module": "controles",
+      "message": "affiche les controles avec id",
+      "expectedIncludes": ["Voici la liste des controles disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_001",
+      "module": "audits",
+      "message": "affiche les audits",
+      "expectedIncludes": ["Voici la liste des audits disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_002",
+      "module": "audits",
+      "message": "donne les audits",
+      "expectedIncludes": ["Voici la liste des audits disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_003",
+      "module": "audits",
+      "message": "audits",
+      "expectedIncludes": ["Voici la liste des audits disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_004",
+      "module": "audits",
+      "message": "affiche les audits en cours",
+      "expectedIncludes": ["Voici la liste des audits disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_005",
+      "module": "audits",
+      "message": "montre les audits planifies",
+      "expectedIncludes": ["Voici la liste des audits disponibles"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "AUD_006",
+      "module": "audits",
+      "message": "affiche les audits avec id",
+      "expectedIncludes": ["Voici la liste des audits disponibles", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_001",
+      "module": "actions_correctives",
+      "message": "affiche les actions correctives",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_002",
+      "module": "actions_correctives",
+      "message": "donne les actions correctives",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_003",
+      "module": "actions_correctives",
+      "message": "actions correctives",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_004",
+      "module": "actions_correctives",
+      "message": "affiche les non conformites",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_005",
+      "module": "actions_correctives",
+      "message": "montre les actions correctives en retard",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "ACA_006",
+      "module": "actions_correctives",
+      "message": "affiche les actions correctives avec id",
+      "expectedIncludes": ["Voici la liste des actions correctives en retard", "id="],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_001",
+      "module": "dashboard",
+      "message": "affiche le dashboard",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_002",
+      "module": "dashboard",
+      "message": "donne le dashboard",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_003",
+      "module": "dashboard",
+      "message": "dashboard",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_004",
+      "module": "dashboard",
+      "message": "affiche le tableau de bord",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_005",
+      "module": "dashboard",
+      "message": "kpi dashboard",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "DSH_006",
+      "module": "dashboard",
+      "message": "score dashboard",
+      "expectedIncludes": ["Voici le resume du dashboard SMSI"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_001",
+      "module": "pdca",
+      "message": "affiche le pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_002",
+      "module": "pdca",
+      "message": "donne le pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_003",
+      "module": "pdca",
+      "message": "pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_004",
+      "module": "pdca",
+      "message": "affiche les phases pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_005",
+      "module": "pdca",
+      "message": "cycle pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    },
+    {
+      "id": "PDC_006",
+      "module": "pdca",
+      "message": "montre la progression pdca",
+      "expectedIncludes": ["Voici la liste de progression PDCA par phase"],
+      "expectDirectAnswer": true
+    }
+  ]
+}

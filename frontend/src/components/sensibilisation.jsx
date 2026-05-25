@@ -17,12 +17,6 @@ import {
 } from '../api/sensibilisation';
 import { useAuth } from '../context/AuthContext';
 
-const DEPARTMENTS = [
-  'Software Development & Agentic',
-  'Data, AI & Smart Cities',
-  'Infrastructure, Cloud & Security',
-  'Administration',
-];
 const PAGE_FONT = "'Sora', 'Inter', 'Segoe UI', sans-serif";
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────

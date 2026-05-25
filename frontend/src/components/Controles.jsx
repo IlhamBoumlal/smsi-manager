@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PlanActionModal from './PlanActionModal';
 import {
   Search, CheckCircle2, AlertCircle,
   MinusCircle, AlertTriangle, Ban, X, Save, ClipboardList,
   Building2, Users, Lock, Cpu, ShieldCheck, Upload, FileText,
-  ChevronDown, History, ChevronRight, ChevronUp, Clock, User,
-  ArrowRight, Eye, Paperclip, Download
+  ChevronDown, History, ChevronUp, Clock, User,
+  ArrowRight, Paperclip
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -126,14 +126,6 @@ function parseJsonSafe(json) {
   if (!json) return null;
   if (typeof json === 'object') return json;
   try { return JSON.parse(json); } catch { return null; }
-}
-
-function humanizeChamps(champsStr) {
-  if (!champsStr) return '';
-  return champsStr
-    .split(', ')
-    .map(c => CHAMP_LABELS[c] || c)
-    .join(' · ');
 }
 
 function parsePreuves(preuves) {
@@ -675,7 +667,7 @@ function HistoriquePanel({ controleId, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Controles() {
-  const { canRead, canWrite, canEdit, canDelete, canExport } = useAuth();
+  const { canRead, canWrite } = useAuth();
   const moduleCode = "controles";
   const hasAccess = canRead(moduleCode);
   

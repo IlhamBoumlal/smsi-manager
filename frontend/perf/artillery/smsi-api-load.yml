@@ -1,0 +1,54 @@
+config:
+  target: "http://localhost:5006"
+  phases:
+    - duration: 30
+      arrivalRate: 1
+      rampTo: 5
+      name: "Ramp-up"
+    - duration: 60
+      arrivalRate: 5
+      name: "Sustained load"
+  plugins:
+    expect: {}
+  defaults:
+    headers:
+      Content-Type: application/json
+  variables:
+    rssiEmail: "{{ $env.LOAD_ADMIN_EMAIL }}"
+    rssiPassword: "{{ $env.LOAD_ADMIN_PASSWORD }}"
+
+scenarios:
+  - name: "RSSI Allowed API flow"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ rssiEmail }}"
+            password: "{{ rssiPassword }}"
+          capture:
+            - json: "$.token"
+              as: "token"
+          expect:
+            - statusCode: 200
+            - hasProperty: "token"
+
+      - get:
+          url: "/api/dashboard/global"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/documentation"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/risques/studies"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200

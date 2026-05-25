@@ -276,6 +276,14 @@ function buildRiskStudiesProgress(studies: any[]) {
   }));
 }
 
+function buildRiskStudiesStatus(studies: any[]) {
+  return studies.map((study, index) => ({
+    id: String(study?.id ?? study?.Id ?? study?.studyId ?? study?.StudyId ?? index),
+    name: String(study?.name || `Etude ${index + 1}`),
+    workshopStatus: buildRiskWorkshopStatus([study]),
+  }));
+}
+
 function getCycleId(cycle: any): string | null {
   const id = cycle?.id ?? cycle?.Id;
   return id ? String(id) : null;
@@ -792,7 +800,7 @@ export function useDashboardV1Data(options?: DashboardV1Options) {
           };
         })
         .sort((a, b) => b.sortTs - a.sortTs)
-        .slice(0, 8)
+        .slice(0, 5)
         .map(({ sortTs, ...incident }) => incident);
 
       const conformityByDomain = [
@@ -1477,6 +1485,7 @@ export function useDashboardV1Data(options?: DashboardV1Options) {
           ateliersBloques: riskBlockedWorkshops,
           workshopStatus: buildRiskWorkshopStatus(riskStudies),
           studies: buildRiskStudiesProgress(riskStudies),
+          studiesStatus: buildRiskStudiesStatus(riskStudies),
         },
         audits: {
           total: audits.length,

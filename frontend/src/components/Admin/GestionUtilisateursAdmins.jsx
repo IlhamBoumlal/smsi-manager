@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Unlock, Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Users, Mail, Shield, Factory, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown } from 'lucide-react';
+import { Unlock, Plus, Edit, Trash2, Search, SlidersHorizontal, LayoutGrid, List, Users, Mail, Factory, Lock, Eye, EyeOff, X, CheckCircle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 import { appAlert, appConfirm } from '../../utils/appDialogs';
 

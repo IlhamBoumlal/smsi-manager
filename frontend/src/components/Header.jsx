@@ -38,6 +38,11 @@ const adminMenuCatalog = [
   { label: "Tracabilite", Icon: History, path: "/admin/tracabilite", moduleCode: "tracabilite" },
 ];
 
+const HEADER_SHELL_CLASS =
+  "fixed top-0 left-0 w-full bg-white border-b border-blue-100 z-[1000] shadow-md font-sans";
+const HEADER_INNER_CLASS =
+  "max-w-[1920px] mx-auto px-4 md:px-6 flex items-center justify-between gap-3 md:gap-4";
+
 export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -102,8 +107,8 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
 
   if (!permissionsLoaded) {
     return (
-      <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
-        <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+      <header className={HEADER_SHELL_CLASS}>
+        <div className={HEADER_INNER_CLASS} style={{ height: "var(--app-header-height)" }}>
           <div className="flex items-center gap-3 flex-shrink-0">
             <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
             <div className="flex flex-col leading-tight">
@@ -121,8 +126,8 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
 
   if (!hasSmsiNavigation && !hasAdminNavigation) {
     return (
-      <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
-        <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+      <header className={HEADER_SHELL_CLASS}>
+        <div className={HEADER_INNER_CLASS} style={{ height: "var(--app-header-height)" }}>
           <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate("/accueil")}>
             <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
             <div className="flex flex-col leading-tight">
@@ -147,8 +152,8 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
   }
 
   return (
-    <header className="bg-white border-b border-blue-100 sticky top-0 z-50 shadow-md font-sans">
-      <div className="max-w-[1920px] mx-auto px-6 h-[85px] flex items-center justify-between gap-4">
+    <header className={HEADER_SHELL_CLASS}>
+      <div className={HEADER_INNER_CLASS} style={{ height: "var(--app-header-height)" }}>
         <div className="flex items-center gap-3 flex-shrink-0 cursor-pointer" onClick={() => navigate(homePath)}>
           <img src={logoImage} alt="Logo" className="h-12 w-auto object-contain" />
           <div className="flex flex-col leading-tight">
@@ -160,7 +165,7 @@ export default function Header({ activeAxe: activeAxeProp, onAxeChange }) {
         </div>
 
         {mainAxes.length > 0 && (
-          <nav className="flex items-center gap-2 flex-1 justify-center">
+          <nav className="flex items-center gap-1.5 lg:gap-2 flex-1 justify-center min-w-0">
             {mainAxes.map((axe) => (
               <NavButton
                 key={axe.id}
@@ -293,7 +298,7 @@ function NavButton({ label, isActive, onClick, suffix }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[15px] font-bold transition-all duration-200 whitespace-nowrap ${
+      className={`flex items-center gap-2 px-3 xl:px-4 py-2.5 rounded-xl text-sm xl:text-[15px] font-bold transition-all duration-200 whitespace-nowrap ${
         isActive
           ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
           : "text-slate-600 hover:bg-blue-50 hover:text-blue-600"

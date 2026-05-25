@@ -1,7 +1,7 @@
-﻿// components/Admin/DashboardAdmin.jsx - Version avec 4 cartes d'actions rapides
+// components/Admin/DashboardAdmin.jsx - Version avec 4 cartes d'actions rapides
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, Shield, Building2, Factory, 
+  Users, Building2, Factory, 
   BarChart3, Activity, ArrowUpRight, 
   RefreshCw, X, ChevronRight, TrendingUp, Calendar,
   UserPlus, Clock, AlertCircle, CheckCircle, Key

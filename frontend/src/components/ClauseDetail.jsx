@@ -6,7 +6,7 @@ import {
   faLandmark, faCrown, faBullseye, faCog, faWrench, faChartBar, faArrowsRotate,
   faChevronLeft, faChevronDown, faChevronRight,
   faPen, faTrash, faPlus, faCircleCheck, faListCheck,
-  faMagnifyingGlass, faShieldHalved, faFloppyDisk, faTriangleExclamation,
+  faMagnifyingGlass, faFloppyDisk, faTriangleExclamation,
   faCircleInfo, faPaperclip, faUser, faCalendar, faHashtag,
   faCheckCircle, faCircleXmark, faCircleMinus,
   faArrowLeft, faSpinner, faLightbulb, faClipboardList,

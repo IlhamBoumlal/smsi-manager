@@ -58,7 +58,6 @@ export function IncidentsModule({ data }: { data?: any }) {
                 className="flex items-start justify-between gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="text-xs text-muted-foreground font-mono">{incident.id}</div>
                   <div className="text-sm font-medium text-foreground truncate">{incident.titre}</div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {incident.date} - {incident.statut}

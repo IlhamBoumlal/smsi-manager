@@ -2,17 +2,16 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Search, ChevronDown, ChevronUp,
   Edit3, Trash2, Download, BarChart3, Check, X,
-  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2, Flag,
-  FileText, Tag, Target, Briefcase, FileCheck, Scale,
-  Users, UserCheck, Signature, CalendarDays,
+  CheckCircle2, AlertCircle, AlertTriangle, Clock, Loader2,
+  FileText, Tag, Target, Briefcase, FileCheck,
+  UserCheck, Signature, CalendarDays,
   Activity, Info, Building2,
-  User, MapPin, Cpu, RefreshCw, Sparkles, Link2,
-  GitBranch, BookOpen, AlertOctagon, CircleDot, Eye,
-  ChevronRight as ArrowRight, Save, History, FolderOpen,
+  RefreshCw, Sparkles,
+  GitBranch, BookOpen, Eye,
+  ChevronRight as ArrowRight, Save, History,
 } from 'lucide-react';
 import {
   getAllAudits,
-  getAuditById,
   createAudit,
   updateAudit,
   deleteAudit,
@@ -762,7 +761,7 @@ function SimulateModule({ simHistory, onSaveSimulation, canWrite }) {
   const [savedToast, setSavedToast] = useState(false);
   const [viewingSim, setViewingSim] = useState(null);
   const [deletingSimId, setDeletingSimId] = useState(null);
-  const [continueMode, setContinueMode] = useState(false);
+  const [, setContinueMode] = useState(false);
 
   const filtered = themeFilter ? ALL_CONTROLS.filter(c=>c.theme.id===themeFilter) : ALL_CONTROLS;
   const totalAnswered = Object.keys(answers).length;
@@ -1554,10 +1553,6 @@ function NCModule({ ncs, saving, onAdd, onUpdate, onDelete, allAudits, canWrite,
     return true;
   }),[ncs,filterStatus,filterAudit,search]);
 
-  const openCount=filtered.filter(n=>n.status==='open').length;
-  const inProgCount=filtered.filter(n=>n.status==='in-progress').length;
-  const resolvedCount=filtered.filter(n=>n.status==='resolved').length;
-
   const auditOptions = useMemo(()=>{
     const unique = (allAudits||[]).filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i);
     return [{value:'',label:'Tous les audits'},...unique.map(a=>({value:a.id,label:a.name || a.title}))];
@@ -1771,9 +1766,6 @@ function GapSoAModule({ ncs, onToast, allAudits, canExport }) {
   ,[controlsSoA, filteredNCs]);
 
   const conformes=soaData.filter(c=>c.status==='conforme').length;
-  const nonConformes=soaData.filter(c=>c.status==='non_conforme').length;
-  const nonApplicables=soaData.filter(c=>c.status==='non_applicable').length;
-  const nonEvalues=soaData.filter(c=>c.status==='non_evalue').length;
   const filtered=themeFilter?soaData.filter(c=>c.theme.id===themeFilter):soaData;
   const gaps=filteredNCs.map(nc=>({...nc,ctrl:ALL_CONTROLS.find(c=>c.id===normalizeControlCode(nc.controlId))}));
 

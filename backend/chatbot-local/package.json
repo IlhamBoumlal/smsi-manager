@@ -7,7 +7,9 @@
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "dev:watch": "node --watch src/index.js",
-    "test": "node tests/intentRouterService.spec.js && node tests/smsiReferenceNotes.spec.js"
+    "test": "node tests/intentRouterService.spec.js && node tests/smsiReferenceNotes.spec.js && node tests/directRiskList.spec.js && node tests/directModulesList.spec.js",
+    "eval:golden": "node tests/evaluateGoldenSet.js tests/goldenSet.v1.json",
+    "eval:golden:no-report": "node tests/evaluateGoldenSet.js tests/goldenSet.v1.json --no-report"
   },
   "dependencies": {
     "cors": "^2.8.5",

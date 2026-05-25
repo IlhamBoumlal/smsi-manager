@@ -265,6 +265,8 @@ export function AuthProvider({ children }) {
   };
 
   /* ─── Au démarrage : si token déjà en storage, planifie refresh et charge permissions */
+  // Cette initialisation doit s'executer uniquement au montage.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -303,6 +305,7 @@ export function AuthProvider({ children }) {
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentRole = user?.role || user?.roleName || '';
