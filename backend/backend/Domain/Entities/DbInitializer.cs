@@ -357,6 +357,7 @@ namespace backend.Application.Services
             var actions = new (string Code, string Name)[]
             {
                 (PermissionCatalog.Actions.Read, "Lire"),
+                (PermissionCatalog.Actions.Use, "Utiliser"),
                 (PermissionCatalog.Actions.Create, "Creer"),
                 (PermissionCatalog.Actions.Edit, "Modifier"),
                 (PermissionCatalog.Actions.Delete, "Supprimer"),
@@ -450,6 +451,7 @@ namespace backend.Application.Services
                 StringComparer.OrdinalIgnoreCase);
 
             var readAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Read);
+            var useAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Use);
             var createAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Create);
             var editAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Edit);
             var deleteAction = ResolveActionId(actionIdByCode, PermissionCatalog.Actions.Delete);
@@ -477,7 +479,7 @@ namespace backend.Application.Services
                 },
                 [AppRoles.AdminSociete] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["dashboard"] = [readAction, createAction, editAction, deleteAction, exportAction],
+                    ["dashboard"] = [readAction],
                     ["cartographie"] = [readAction],
                     ["pdca"] = [readAction],
                     ["clauses"] = [readAction],
@@ -488,14 +490,14 @@ namespace backend.Application.Services
                     ["incidents"] = [readAction],
                     ["sensibilisation"] = [readAction],
                     ["audit"] = [readAction],
-                    ["chatbot"] = [readAction],
+                    ["chatbot"] = [useAction],
                     ["tracabilite"] = [readAction, exportAction],
                     ["users"] = [readAction, createAction, editAction, deleteAction, administerAction],
                     ["roles"] = [readAction, editAction, administerAction],
                 },
                 [AppRoles.Rssi] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["dashboard"] = [readAction, createAction, editAction, deleteAction, exportAction],
+                    ["dashboard"] = [readAction],
                     ["cartographie"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
                     ["pdca"] = [readAction, createAction, editAction, deleteAction, exportAction],
                     ["clauses"] = [readAction, createAction, editAction, deleteAction, exportAction],
@@ -506,7 +508,7 @@ namespace backend.Application.Services
                     ["incidents"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
                     ["sensibilisation"] = [readAction, createAction, editAction, deleteAction, importAction, exportAction],
                     ["audit"] = [readAction, createAction, editAction, deleteAction, exportAction],
-                    ["chatbot"] = [readAction],
+                    ["chatbot"] = [useAction],
                 },
                 [AppRoles.Consultant] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -521,7 +523,7 @@ namespace backend.Application.Services
                     ["incidents"] = [readAction],
                     ["sensibilisation"] = [readAction],
                     ["audit"] = [readAction],
-                    ["chatbot"] = [readAction],
+                    ["chatbot"] = [useAction],
                 },
                 [AppRoles.Auditeur] = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -536,7 +538,7 @@ namespace backend.Application.Services
                     ["incidents"] = [readAction],
                     ["sensibilisation"] = [readAction],
                     ["audit"] = [readAction],
-                    ["chatbot"] = [readAction],
+                    ["chatbot"] = [useAction],
                 },
             };
 

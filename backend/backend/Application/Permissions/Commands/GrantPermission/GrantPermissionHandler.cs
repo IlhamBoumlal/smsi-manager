@@ -1,5 +1,6 @@
 using backend.Domain.Entities;
 using backend.Domain.Interfaces;
+using backend.Application.Security;
 using backend.Infrastructure.Data;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
@@ -32,10 +33,11 @@ namespace backend.Application.Permissions.Commands.AssignPermission
                 };
 
             // Vérifier que le module existe
-            var moduleExists = await _context.Modules
-                .AnyAsync(m => m.Id == request.ModuleId, cancellationToken);
+            var module = await _context.Modules
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == request.ModuleId, cancellationToken);
 
-            if (!moduleExists)
+            if (module is null)
                 return new GrantPermissionResult
                 {
                     Success = false,
@@ -43,15 +45,49 @@ namespace backend.Application.Permissions.Commands.AssignPermission
                 };
 
             // Vérifier que l'action existe
-            var actionExists = await _context.Actions
-                .AnyAsync(a => a.Id == request.ActionId, cancellationToken);
+            var action = await _context.Actions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == request.ActionId, cancellationToken);
 
-            if (!actionExists)
+            if (action is null)
                 return new GrantPermissionResult
                 {
                     Success = false,
                     Message = $"L'action '{request.ActionId}' n'existe pas."
                 };
+
+            var moduleCode = PermissionCatalog.CanonicalizeModule(module.Code);
+            var actionCode = PermissionCatalog.Actions.Canonicalize(action.Code);
+
+            if (string.Equals(moduleCode, "dashboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(actionCode, PermissionCatalog.Actions.Read, StringComparison.OrdinalIgnoreCase))
+            {
+                return new GrantPermissionResult
+                {
+                    Success = false,
+                    Message = "Le module dashboard accepte uniquement l'action de lecture."
+                };
+            }
+
+            if (string.Equals(moduleCode, "chatbot", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(actionCode, PermissionCatalog.Actions.Use, StringComparison.OrdinalIgnoreCase))
+            {
+                return new GrantPermissionResult
+                {
+                    Success = false,
+                    Message = "Le module chatbot accepte uniquement l'action d'utilisation."
+                };
+            }
+
+            if (!string.Equals(moduleCode, "chatbot", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(actionCode, PermissionCatalog.Actions.Use, StringComparison.OrdinalIgnoreCase))
+            {
+                return new GrantPermissionResult
+                {
+                    Success = false,
+                    Message = "L'action d'utilisation est reservee au module chatbot."
+                };
+            }
 
             // Vérifier si la permission existe déjà (idempotent)
             var existing = await _context.Permissions

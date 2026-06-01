@@ -26,6 +26,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:ci": "react-scripts build",
     "test": "react-scripts test",
     "test:unit": "react-scripts test --watchAll=false",
     "test:e2e": "playwright test",

@@ -14,6 +14,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -ApiBaseUrl "http://localhost:5006"
 ```
 
+## Optional chatbot checks
+
+Use this when `backend/chatbot-local` is running.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -CheckChatbot
+```
+
+Custom chatbot URL:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -CheckChatbot -ChatbotBaseUrl "http://localhost:5055"
+```
+
 ## Custom credentials
 
 ```powershell
@@ -43,3 +57,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File backend/health-check.ps1 -Js
 - `GET /api/documentation/permissions`
 - `GET /api/documentation`
 - `GET /api/incidents`
+
+With `-CheckChatbot`:
+
+- `GET {ChatbotBaseUrl}/health`
+- `POST {ChatbotBaseUrl}/api/chatbot/conversations`
+- `GET {ChatbotBaseUrl}/api/chatbot/conversations`
+- `DELETE {ChatbotBaseUrl}/api/chatbot/conversations/{id}`

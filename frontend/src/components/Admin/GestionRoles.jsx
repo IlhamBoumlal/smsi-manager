@@ -49,6 +49,7 @@ const ROLE_BASE_PERMISSION_HINTS = {
 const ACTIONS = [
   { code: "delete", short: "S", label: "Suppression" },
   { code: "read", short: "L", label: "Lecture" },
+  { code: "use", short: "U", label: "Utilisation" },
   { code: "edit", short: "M", label: "Modification" },
   { code: "administer", short: "G", label: "Gestion" },
   { code: "create", short: "E", label: "Ecriture" },
@@ -70,10 +71,9 @@ const MODULES = [
   { code: "sensibilisation", label: "Sensibilisation" },
   { code: "audit", label: "Audits" },
   { code: "chatbot", label: "Chatbot" },
-  { code: "tracabilite", label: "Tracabilite" },
-  { code: "users", label: "Utilisateurs" },
-  { code: "roles", label: "Roles et permissions" },
 ];
+const DASHBOARD_MODULE_CODE = "dashboard";
+const DASHBOARD_REQUIRED_ACTION = "read";
 
 function normalizeKey(value) {
   return String(value || "")
@@ -104,13 +104,36 @@ function permissionKey(moduleCode, actionCode) {
   return `${moduleCode}::${actionCode}`;
 }
 
+function isMandatoryPermission(moduleCode, actionCode) {
+  return moduleCode === DASHBOARD_MODULE_CODE && actionCode === DASHBOARD_REQUIRED_ACTION;
+}
+
+function isActionSupportedForModule(moduleCode, actionCode) {
+  if (moduleCode === DASHBOARD_MODULE_CODE) {
+    return actionCode === DASHBOARD_REQUIRED_ACTION;
+  }
+
+  if (moduleCode === "chatbot") {
+    return actionCode === "use";
+  }
+
+  return actionCode !== "use";
+}
+
 function buildEmptyMatrix() {
   const matrix = {};
   MODULES.forEach((moduleItem) => {
     ACTIONS.forEach((action) => {
+      if (!isActionSupportedForModule(moduleItem.code, action.code)) return;
       matrix[permissionKey(moduleItem.code, action.code)] = false;
     });
   });
+
+  const dashboardReadKey = permissionKey(DASHBOARD_MODULE_CODE, DASHBOARD_REQUIRED_ACTION);
+  if (Object.prototype.hasOwnProperty.call(matrix, dashboardReadKey)) {
+    matrix[dashboardReadKey] = true;
+  }
+
   return matrix;
 }
 
@@ -146,6 +169,11 @@ function buildMatrixFromPermissions(data, roleCode) {
 
   if (roleCode !== "rssi") {
     next[permissionKey("documentation", "approve")] = false;
+  }
+
+  const dashboardReadKey = permissionKey(DASHBOARD_MODULE_CODE, DASHBOARD_REQUIRED_ACTION);
+  if (Object.prototype.hasOwnProperty.call(next, dashboardReadKey)) {
+    next[dashboardReadKey] = true;
   }
 
   return next;
@@ -586,20 +614,27 @@ export default function GestionRoles() {
   const moduleRows = useMemo(() => {
     return MODULES.map((moduleItem) => {
       const grantedActions = ACTIONS.filter((action) => {
+        if (!isActionSupportedForModule(moduleItem.code, action.code)) return false;
         return Boolean(matrix[permissionKey(moduleItem.code, action.code)]);
       });
 
       const availableActions = ACTIONS.filter((action) => {
+        if (!isActionSupportedForModule(moduleItem.code, action.code)) return false;
         const key = permissionKey(moduleItem.code, action.code);
         if (Boolean(matrix[key])) return false;
         if (isDocumentationApprovalLocked(selectedRoleCode, moduleItem.code, action.code)) return false;
         return true;
       });
 
+      const revocableGrantedActions = grantedActions.filter(
+        (action) => !isMandatoryPermission(moduleItem.code, action.code),
+      );
+
       return {
         ...moduleItem,
         grantedActions,
         availableActions,
+        revocableGrantedActions,
       };
     }).filter((row) => row.grantedActions.length > 0 || row.availableActions.length > 0);
   }, [matrix, selectedRoleCode]);
@@ -679,9 +714,11 @@ export default function GestionRoles() {
 
         MODULES.forEach((moduleItem) => {
           ACTIONS.forEach((actionItem) => {
+            if (!isActionSupportedForModule(moduleItem.code, actionItem.code)) return;
             const key = permissionKey(moduleItem.code, actionItem.code);
             const locked = isDocumentationApprovalLocked(selectedRoleCode, moduleItem.code, actionItem.code);
-            const isGranted = locked ? false : Boolean(nextMatrix[key]);
+            const mandatory = isMandatoryPermission(moduleItem.code, actionItem.code);
+            const isGranted = mandatory ? true : locked ? false : Boolean(nextMatrix[key]);
             overrides.push({
               moduleCode: moduleItem.code,
               actionCode: actionItem.code,
@@ -865,6 +902,7 @@ export default function GestionRoles() {
   };
 
   const handleRemovePermission = (moduleCode, actionCode) => {
+    if (isMandatoryPermission(moduleCode, actionCode)) return;
     applyMatrixMutation((prev) => {
       const next = { ...prev };
       next[permissionKey(moduleCode, actionCode)] = false;
@@ -876,7 +914,12 @@ export default function GestionRoles() {
     applyMatrixMutation((prev) => {
       const next = { ...prev };
       ACTIONS.forEach((action) => {
+        if (!isActionSupportedForModule(moduleCode, action.code)) return;
         const key = permissionKey(moduleCode, action.code);
+        if (isMandatoryPermission(moduleCode, action.code)) {
+          next[key] = true;
+          return;
+        }
         if (isDocumentationApprovalLocked(selectedRoleCode, moduleCode, action.code)) {
           next[key] = false;
           return;
@@ -1508,7 +1551,7 @@ export default function GestionRoles() {
                                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200"
                                   >
                                     {action.label}
-                                    {canManageSelectedUser && !saving && (
+                                    {canManageSelectedUser && !saving && !isMandatoryPermission(row.code, action.code) && (
                                       <button
                                         type="button"
                                         onClick={() => handleRemovePermission(row.code, action.code)}
@@ -1534,7 +1577,7 @@ export default function GestionRoles() {
                             <div className="sm:pb-1">
                               <button
                                 onClick={() => handleClearModule(row.code)}
-                                disabled={!canManageSelectedUser || saving || row.grantedActions.length === 0}
+                                disabled={!canManageSelectedUser || saving || row.revocableGrantedActions.length === 0}
                                 className="w-10 h-10 rounded-xl text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
                                 title="Supprimer toutes les permissions du module"
                               >

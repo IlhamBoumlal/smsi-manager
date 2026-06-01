@@ -1,8 +1,10 @@
 param(
     [string]$ApiBaseUrl = "http://localhost:5006",
+    [string]$ChatbotBaseUrl = "http://localhost:5055",
     [string]$Email = "superadmin@smsi.local",
     [string]$Password = "ChangeMe@123!",
     [int]$TimeoutSec = 10,
+    [switch]$CheckChatbot,
     [switch]$FailOnError,
     [switch]$Json
 )
@@ -144,6 +146,36 @@ else {
 
     foreach ($check in $checks) {
         $results.Add((Invoke-HealthRequest -Name $check.Name -Method $check.Method -Path $check.Path -ExpectedStatus $check.Expected -Headers $authHeaders))
+    }
+
+    if ($CheckChatbot) {
+        $results.Add((Invoke-HealthRequest -Name "Chatbot health" -Method "GET" -Path "$ChatbotBaseUrl/health" -ExpectedStatus @(200)))
+
+        $createConversation = Invoke-HealthRequest -Name "Chatbot create conversation" -Method "POST" -Path "$ChatbotBaseUrl/api/chatbot/conversations" -ExpectedStatus @(201) -Headers $authHeaders -Body @{
+            title = "Health check conversation"
+        }
+        $results.Add($createConversation)
+
+        $conversationId = $null
+        if ($createConversation.Ok -and -not [string]::IsNullOrWhiteSpace($createConversation.BodyText)) {
+            try {
+                $chatbotCreateJson = $createConversation.BodyText | ConvertFrom-Json
+                if ($chatbotCreateJson.PSObject.Properties.Name -contains "conversation") {
+                    $conversationId = [string]$chatbotCreateJson.conversation.id
+                }
+            }
+            catch {}
+        }
+
+        $results.Add((Invoke-HealthRequest -Name "Chatbot list conversations" -Method "GET" -Path "$ChatbotBaseUrl/api/chatbot/conversations" -ExpectedStatus @(200) -Headers $authHeaders))
+
+        if (-not [string]::IsNullOrWhiteSpace($conversationId)) {
+            $results.Add((Invoke-HealthRequest -Name "Chatbot delete conversation" -Method "DELETE" -Path "$ChatbotBaseUrl/api/chatbot/conversations/$conversationId" -ExpectedStatus @(204) -Headers $authHeaders))
+        }
+        else {
+            $results.Add((New-Result -Name "Chatbot delete conversation" -Method "DELETE" -Path "/api/chatbot/conversations/:id" -ExpectedStatus @(204) `
+                -Status $null -Ok $false -DurationMs 0 -Details "Skipped: conversation id not available" -BodyText ""))
+        }
     }
 }
 

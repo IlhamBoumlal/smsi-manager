@@ -23,6 +23,8 @@ public class PermissionCatalogTests
     [Theory]
     [InlineData("lecture", PermissionCatalog.Actions.Read)]
     [InlineData("view", PermissionCatalog.Actions.Read)]
+    [InlineData("utiliser", PermissionCatalog.Actions.Use)]
+    [InlineData("use", PermissionCatalog.Actions.Use)]
     [InlineData("create", PermissionCatalog.Actions.Create)]
     [InlineData("write", PermissionCatalog.Actions.Create)]
     [InlineData("update", PermissionCatalog.Actions.Edit)]

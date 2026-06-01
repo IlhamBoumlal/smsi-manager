@@ -26,6 +26,9 @@ SMSI_API_BASE_URL=http://localhost:5006
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3.2:3b
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+CHATBOT_MAX_MESSAGE_CHARS=4000
+CHATBOT_RATE_LIMIT_WINDOW_MS=60000
+CHATBOT_RATE_LIMIT_MAX_REQUESTS=20
 ```
 
 ## 3) Commandes Ollama
@@ -73,6 +76,7 @@ Ne pas envoyer de `userId` depuis le frontend.
 - `GET /api/chatbot/conversations`
 - `GET /api/chatbot/conversations/:id/messages`
 - `POST /api/chatbot/conversations/:id/messages`
+- `POST /api/chatbot/conversations/:id/messages/stream` (SSE)
 - `DELETE /api/chatbot/conversations/:id`
 
 ## 6) Frontend React

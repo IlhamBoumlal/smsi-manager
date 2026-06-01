@@ -45,3 +45,7 @@ backend/.dotnet_home/
 backend/backend/_buildtmp/
 backend/backend/tmp_build/
 backend/backend/_verify_build*/
+
+# Generated chatbot golden set reports
+backend/chatbot-local/tests/reports/
+backend/chatbot-local/tests/tmp/

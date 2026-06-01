@@ -1,5 +1,8 @@
 import { Router } from "express";
 import {
+  CHATBOT_MAX_MESSAGE_CHARS,
+  CHATBOT_RATE_LIMIT_MAX_REQUESTS,
+  CHATBOT_RATE_LIMIT_WINDOW_MS,
   MAX_HISTORY_MESSAGES,
   OLLAMA_FIRST_TOKEN_TIMEOUT_MS,
   OLLAMA_MODEL,
@@ -30,9 +33,83 @@ import {
 
 const router = Router();
 const activeConversationStreams = new Map();
+const messageRateLimitByUser = new Map();
 
 function normalizeMessage(value) {
   return String(value || "").trim();
+}
+
+function assertValidMessage(message) {
+  if (!message) {
+    throw new ChatbotServiceError(
+      "Le champ 'message' est obligatoire.",
+      400,
+      "CHATBOT_INVALID_MESSAGE"
+    );
+  }
+
+  if (message.length > CHATBOT_MAX_MESSAGE_CHARS) {
+    throw new ChatbotServiceError(
+      `Le message est trop long (max ${CHATBOT_MAX_MESSAGE_CHARS} caracteres).`,
+      413,
+      "CHATBOT_MESSAGE_TOO_LONG",
+      {
+        maxChars: CHATBOT_MAX_MESSAGE_CHARS,
+        providedChars: message.length,
+      }
+    );
+  }
+}
+
+function cleanupRateLimitMap(nowMs) {
+  const staleThreshold = nowMs - CHATBOT_RATE_LIMIT_WINDOW_MS * 3;
+  for (const [userId, row] of messageRateLimitByUser.entries()) {
+    if (!row || !Number.isFinite(row.windowStartMs) || row.windowStartMs < staleThreshold) {
+      messageRateLimitByUser.delete(userId);
+    }
+  }
+}
+
+function consumeMessageRateLimit(userId) {
+  const normalizedUserId = String(userId || "").trim();
+  if (!normalizedUserId) return;
+
+  const nowMs = Date.now();
+  cleanupRateLimitMap(nowMs);
+
+  const current = messageRateLimitByUser.get(normalizedUserId);
+  if (
+    !current ||
+    !Number.isFinite(current.windowStartMs) ||
+    nowMs - current.windowStartMs >= CHATBOT_RATE_LIMIT_WINDOW_MS
+  ) {
+    messageRateLimitByUser.set(normalizedUserId, {
+      windowStartMs: nowMs,
+      count: 1,
+    });
+    return;
+  }
+
+  const nextCount = Number(current.count || 0) + 1;
+  if (nextCount > CHATBOT_RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterMs = Math.max(
+      0,
+      CHATBOT_RATE_LIMIT_WINDOW_MS - (nowMs - current.windowStartMs)
+    );
+    throw new ChatbotServiceError(
+      "Trop de messages envoyes en peu de temps. Reessayez dans quelques secondes.",
+      429,
+      "CHATBOT_RATE_LIMITED",
+      {
+        maxRequests: CHATBOT_RATE_LIMIT_MAX_REQUESTS,
+        windowMs: CHATBOT_RATE_LIMIT_WINDOW_MS,
+        retryAfterMs,
+      }
+    );
+  }
+
+  current.count = nextCount;
+  messageRateLimitByUser.set(normalizedUserId, current);
 }
 
 function mapChatbotError(error) {
@@ -115,11 +192,13 @@ router.use((req, _res, next) => {
     return;
   }
 
-  const canAccessChatbot = Boolean(req.auth?.permissions?.can?.("chatbot", "read"));
+  const canAccessChatbot =
+    Boolean(req.auth?.permissions?.can?.("chatbot", "use")) ||
+    Boolean(req.auth?.permissions?.can?.("chatbot", "read"));
   if (!canAccessChatbot) {
     next(
       new ChatbotServiceError(
-        "Votre role ne dispose pas de la permission chatbot:lecture.",
+        "Votre role ne dispose pas de la permission chatbot:utiliser.",
         403,
         "CHATBOT_PERMISSION_DENIED"
       )
@@ -181,15 +260,11 @@ router.post("/conversations/:id/messages/stream", async (req, res) => {
   const societeId = req.auth.user.societeId;
   const message = normalizeMessage(req.body?.message);
 
-  if (!message) {
-    return sendError(
-      res,
-      new ChatbotServiceError(
-        "Le champ 'message' est obligatoire.",
-        400,
-        "CHATBOT_INVALID_MESSAGE"
-      )
-    );
+  try {
+    assertValidMessage(message);
+    consumeMessageRateLimit(userId);
+  } catch (error) {
+    return sendError(res, error);
   }
 
   const streamKey = buildStreamKey(userId, conversationId);
@@ -434,14 +509,8 @@ router.post("/conversations/:id/messages", async (req, res) => {
     const userId = req.auth.user.id;
     const societeId = req.auth.user.societeId;
     const message = normalizeMessage(req.body?.message);
-
-    if (!message) {
-      throw new ChatbotServiceError(
-        "Le champ 'message' est obligatoire.",
-        400,
-        "CHATBOT_INVALID_MESSAGE"
-      );
-    }
+    assertValidMessage(message);
+    consumeMessageRateLimit(userId);
 
     const access = await assertConversationOwnership(conversationId, userId, societeId);
     if (!access.ok) {

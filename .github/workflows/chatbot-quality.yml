@@ -1,0 +1,38 @@
+name: Chatbot Quality
+
+on:
+  push:
+    paths:
+      - "backend/chatbot-local/**"
+      - ".github/workflows/chatbot-quality.yml"
+  pull_request:
+    paths:
+      - "backend/chatbot-local/**"
+      - ".github/workflows/chatbot-quality.yml"
+
+jobs:
+  tests-and-golden:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/chatbot-local
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/chatbot-local/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run chatbot tests
+        run: npm test
+
+      - name: Run Golden Set evaluation
+        run: npm run eval:golden:no-report

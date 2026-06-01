@@ -47,6 +47,7 @@ function canonicalActionCode(value) {
   const key = normalizeKey(value);
   if (!key) return "";
   if (key === "l" || key === "lecture" || key === "view") return "read";
+  if (key === "u" || key === "use" || key === "utiliser" || key === "usage") return "use";
   if (key === "c" || key === "creation" || key === "write") return "create";
   if (key === "m" || key === "update" || key === "modification") return "edit";
   if (key === "s" || key === "remove" || key === "suppression") return "delete";

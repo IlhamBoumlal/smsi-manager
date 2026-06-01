@@ -7,6 +7,8 @@ namespace backend.Infrastructure.Services
 {
     public class UserPermissionService : IUserPermissionService
     {
+        private const string MandatoryDashboardModuleCode = "dashboard";
+        private const string MandatoryDashboardActionCode = PermissionCatalog.Actions.Read;
         private readonly AppDbContext _db;
 
         public UserPermissionService(AppDbContext db)
@@ -80,6 +82,12 @@ namespace backend.Infrastructure.Services
             var requestedModule = PermissionCatalog.CanonicalizeModule(moduleCode);
             var requestedAction = PermissionCatalog.Actions.Canonicalize(actionCode);
             if (string.IsNullOrWhiteSpace(requestedModule) || string.IsNullOrWhiteSpace(requestedAction))
+            {
+                return false;
+            }
+
+            if (string.Equals(requestedModule, MandatoryDashboardModuleCode, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(requestedAction, MandatoryDashboardActionCode, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -206,7 +214,70 @@ namespace backend.Infrastructure.Services
                 }
             }
 
+            await EnforceTenantDashboardReadOnlyAsync(context, result, cancellationToken);
+
             return result;
+        }
+
+        private async Task EnforceTenantDashboardReadOnlyAsync(
+            UserPermissionContext context,
+            Dictionary<(string ModuleId, string ActionId), bool> grants,
+            CancellationToken cancellationToken)
+        {
+            if (!context.UserSocieteId.HasValue || context.UserSocieteId.Value <= 0)
+            {
+                return;
+            }
+
+            if (AppRoles.IsSuperAdminRoleKey(context.PrimaryRoleKey))
+            {
+                return;
+            }
+
+            var modules = await _db.Modules
+                .AsNoTracking()
+                .Select(module => new { module.Id, module.Code })
+                .ToListAsync(cancellationToken);
+            var actions = await _db.Actions
+                .AsNoTracking()
+                .Select(action => new { action.Id, action.Code })
+                .ToListAsync(cancellationToken);
+
+            var dashboardModuleId = modules
+                .FirstOrDefault(module =>
+                    string.Equals(
+                        PermissionCatalog.CanonicalizeModule(module.Code),
+                        MandatoryDashboardModuleCode,
+                        StringComparison.OrdinalIgnoreCase))
+                ?.Id;
+            var readActionId = actions
+                .FirstOrDefault(action =>
+                    string.Equals(
+                        PermissionCatalog.Actions.Canonicalize(action.Code),
+                        MandatoryDashboardActionCode,
+                        StringComparison.OrdinalIgnoreCase))
+                ?.Id;
+
+            if (string.IsNullOrWhiteSpace(dashboardModuleId) || string.IsNullOrWhiteSpace(readActionId))
+            {
+                return;
+            }
+
+            foreach (var action in actions)
+            {
+                if (string.IsNullOrWhiteSpace(action.Id))
+                {
+                    continue;
+                }
+
+                var canonicalAction = PermissionCatalog.Actions.Canonicalize(action.Code);
+                grants[(dashboardModuleId, action.Id)] = string.Equals(
+                    canonicalAction,
+                    MandatoryDashboardActionCode,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+
+            grants[(dashboardModuleId, readActionId)] = true;
         }
 
         private async Task<UserPermissionContext?> LoadUserContextAsync(string userId, CancellationToken cancellationToken)

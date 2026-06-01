@@ -7,6 +7,7 @@ namespace backend.Application.Security
         public static class Actions
         {
             public const string Read = "read";
+            public const string Use = "use";
             public const string Create = "create";
             public const string Edit = "edit";
             public const string Delete = "delete";
@@ -21,6 +22,11 @@ namespace backend.Application.Security
                 ["lecture"] = Read,
                 ["read"] = Read,
                 ["view"] = Read,
+
+                ["u"] = Use,
+                ["use"] = Use,
+                ["utiliser"] = Use,
+                ["usage"] = Use,
 
                 ["c"] = Create,
                 ["create"] = Create,

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using backend.Application.Security;
 using backend.IntegrationTests.Helpers;
 
@@ -35,7 +34,7 @@ public class DashboardControllerIntegrationTests : IClassFixture<CustomWebApplic
     }
 
     [Fact]
-    public async Task AdminSociete_CanUpsertAndDeleteSnapshot()
+    public async Task AdminSociete_CannotWriteDashboardSnapshots_EvenIfWritePermissionsAreAssigned()
     {
         await IntegrationTestAuthHelper.LoginAsRoleAsync(
             _factory,
@@ -54,18 +53,14 @@ public class DashboardControllerIntegrationTests : IClassFixture<CustomWebApplic
             pdcaCompleted = 3
         });
 
-        Assert.Equal(HttpStatusCode.OK, upsertResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, upsertResponse.StatusCode);
 
-        var body = await upsertResponse.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(body);
-        var snapshotId = doc.RootElement.GetProperty("id").GetGuid();
-
-        var deleteResponse = await _client.DeleteAsync($"/api/dashboard/snapshots/{snapshotId}");
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        var deleteResponse = await _client.DeleteAsync($"/api/dashboard/snapshots/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, deleteResponse.StatusCode);
     }
 
     [Fact]
-    public async Task Consultant_WithoutDashboardReadPermission_IsForbidden()
+    public async Task Consultant_WithoutDashboardReadPermission_StillCanAccessGlobal()
     {
         await IntegrationTestAuthHelper.LoginAsRoleAsync(
             _factory,
@@ -74,6 +69,6 @@ public class DashboardControllerIntegrationTests : IClassFixture<CustomWebApplic
             societeId: 1);
 
         var response = await _client.GetAsync("/api/dashboard/global");
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

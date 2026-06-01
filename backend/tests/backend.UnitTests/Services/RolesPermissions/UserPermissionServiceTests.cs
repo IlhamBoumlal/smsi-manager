@@ -63,6 +63,23 @@ public class UserPermissionServiceTests
     }
 
     [Fact]
+    public async Task HasPermissionAsync_ShouldReturnFalse_ForDashboardCreate_EvenWhenGranted()
+    {
+        await using var db = CreateDbContext();
+        var (user, role) = await SeedUserWithRoleAsync(db, AppRoles.AdminSociete, 1);
+        await GrantPermissionAsync(db, role, "dashboard", PermissionCatalog.Actions.Create);
+
+        var service = new UserPermissionService(db);
+        var allowed = await service.HasPermissionAsync(
+            user.Id,
+            societeId: 1,
+            moduleCode: "dashboard",
+            actionCode: "create");
+
+        allowed.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task HasPermissionAsync_ShouldReturnFalse_ForPlatformModule_WhenRoleIsNotSuperAdmin()
     {
         await using var db = CreateDbContext();
@@ -111,6 +128,35 @@ public class UserPermissionServiceTests
         result.Modules[0].ModuleCode.Should().Be("dashboard");
         result.Modules[0].Actions.Should().ContainSingle();
         result.Modules[0].Actions[0].ActionCode.Should().Be("read");
+    }
+
+    [Fact]
+    public async Task HasPermissionAsync_ShouldAlwaysGrantDashboardRead_ForTenantUsers()
+    {
+        await using var db = CreateDbContext();
+        var (user, _role) = await SeedUserWithRoleAsync(db, AppRoles.Consultant, 1);
+        db.Modules.Add(new Module
+        {
+            Id = Guid.NewGuid().ToString(),
+            Code = "dashboard",
+            Name = "Dashboard"
+        });
+        db.Actions.Add(new Action
+        {
+            Id = Guid.NewGuid().ToString(),
+            Code = PermissionCatalog.Actions.Read,
+            Name = "Lire"
+        });
+        await db.SaveChangesAsync();
+
+        var service = new UserPermissionService(db);
+        var allowed = await service.HasPermissionAsync(
+            user.Id,
+            societeId: 1,
+            moduleCode: "dashboard",
+            actionCode: "read");
+
+        allowed.Should().BeTrue();
     }
 
     private static AppDbContext CreateDbContext()

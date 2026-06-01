@@ -32,6 +32,7 @@ const canonicalModuleCode = (value) => {
 const canonicalActionCode = (value) => {
   const key = normalizePermissionKey(value);
   if (key === 'view' || key === 'lecture' || key === 'read') return 'read';
+  if (key === 'use' || key === 'utiliser' || key === 'usage') return 'use';
   if (key === 'create' || key === 'creation' || key === 'write') return 'create';
   if (key === 'edit' || key === 'modification' || key === 'update') return 'edit';
   if (key === 'delete' || key === 'suppression' || key === 'remove') return 'delete';

@@ -39,9 +39,12 @@ function resolveActiveAxe(pathname) {
 
 export default function Layout() {
   const location = useLocation();
-  const { permissionsLoaded, canRead, isSuperAdmin } = useAuth();
+  const { permissionsLoaded, can, canRead, isSuperAdmin } = useAuth();
   const activeAxe = resolveActiveAxe(location.pathname);
-  const canAccessChatbot = permissionsLoaded && !isSuperAdmin && canRead("chatbot");
+  const canAccessChatbot =
+    permissionsLoaded &&
+    !isSuperAdmin &&
+    (can("chatbot", "use") || canRead("chatbot"));
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>

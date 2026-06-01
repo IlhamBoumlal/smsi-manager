@@ -29,6 +29,21 @@ namespace backend.API.Controllers
             AppRoles.NormalizeKey(AppRoles.Consultant),
             AppRoles.NormalizeKey(AppRoles.Auditeur)
         };
+        private static readonly HashSet<string> TenantDelegableModuleCodes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "dashboard",
+            "cartographie",
+            "pdca",
+            "clauses",
+            "controles",
+            "risques",
+            "documentation",
+            "actifs",
+            "incidents",
+            "sensibilisation",
+            "audit",
+            "chatbot",
+        };
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> PermissionOverrideLocks = new(StringComparer.OrdinalIgnoreCase);
 
         private readonly IMediator _mediator;
@@ -480,11 +495,34 @@ namespace backend.API.Controllers
                     return BadRequest("Module/action invalide dans les overrides.");
                 }
 
-                if (!PermissionCatalog.IsSmsiModule(moduleCode)
-                    && !string.Equals(moduleCode, "users", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(moduleCode, "roles", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(moduleCode, "dashboard", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(actionCode, PermissionCatalog.Actions.Read, StringComparison.OrdinalIgnoreCase))
                 {
-                    return BadRequest($"Module non autorise pour override: {moduleCode}");
+                    return BadRequest("Le module dashboard accepte uniquement l'action de lecture.");
+                }
+
+                if (string.Equals(moduleCode, "dashboard", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(actionCode, PermissionCatalog.Actions.Read, StringComparison.OrdinalIgnoreCase)
+                    && !overrideItem.IsGranted)
+                {
+                    return BadRequest("La lecture du dashboard est obligatoire pour tous les utilisateurs.");
+                }
+
+                if (string.Equals(moduleCode, "chatbot", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(actionCode, PermissionCatalog.Actions.Use, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Le module chatbot accepte uniquement l'action d'utilisation.");
+                }
+
+                if (!string.Equals(moduleCode, "chatbot", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(actionCode, PermissionCatalog.Actions.Use, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("L'action d'utilisation est reservee au module chatbot.");
+                }
+
+                if (!TenantDelegableModuleCodes.Contains(moduleCode))
+                {
+                    return BadRequest($"Module non delegable depuis cet espace: {moduleCode}");
                 }
 
                 if (!targetIsRssi
