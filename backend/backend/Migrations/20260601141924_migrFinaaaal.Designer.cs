@@ -12,8 +12,8 @@ using backend.Infrastructure.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260518150040_initmig")]
-    partial class initmig
+    [Migration("20260601141924_migrFinaaaal")]
+    partial class migrFinaaaal
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

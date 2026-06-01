@@ -112,6 +112,26 @@ describe("App modules routes integration", () => {
     expect(screen.getByText("Actifs Page")).toBeInTheDocument();
   });
 
+  test("route cartographie renders page when read permission exists", () => {
+    renderAt("/cartographie", ["cartographie", "users", "roles"]);
+    expect(screen.getByText("Cartographie Page")).toBeInTheDocument();
+  });
+
+  test("route pdca renders page when read permission exists", () => {
+    renderAt("/pdca", ["pdca", "users", "roles"]);
+    expect(screen.getByText("PDCA Page")).toBeInTheDocument();
+  });
+
+  test("route clauses renders page when read permission exists", () => {
+    renderAt("/clauses", ["clauses", "users", "roles"]);
+    expect(screen.getByText("Clauses Page")).toBeInTheDocument();
+  });
+
+  test("route sensibilisation renders page when read permission exists", () => {
+    renderAt("/sensibilisation", ["sensibilisation", "users", "roles"]);
+    expect(screen.getByText("Sensibilisation Page")).toBeInTheDocument();
+  });
+
   test("route incidents renders page when read permission exists", () => {
     renderAt("/incidents", ["incidents", "users", "roles"]);
     expect(screen.getByText("Incidents Page")).toBeInTheDocument();
